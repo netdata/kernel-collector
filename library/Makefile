@@ -11,7 +11,7 @@ VER_PATCH=$(shell uname -r | cut -d. -f3)
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
 ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
-    LIBBPF_DIR = "../libbpf_0_0_6/src/"
+    LIBBPF_DIR = "../libbpf/src/"
     LIBRARY_VERSION = 7
 else
     LIBBPF_DIR = "../libbpf_0_0_1/src/"

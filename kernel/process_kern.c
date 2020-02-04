@@ -469,7 +469,7 @@ int netdata_sys_open(struct pt_regs* ctx)
         bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
         ner.pid = pid;
         ner.type = 0;
-        int err = (int)-ret;
+        int err = (int)ret;
         bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
 
         pid = (__u32)bpf_get_smp_processor_id();
