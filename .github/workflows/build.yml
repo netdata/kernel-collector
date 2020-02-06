@@ -1,0 +1,17 @@
+---
+name: Build
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Build
+        run: |
+          docker run --rm -v $PWD:/kernel-collector -w /kernel-collector alpine:3.11 /bin/sh -c './test.sh'

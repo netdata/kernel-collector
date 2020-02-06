@@ -29,7 +29,15 @@ Inside this file probably it will be neecssary to change the following variable:
 -   `LLVM_INCLUDES`: Depending of the kernel version, it will be necessary to change this path
 
 
-## Compilation
+## Building (with Docker)
+
+Just run:
+
+```sh
+$ docker run --rm -v $PWD:/kernel-collector -w /kernel-collector alpine:3.11 /bin/sh -c './test.sh' |& tee build.log
+```
+
+## Compilation (manually)
 
 To compile the libraries and the eBPF programs, you only need to do the following steps:
 
