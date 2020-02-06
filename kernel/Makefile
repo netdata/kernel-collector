@@ -25,16 +25,8 @@ LINUXINCLUDE += -I$(KERNELSOURCE)/include/uapi
 LINUXINCLUDE += -include $(KERNELSOURCE)/include/linux/kconfig.h
 LINUXINCLUDE += -I../includes
 
-##LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated/uapi
-##LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated
-##LINUXINCLUDE += -I$(KERNELSOURCE)/include/generated/uapi
-
-# XXX Auto Detect these...
-#LLVM_INCLUDES = -I/usr/lib/clang/4.0.1/include/
-#LLVM_INCLUDES = -I/usr/lib/clang/5.0.1/include/
-LLVM_INCLUDES = -I/usr/lib/clang/9.0.0/include/
-#LLVM_INCLUDES = -I/usr/lib64/clang/9.0.0/include/
-#LLVM_INCLUDES = -I/usr/lib64/clang/9.0.1/include/
+CLANG_VERSION := $(shell clang --version | grep version | cut -d ' ' -f 4)
+LLVM_INCLUDES = -I/usr/lib/clang/$(CLANG_VERSION)/include/
 
 process_kern.o: process_kern.c
 
