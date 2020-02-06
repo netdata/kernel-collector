@@ -4,10 +4,7 @@ LIBS=-lelf -lbpf
 LIBBPF_DIR =
 LIBRARY_VERSION = 
 
-#KERNEL_VERSION="5.4.17"
-KERNEL_VERSION="4.19.101"
-# XXX: Assume OS/Host Kernel Sources :/
-#KERNEL_VERSION=$(shell uname -r)
+KERNEL_VERSION="$(shell basename $(realpath /usr/src/linux) | cut -f 2 -d '-')"
 
 VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
 VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
