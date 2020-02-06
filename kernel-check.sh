@@ -1,4 +1,26 @@
-#!/bin/sh
+#!/bin/bash
+
+parse_version() {
+    r="${1}"
+    if echo "${r}" | grep -q '^v.*'; then
+        # shellcheck disable=SC2001
+        # XXX: Need a regex group subsitutation here.
+        r="$(echo "${r}" | sed -e 's/^v\(.*\)/\1/')"
+    fi
+
+    read -r -a p <<< "$(echo "${r}" | tr '-' ' ')"
+
+    v="${p[0]}"
+    b="${p[1]}"
+    _="${p[2]}" # ignore the SHA
+
+    if [[ ! "${b}" =~ ^[0-9]+$ ]]; then
+        b="0"
+    fi
+
+    read -r -a pp <<< "$(echo "${v}" | tr '.' ' ')"
+    printf "%03d%03d%03d%03d" "${pp[0]}" "${pp[1]}" "${pp[2]}" "${b}"
+}
 
 if [ "$(uname -s)" != "Linux" ] ; then
     echo "This does not appear to be a Linux system."
@@ -6,11 +28,9 @@ if [ "$(uname -s)" != "Linux" ] ; then
 fi
 
 KERNEL_VERSION="$(uname -r)"
-KERNEL_VERSION_MAJOR="$(uname -r | cut -f 1 -d '.')"
-KERNEL_VERSION_MINOR="$(uname -r | cut -f 2 -d '.')"
 
 # This insane looking condition is checking the kernel version as a floating point number.
-if [ "$(echo "${KERNEL_VERSION_MAJOR}.${KERNEL_VERSION_MINOR}" 4.11 | awk '{if ($1 < $2) print $1; else print $2}')" != "4.11" ] ; then
+if [ "$(parse_version "${KERNEL_VERSION}")" -lt "$(parse_version 4.14)" ] ; then
     echo "Your kernel appears to be older than 4.11. This may still work in some cases, but probably won't."
 fi
 
