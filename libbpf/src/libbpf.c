@@ -13,7 +13,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include <asm/unistd.h>
 #include <endian.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -27,6 +26,7 @@
 // clang-format off
 #include <linux/stddef.h>
 // clang-format on
+#include <asm/unistd.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/bpf.h>

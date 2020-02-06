@@ -14,6 +14,7 @@ LINUXINCLUDE += -I$(KERNELSOURCE)/include
 ##LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include
 ##LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/uapi
 
+
 LINUXINCLUDE += -I$(KERNELSOURCE)/include/generated/uapi
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/uapi
