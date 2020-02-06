@@ -35,8 +35,13 @@ if [ "$(parse_version "${KERNEL_VERSION}")" -lt "$(parse_version 4.14)" ] ; then
 fi
 
 CONFIG_PATH=""
+MODULE_LOADED=""
 
-if [ -r /proc/config.gz ] || modprobe configs 2> /dev/null ; then
+if modprobe configs 2> /dev/null ; then
+    MODULE_LOADED=1
+fi
+
+if [ -r /proc/config.gz ] ; then
     CONFIG_PATH="/proc/config.gz"
 elif [ -r "/lib/modules/${KERNEL_VERSION}/source/.config" ] ; then
     CONFIG_PATH="/lib/modules/${KERNEL_VERSION}/source/.config"
@@ -60,4 +65,8 @@ if [ -n "${CONFIG_PATH}" ] ; then
         echo "Required kernel config options not found."
         exit 1
     fi
+fi
+
+if [ -n "${MODULE_LOADED}" ] ; then
+    modprobe -r configs 2> /dev/null
 fi
