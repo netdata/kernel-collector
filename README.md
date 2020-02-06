@@ -34,7 +34,8 @@ Inside this file probably it will be neecssary to change the following variable:
 Just run:
 
 ```sh
-$ docker run --rm -v $PWD:/kernel-collector -w /kernel-collector alpine:3.11 /bin/sh -c './test.sh' |& tee build.log
+$ docker build -t kernel-collector .
+$ docker run --rm -v $PWD:/kernel-collector kernel-collector
 ```
 
 ## Compilation (manually)
