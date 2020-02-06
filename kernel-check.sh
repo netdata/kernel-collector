@@ -45,22 +45,19 @@ elif [ -n "$(find /boot -name "config-${KERNEL_VERSION}*")" ] ; then
 fi
 
 if [ -n "${CONFIG_PATH}" ] ; then
+    GREP='grep'
+
     if echo "${CONFIG_PATH}" | grep -q '.gz' ; then
-        zcat "${CONFIG_PATH}" > /tmp/config
-        CONFIG_PATH=/tmp/config
+        GREP='zgrep'
     fi
 
-    if grep -qv "CONFIG_KPROBES=y" "${CONFIG_PATH}" || \
-       grep -qv "CONFIG_KPROBES_ON_FTRACE=y" "${CONFIG_PATH}" || \
-       grep -qv "CONFIG_HAVE_KPROBES=y" "${CONFIG_PATH}" || \
-       grep -qv "CONFIG_HAVE_KPROBES_ON_FTRACE=y" "${CONFIG_PATH}" || \
-       grep -qv "CONFIG_KPROBE_EVENTS=y" "${CONFIG_PATH}"
+    if "${GREP}" -qv "CONFIG_KPROBES=y" "${CONFIG_PATH}" || \
+       "${GREP}" -qv "CONFIG_KPROBES_ON_FTRACE=y" "${CONFIG_PATH}" || \
+       "${GREP}" -qv "CONFIG_HAVE_KPROBES=y" "${CONFIG_PATH}" || \
+       "${GREP}" -qv "CONFIG_HAVE_KPROBES_ON_FTRACE=y" "${CONFIG_PATH}" || \
+       "${GREP}" -qv "CONFIG_KPROBE_EVENTS=y" "${CONFIG_PATH}"
     then
         echo "Required kernel config options not found."
         exit 1
-    fi
-
-    if [ "${CONFIG_PATH}" = /tmp/config ] ; then
-        rm /tmp/config
     fi
 fi
