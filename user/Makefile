@@ -7,10 +7,7 @@ OBJECT_LIBLOAD = $(LIBLOAD_DIR)libnetdata_ebpf.so.1.0
 KERNEL_DIR = ../kernel/
 KERNEL_PROGRAM = $(KERNEL_DIR)process_kern.o
 
-#KERNEL_VERSION="5.4.17"
-KERNEL_VERSION="4.19.101"
-# XXX: Assume OS/Host Kernel Sources :/
-#KERNEL_VERSION=$(shell uname -r)
+KERNEL_VERSION="$(shell basename $(realpath /usr/src/linux) | cut -f 2 -d '-')"
 
 NETDATA_KERNEL_VERSION=$(echo $(KERNEL_VERSION) | tr -s "." "_")
 
