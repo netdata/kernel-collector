@@ -1,5 +1,5 @@
 ---
-name: Build
+name: CI
 on:
   push:
     branches:
@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v1
-      - name: Build
+      - name: Prepare Build Image
         run: |
-          docker run --rm -v $PWD:/kernel-collector -w /kernel-collector alpine:3.11 /bin/sh -c './test.sh'
+          docker build -t kernel-collector .
+      - name: Build It
+        run: |
+          docker run --rm -v $PWD:/kernel-collector kernel-collector
