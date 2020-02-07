@@ -1,4 +1,4 @@
-FROM alpine:3.11 AS build
+FROM ubuntu:20.04 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
@@ -6,9 +6,13 @@ ENV ARCH=$ARCH
 ARG KERNEL_VERSION=4.19.101
 ENV KERNEL_VERSION=$KERNEL_VERSION
 
-RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
-                          bc elfutils-dev clang clang-dev llvm rsync bison \
-                          flex tar xz bash
+ENV _LIBC=musl
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
+    apt-get install -y build-essential autoconf automake coreutils pkg-config \
+                       bc libelf-dev clang-tools-9 libclang-9-dev llvm-9 \
+                       rsync bison flex tar xz-utils wget
 
 RUN mkdir -p /usr/src && \
     cd /usr/src && \
@@ -21,6 +25,8 @@ RUN cd /usr/src/linux && \
     # XXX: wtf?! I don't know why this works or why I can't resolve the error :/
     make prepare || true && \
     make headers_install
+
+ENV PATH=/usr/lib/llvm-9/bin:$PATH
 
 WORKDIR /kernel-collector
 

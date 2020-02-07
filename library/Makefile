@@ -1,6 +1,6 @@
 CC=gcc
 OPT=-Wall -Werror -Wfatal-errors
-LIBS=/usr/lib64/libelf.a -lbpf
+LIBS=$(shell find / -type f -name 'libelf.a') -lbpf
 LIBBPF_DIR =
 LIBRARY_VERSION = 
 
