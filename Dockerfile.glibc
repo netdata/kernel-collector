@@ -24,6 +24,8 @@ RUN cd /usr/src/linux && \
     make prepare || true && \
     make headers_install
 
+ENV PATH=/usr/lib/llvm-9/bin:$PATH
+
 WORKDIR /kernel-collector
 
 COPY .dockerfiles/build.sh /build.sh

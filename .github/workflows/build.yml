@@ -14,13 +14,16 @@ jobs:
           - '5.4.18'
           - '4.19.102'
           - '4.14.170'
+        libc:
+          - glibc
+          - musl
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v1
       - name: Prepare Build Image
         run: |
-          docker build --build-arg KERNEL_VERSION=${{ matrix.kernel_version }} -t kernel-collector .
+          docker build --build-arg KERNEL_VERSION=${{ matrix.kernel_version }} -f Dockerfile.${{ matrix.libc }} -t kernel-collector:${{ matrix.libc }} .
       - name: Build It
         run: |
-          docker run --rm -v $PWD:/kernel-collector kernel-collector
+          docker run --rm -v $PWD:/kernel-collector kernel-collector:${{ matrix.libc }}
