@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y build-essential autoconf automake coreutils pkg-config \
                        bc libelf-dev clang-tools-9 libclang-9-dev llvm-9 \
-                       rsync bison flex tar xz-utils
+                       rsync bison flex tar xz-utils wget
 
 RUN mkdir -p /usr/src && \
     cd /usr/src && \
