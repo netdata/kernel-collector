@@ -6,6 +6,8 @@ ENV ARCH=$ARCH
 ARG KERNEL_VERSION=4.19.101
 ENV KERNEL_VERSION=$KERNEL_VERSION
 
+ENV _LIBC=musl
+
 RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
                           bc elfutils-dev clang clang-dev llvm rsync bison \
                           flex tar xz bash
