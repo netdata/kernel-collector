@@ -24,11 +24,11 @@ CFLAGS ?= -g -O2 -Werror -Wall
 ALL_CFLAGS += $(CFLAGS)
 ALL_LDFLAGS += $(LDFLAGS)
 ifdef NO_PKG_CONFIG
-	ALL_LDFLAGS += /usr/lib64/libelf.a
+	ALL_LDFLAGS += $(shell find / -type f -name 'libelf.a')
 else
 	PKG_CONFIG ?= pkg-config
 	ALL_CFLAGS += $(shell $(PKG_CONFIG) --cflags libelf)
-	ALL_LDFLAGS += /usr/lib64/libelf.a
+	ALL_LDFLAGS += $(shell find / -type f -name 'libelf.a')
 endif
 
 OBJDIR ?= .
