@@ -25,7 +25,7 @@ LINUXINCLUDE += -I$(KERNELSOURCE)/include/uapi
 LINUXINCLUDE += -include $(KERNELSOURCE)/include/linux/kconfig.h
 LINUXINCLUDE += -I../includes
 
-CLANG_VERSION := $(shell clang --version | grep -o -E '[0-9]+\.[0-9]+\.[0-9]')
+CLANG_VERSION := $(shell clang --version | grep -o -E '[0-9]+\.[0-9]+\.[0-9]' | uniq)
 LLVM_INCLUDES = -I/usr/lib/clang/$(CLANG_VERSION)/include
 
 process_kern.o: process_kern.c
