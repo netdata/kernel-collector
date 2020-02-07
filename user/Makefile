@@ -33,17 +33,12 @@ $(KERNEL_PROGRAM):
 clean:
 	cd $(LIBLOAD_DIR) && $(MAKE) clean;
 	cd $(KERNEL_DIR) && $(MAKE) clean;
-	if [ -f network_viewer ] ; then rm network_viewer; fi
-	if [ -f process_monitor ] ; then rm process_monitor; fi
-	#if [ -f /usr/lib64/libbpf.so.0 ] ; then rm /usr/lib64/libbpf.so.0; fi
-	#if [ -f /usr/lib/libbpf.so.0 ] ; then rm /usr/lib/libbpf.so.0; fi
+	if [ -h /usr/lib64/libbpf.so.0 ] ; then rm /usr/lib64/libbpf.so* ;\
+	    elif [ -h /usr/lib/libbpf.so.0 ] ; then rm /usr/lib/libbpf.so* ; fi
 	if [ -f libnetdata_ebpf.so ] ; then rm libnetdata_ebpf.so; fi
 	if [ -f libnetdata.a ] ; then rm libnetdata.a avl.o libnetdata.o ; fi
-	if [ -f netdata_ebpf_network_viewer.o ] ; then rm netdata_ebpf_network_viewer.o; fi
 	if [ -f pnetdata_ebpf_process.o ] ; then rm *netdata_ebpf_process.o; fi
 	rm netdata_ebpf_*.tar.xz
-	if [ -f err ]; then rm err; fi
-	if [ -f out ]; then rm out; fi
 
 install:
 	cp *netdata_ebpf_process.o libnetdata_ebpf.so /usr/libexec/netdata/plugins.d/
