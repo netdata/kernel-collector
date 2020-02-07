@@ -9,6 +9,7 @@ jobs:
   build:
     name: Build
     strategy:
+      fail-fast: false
       matrix:
         kernel_version:
           - '5.4.18'
