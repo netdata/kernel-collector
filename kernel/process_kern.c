@@ -1,8 +1,9 @@
-#define KBUILD_MODNAME "network_viewer_stats"
+#define KBUILD_MODNAME "process_kern"
 #include <linux/bpf.h>
 #include <linux/version.h>
 #include <linux/ptrace.h>
 #include <linux/sched.h>
+#include <linux/sched/task.h>
 
 #include <linux/threads.h>
 #include <linux/version.h>
@@ -585,11 +586,6 @@ int netdata_release_task(struct pt_regs* ctx)
     return 0;
 }
 
-/*
- * https://eli.thegreenplace.net/2018/launching-linux-threads-and-processes-with-clone/
- * https://elixir.bootlin.com/linux/v4.11.12/source/kernel/fork.c#L1967
- * https://elixir.bootlin.com/linux/v5.4.16/source/kernel/fork.c#L2329
- */
 #if NETDATASEL < 2
 SEC("kretprobe/_do_fork")
 #else
@@ -608,16 +604,44 @@ int netdata_fork(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+    int threads = 0;
+    unsigned long clone_flags = PT_REGS_PARM1(ctx); 
+    unsigned long flags;
+    bpf_probe_read(&flags, sizeof(clone_flags), (void *)&clone_flags);
+    if (flags & CLONE_VM) {
+        threads = 1;
+    } else {
+        threads = 0;
+    }
+#endif
+
     netdata_update_global(12, 1);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+    if(threads) {
+        netdata_update_global(16, 1);
+    }
+#endif
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         fill->release_call = 0;
         fill->fork_call++;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+        if(threads) {
+            fill->clone_call++;
+        }
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(13, 1);
             fill->fork_err++;
+            netdata_update_global(13, 1);
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+            if(threads) {
+                netdata_update_global(17, 1);
+                fill->clone_err++;
+            }
+# endif
         } 
 #endif
     } else {
@@ -625,12 +649,22 @@ int netdata_fork(struct pt_regs* ctx)
         data.pid = pid;  
         data.fork_call = 1;
 #if NETDATASEL < 2
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+        if(threads) {
+            data.clone_call = 1;
+        }
+# endif
         if (ret < 0) {
             netdata_update_global(13, 1);
             data.fork_err = 1;
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+            if (threads) {
+                netdata_update_global(17, 1);
+                data.clone_err = 1;
+            }
+# endif
         } 
 #endif
-
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
@@ -638,7 +672,15 @@ int netdata_fork(struct pt_regs* ctx)
     if (ret < 0) {
         bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
         ner.pid = pid;
+# if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
         ner.type = 7;
+# else
+        if (threads) {
+            ner.type = 8;
+        } else {
+            ner.type = 7;
+        }
+# endif
         bpf_probe_read(&ner.err,  sizeof(ner.err), &ret);
 
         pid = (__u32)bpf_get_smp_processor_id();
@@ -649,21 +691,20 @@ int netdata_fork(struct pt_regs* ctx)
     return 0;
 }
 
-//BRING clone3(5.3.0)
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))  && defined(CONFIG_X86_64) 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
+# if defined(CONFIG_X86_64) 
 #  if NETDATASEL < 2
 SEC("kretprobe/__x64_sys_clone")
 #  else
 SEC("kprobe/__x64_sys_clone")
 #  endif
-#else
-# if NETDATASEL < 2
-SEC("kretprobe/sys_clone")
 # else
+#  if NETDATASEL < 2
+SEC("kretprobe/sys_clone")
+#  else
 SEC("kprobe/sys_clone")
+#  endif
 # endif
-#endif
 int netdata_clone(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
@@ -672,20 +713,20 @@ int netdata_clone(struct pt_regs* ctx)
     struct netdata_error_report_t ner;
 # endif
 #endif
-    unsigned long arg1 = (unsigned long)PT_REGS_PARM3(ctx);
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
+    u64 arg1 = (u64)PT_REGS_PARM2(ctx);
 
-    arg1 &= (CSIGNAL & CLONE_THREAD);
+    arg1 &= CLONE_THREAD|CLONE_VM;
+    if(!arg1)
+        return 0;
 
     netdata_update_global(16, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
-        if (arg1) {
-            fill->clone_call++;
-        }
+        fill->clone_call++;
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -696,9 +737,7 @@ int netdata_clone(struct pt_regs* ctx)
     } else {
         data.pid_tgid = pid_tgid;  
         data.pid = pid;  
-        if (arg1) {
-            data.clone_call = 1;
-        }
+        data.clone_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
             netdata_update_global(17, 1);
@@ -723,6 +762,7 @@ int netdata_clone(struct pt_regs* ctx)
 
     return 0;
 }
+#endif
 
 #if NETDATASEL < 2
 SEC("kretprobe/__close_fd")
