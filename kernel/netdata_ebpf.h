@@ -10,7 +10,7 @@ struct netdata_error_report_t {
     int err;
 };
 
-# define NETDATA_GLOBAL_COUNTER 19
+# define NETDATA_GLOBAL_COUNTER 24
 
 
 //fork() creates process
@@ -22,7 +22,9 @@ struct netdata_pid_stat_t {
     //Counter
     __u32 open_call;                    //open syscalls (open and openat)
     __u32 write_call;                   //Write syscalls (write and writev)
+    __u32 writev_call;                   //Write syscalls (write and writev)
     __u32 read_call;                    //Read syscalls ( read and readv)
+    __u32 readv_call;                    //Read syscalls ( read and readv)
     __u32 unlink_call;                  //Remove syscalls (unlink for while)
     __u32 exit_call;                    //Exit syscalls (exit for exit_group)
     __u32 release_call;                 //Exit syscalls (exit and exit_group)
@@ -32,12 +34,16 @@ struct netdata_pid_stat_t {
 
     //Accumulator
     __u64 write_bytes;
+    __u64 writev_bytes;
+    __u64 readv_bytes;
     __u64 read_bytes;
 
     //Counter
     __u32 open_err;
     __u32 write_err;
+    __u32 writev_err;
     __u32 read_err;
+    __u32 readv_err;
     __u32 unlink_err;
     __u32 fork_err;
     __u32 clone_err;

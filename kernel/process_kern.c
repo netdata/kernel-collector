@@ -83,21 +83,43 @@ static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
 {
     ptr->open_call = 0;
     ptr->write_call = 0;
+    ptr->writev_call = 0;
     ptr->read_call = 0;
+    ptr->readv_call = 0;
     ptr->unlink_call = 0;
     ptr->exit_call = 0;
     ptr->fork_call = 0;
     ptr->close_call = 0;
 
     ptr->write_bytes = 0;
+    ptr->writev_bytes = 0;
     ptr->read_bytes = 0;
+    ptr->readv_bytes = 0;
 
     ptr->open_err = 0;
     ptr->write_err = 0;
+    ptr->writev_err = 0;
     ptr->read_err = 0;
+    ptr->readv_err = 0;
     ptr->unlink_err = 0;
     ptr->fork_err = 0;
 }
+
+#if NETDATASEL == 1
+static inline void send_perf_error(struct pt_regs* ctx, int ret, int type, __u32 pid)
+{
+    struct netdata_error_report_t ner;
+
+    bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
+    ner.pid = pid;
+    ner.type = 4;
+    int err = (int)ret;
+    bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
+
+    pid = (__u32)bpf_get_smp_processor_id();
+    bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+}
+#endif
 
 /************************************************************************************
  *     
@@ -114,9 +136,6 @@ int netdata_sys_write(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     ssize_t ret = (ssize_t)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -168,14 +187,7 @@ int netdata_sys_write(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
-        ner.type = 4;
-        int err = (int)ret;
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+        send_perf_error(ctx,(int)ret, 4, pid);
     }
 #endif
 
@@ -191,9 +203,6 @@ int netdata_sys_writev(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     ssize_t ret = (ssize_t)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -201,22 +210,22 @@ int netdata_sys_writev(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(2, 1);
+    netdata_update_global(18, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
-        fill->write_call++;
+        fill->writev_call++;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(3, 1);
-            fill->write_err++;
+            netdata_update_global(19, 1);
+            fill->writev_err++;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(4, tot);
-            fill->write_bytes += (__u64) tot;
+            netdata_update_global(20, tot);
+            fill->writev_bytes += (__u64) tot;
 #if NETDATASEL < 2
         }
 #endif
@@ -226,34 +235,26 @@ int netdata_sys_writev(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(3, 1);
-            data.write_err = 1;
+            netdata_update_global(19, 1);
+            data.writev_err = 1;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(4, tot);
-            data.write_bytes = (unsigned long)tot;
+            netdata_update_global(20, tot);
+            data.writev_bytes = (unsigned long)tot;
 #if NETDATASEL < 2
         }
 #endif
-
-        data.write_call = 1;
+        data.writev_call = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
-        ner.type = 4;
-        int err = (int)ret;
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+        send_perf_error(ctx,(int)ret, 4, pid);
     }
 #endif
 
@@ -269,9 +270,6 @@ int netdata_sys_read(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     ssize_t ret = (ssize_t)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -316,7 +314,6 @@ int netdata_sys_read(struct pt_regs* ctx)
 #if NETDATASEL < 2
         }
 #endif
-
         data.read_call = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
@@ -324,14 +321,7 @@ int netdata_sys_read(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
-        ner.type = 3;
-        int err = (int)ret;
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+        send_perf_error(ctx,(int)ret, 3, pid);
     }
 #endif
 
@@ -347,9 +337,6 @@ int netdata_sys_readv(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     ssize_t ret = (ssize_t)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -357,22 +344,22 @@ int netdata_sys_readv(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(5, 1);
+    netdata_update_global(21, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
-        fill->read_call++;
+        fill->readv_call++;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(6, 1);
-            fill->read_err++;
+            netdata_update_global(22, 1);
+            fill->readv_err++;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(7, tot);
-            fill->read_bytes += (__u64) tot;
+            netdata_update_global(23, tot);
+            fill->readv_bytes += (__u64) tot;
 #if NETDATASEL < 2
         }
 #endif
@@ -382,34 +369,26 @@ int netdata_sys_readv(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(6, 1);
-            data.read_err = 1;
+            netdata_update_global(22, 1);
+            data.readv_err = 1;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(7, tot);
-            data.read_bytes = (unsigned long)tot;
+            netdata_update_global(23, tot);
+            data.readv_bytes = (unsigned long)tot;
 #if NETDATASEL < 2
         }
 #endif
-
-        data.read_call = 1;
+        data.readv_call = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
-        ner.type = 3;
-        int err = (int)ret;
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+        send_perf_error(ctx,(int)ret, 3, pid);
     }
 #endif
 
@@ -425,9 +404,6 @@ int netdata_sys_open(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     int ret = (ssize_t)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -459,7 +435,6 @@ int netdata_sys_open(struct pt_regs* ctx)
 #if NETDATASEL < 2
         }
 #endif
-
         data.open_call = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
@@ -467,17 +442,9 @@ int netdata_sys_open(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
-        ner.type = 0;
-        int err = (int)ret;
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+        send_perf_error(ctx,(int)ret, 0, pid);
     }
 #endif
-
 
     return 0;
 }
@@ -491,9 +458,6 @@ int netdata_sys_unlink(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
@@ -525,7 +489,6 @@ int netdata_sys_unlink(struct pt_regs* ctx)
 #if NETDATASEL < 2
         }
 #endif
-
         data.unlink_call = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
@@ -533,13 +496,7 @@ int netdata_sys_unlink(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
-        ner.type = 2;
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &ret);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+        send_perf_error(ctx,(int)ret, 2, pid);
     }
 #endif
 
@@ -670,21 +627,12 @@ int netdata_fork(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
 # if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
-        ner.type = 7;
+        send_perf_error(ctx,(int)ret, 7, pid);
 # else
-        if (threads) {
-            ner.type = 8;
-        } else {
-            ner.type = 7;
-        }
+        int sel = (threads)?8:7 ;
+        send_perf_error(ctx,(int)ret, sel, pid);
 # endif
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &ret);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
     }
 #endif
 
@@ -709,9 +657,6 @@ int netdata_clone(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -750,13 +695,7 @@ int netdata_clone(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
-        ner.type = 8;
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &ret);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+        send_perf_error(ctx,(int)ret, 8, pid);
     }
 #endif
 
@@ -773,9 +712,6 @@ int netdata_close(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
@@ -809,16 +745,9 @@ int netdata_close(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-        ner.pid = pid;
-        ner.type = 1;
-        bpf_probe_read(&ner.err,  sizeof(ner.err), &ret);
-
-        pid = (__u32)bpf_get_smp_processor_id();
-        bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+        send_perf_error(ctx,(int)ret, 1, pid);
     }
 #endif
-
 
     return 0;
 }
