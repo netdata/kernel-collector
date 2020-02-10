@@ -24,11 +24,11 @@ CFLAGS ?= -g -O2 -Werror -Wall
 ALL_CFLAGS += $(CFLAGS)
 ALL_LDFLAGS += $(LDFLAGS)
 ifdef NO_PKG_CONFIG
-	ALL_LDFLAGS += $(shell find / -type f -name 'libelf.a')
+	ALL_LDFLAGS += -lelfs
 else
 	PKG_CONFIG ?= pkg-config
 	ALL_CFLAGS += $(shell $(PKG_CONFIG) --cflags libelf)
-	ALL_LDFLAGS += $(shell find / -type f -name 'libelf.a')
+	ALL_LDFLAGS += -lelfs
 endif
 
 OBJDIR ?= .
@@ -77,7 +77,7 @@ $(OBJDIR)/libbpf.so.$(VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION)
 	ln -sf $(^F) $@
 
 $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(OBJS)
-	$(CC) -shared $(ALL_LDFLAGS) -Wl,--version-script=$(VERSION_SCRIPT) \
+	$(CC) -L../../lib/ -shared $(ALL_LDFLAGS) -Wl,--version-script=$(VERSION_SCRIPT) \
 				     -Wl,-soname,libbpf.so.$(VERSION) \
 				     $^ -o $@
 
