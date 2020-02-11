@@ -1,6 +1,6 @@
 CC=gcc
 OPT=-Wall -Werror -Wfatal-errors
-LIBS=$(shell find / -type f -name 'libelf.a') -lbpf
+LIBS=-lelfs -lbpf
 LIBBPF_DIR =
 LIBRARY_VERSION = 
 
@@ -23,7 +23,7 @@ endif
 
 OBJECT_LIBBPF = $(LIBBPF_DIR)/libbpf.a
 
-override CFLAGS += -I$(LIBBPF_DIR)root/usr/include/ -I../includes -I./
+override CFLAGS += -I$(LIBBPF_DIR)root/usr/include/ -I../includes -I./ -L../lib/
 
 all: $(OBJECT_LIBBPF)
 	if [ -d /usr/lib64 ]; then cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) /usr/lib64/ ; if [ ! -h /usr/lib64/libbpf.so.0 ] ; then ln -s  /usr/lib64/$(LIBRARY_VERSION) /usr/lib64/libbpf.so.0 ;  ln -s /usr/lib64/$(LIBRARY_VERSION) /usr/lib64/libbpf.so; fi fi
