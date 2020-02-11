@@ -22,6 +22,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+// clang-format off
+#include <linux/stddef.h>
+// clang-format on
 #include <asm/unistd.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
