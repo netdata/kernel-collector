@@ -8,9 +8,12 @@ ENV KERNEL_VERSION=$KERNEL_VERSION
 
 ENV _LIBC=musl
 
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
 RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
-                          bc elfutils clang clang-dev llvm rsync bison \
-                          flex tar xz bash
+                          bc elfutils-dev openssl-dev clang clang-dev llvm \
+                          rsync bison flex tar xz bash
+RUN apk add --no-cache -U linux-headers  # Why?
 
 RUN mkdir -p /usr/src && \
     cd /usr/src && \
@@ -20,8 +23,8 @@ RUN mkdir -p /usr/src && \
 
 RUN cd /usr/src/linux && \
     make defconfig && \
-    # XXX: wtf?! I don't know why this works or why I can't resolve the error :/
-    make prepare || true && \
+    make scripts && \
+    make prepare && \
     make headers_install
 
 WORKDIR /kernel-collector
