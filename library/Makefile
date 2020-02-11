@@ -17,7 +17,7 @@ ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
     LIBRARY_VERSION="libbpf.so.0.0.7"
 else
     LIBBPF_DIR = ../libbpf_0_0_1/src/
-    LIBRARY_VERSIONN="libbpf.so.0.0.3"
+    LIBRARY_VERSION="libbpf.so.0.0.3"
 endif
 
 
