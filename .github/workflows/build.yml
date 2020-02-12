@@ -31,6 +31,7 @@ jobs:
       - name: List Artifacts
         run: |
           ls -lah artifacts
+          test -f artifacts/netdata_ebpf_*.tar.xz
       - name: Upload Artifacts
         uses: actions/upload-artifact@v1
         if: success()
