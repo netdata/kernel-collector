@@ -1,6 +1,6 @@
 CC=gcc
 OPT=-Wall -Werror -Wfatal-errors
-LIBS=-lelfs -lbpf
+LIBS=-lelfs -lbpf_kernel
 LIBBPF_DIR =
 LIBRARY_VERSION = 
 
@@ -26,8 +26,8 @@ OBJECT_LIBBPF = $(LIBBPF_DIR)/libbpf.a
 override CFLAGS += -I$(LIBBPF_DIR)root/usr/include/ -I../includes -I./ -L../lib/
 
 all: $(OBJECT_LIBBPF)
-	if [ -d /usr/lib64 ]; then cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) /usr/lib64/ ; if [ ! -h /usr/lib64/libbpf.so.0 ] ; then ln -s  /usr/lib64/$(LIBRARY_VERSION) /usr/lib64/libbpf.so.0 ;  ln -s /usr/lib64/$(LIBRARY_VERSION) /usr/lib64/libbpf.so; fi fi
-	if [ -d /usr/lib ]; then cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) /usr/lib/ ; if [ ! -h /usr/lib/libbpf.so.0 ] ; then ln -s  /usr/lib/$(LIBRARY_VERSION) /usr/lib/libbpf.so.0 ; ln -s /usr/lib/$(LIBRARY_VERSION) /usr/lib/libbpf.so; fi fi
+	if [ -d /usr/lib64 ]; then cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) /usr/lib64/libbpf_kernel.so ; ln -s  /usr/lib64/libbpf_kernel.so /usr/lib64/libbpf.so.0 ; fi
+	if [ -d /usr/lib ]; then cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) /usr/lib/libbpf_kernel.so ; ln -s  /usr/lib/libbpf_kernel.so /usr/lib/libbpf.so.0; fi
 	$(CC) $(CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.1 -o libnetdata_ebpf.so.1.0 api.c bpf_load.c trace_helpers.c $(LIBS)
 
 $(OBJECT_LIBBPF): 
