@@ -22,6 +22,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v1
+      - name: Cleanup
+        run: |
+          git clean -d -f -x
+          rm -rf artifacts/*
       - name: Prepare Build Image
         run: |
           docker build --build-arg KERNEL_VERSION=${{ matrix.kernel_version }} -f Dockerfile.${{ matrix.libc }} -t kernel-collector:${{ matrix.libc }} .
