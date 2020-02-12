@@ -18,8 +18,8 @@ all: $(OBJECT_LIBLOAD) $(KERNEL_PROGRAM)
 	cp $(KERNEL_DIR)pprocess_kern.o pnetdata_ebpf_process.o
 	cp $(KERNEL_DIR)dprocess_kern.o dnetdata_ebpf_process.o
 	$(CC) -L. -I../includes/ -o process_monitor process_user.c $(LIBS)
-	if [ -f /usr/lib64/libbpf_kernel.so ]; then tar -acf ../artifacts/netdata_ebpf64_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz /usr/lib64/libbpf_kernel.so.* libnetdata_ebpf.so *netdata_ebpf_process.o; fi
-	if [ -f /usr/lib/libbpf_kernel.so ]; then tar -acf ../artifacts/netdata_ebpf_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz /usr/lib/libbpf_kernel.so.* libnetdata_ebpf.so *netdata_ebpf_process.o; fi
+	if [ -f /usr/lib64/libbpf_kernel.so ]; then tar -acf ../artifacts/netdata_ebpf64_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz /usr/lib64/libbpf_kernel.so* libnetdata_ebpf.so *netdata_ebpf_process.o; fi
+	if [ -f /usr/lib/libbpf_kernel.so ]; then tar -acf ../artifacts/netdata_ebpf_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz /usr/lib/libbpf_kernel.so* libnetdata_ebpf.so *netdata_ebpf_process.o; fi
 
 
 $(OBJECT_LIBLOAD):
