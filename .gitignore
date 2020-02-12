@@ -8,3 +8,5 @@
 *.so*
 *.ll
 *.o*
+
+/user/process_monitor
