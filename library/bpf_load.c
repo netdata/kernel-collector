@@ -48,13 +48,12 @@ static int populate_prog_array(const char *event, int prog_fd)
 
 	err = bpf_map_update_elem(prog_array_fd, &ind, &prog_fd, BPF_ANY);
 	if (err < 0) {
-		printf("failed to store prog_fd in prog_array\n");
+		fprintf(stderr,"[eBPF]failed to store prog_fd in prog_array\n");
 		return -1;
 	}
 	return 0;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
 static int write_kprobe_events(const char *val)
 {
 	int fd, ret, flags;
@@ -94,7 +93,6 @@ static int remove_kprobe_events(const char *val)
 
 	return ret;
 }
-#endif
 
 static int load_and_attach(const char *event, struct bpf_insn *prog, int size, int pid)
 {
@@ -160,7 +158,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 	} 
 #endif
         else {
-		printf("Unknown event '%s'\n", event);
+		fprintf(stderr,"[eBPF] Unknown event '%s'\n", event);
 		return -1;
 	}
 
@@ -170,7 +168,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 	fd = bpf_load_program(prog_type, prog, insns_cnt, license, kern_version,
 			      bpf_log_buf, BPF_LOG_BUF_SIZE);
 	if (fd < 0) {
-		printf("bpf_load_program() err=%d\n%s", errno, bpf_log_buf);
+		fprintf(stderr,"[eBPF]bpf_load_program() err=%d\n%s", errno, bpf_log_buf);
 		return -1;
 	}
 
@@ -192,7 +190,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 			return 0;
 		event++;
 		if (!isdigit(*event)) {
-			printf("invalid prog number\n");
+			fprintf(stderr,"[eBPF] invalid prog number\n");
 			return -1;
 		}
 		return populate_prog_array(event, fd);
@@ -202,7 +200,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 	if (is_raw_tracepoint) {
 		efd = bpf_raw_tracepoint_open(event + 15, fd);
 		if (efd < 0) {
-			printf("tracepoint %s %s\n", event + 15, strerror(errno));
+			fprintf(stderr, "[eBPF]tracepoint %s %s\n", event + 15, strerror(errno));
 			return -1;
 		}
 		event_fd[prog_cnt - 1] = efd;
@@ -220,7 +218,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 			event += 10;
 
 		if (*event == 0) {
-			printf("event name cannot be empty\n");
+			fprintf(stderr,"[eBPF], event name cannot be empty\n");
 			return -1;
 		}
 
@@ -248,24 +246,16 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 		}
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
 		if (need_normal_check) {
 			snprintf(buf, sizeof(buf), "%c:%s %s",
 				test, buf_name, event);
 			err = write_kprobe_events(buf);
-#else
-			snprintf(buf, sizeof(buf), "echo '%c:%s %s' >> /sys/kernel/debug/tracing/kprobe_events",
-				test, buf_name, event);
-			err = system(buf);
-#endif
 			if (err < 0) {
-				printf("failed to create kprobe '%s' error '%s'\n",
+				fprintf(stderr,"[eBPF] failed to create kprobe '%s' error '%s'\n",
 				       event, strerror(errno));
 				return -1;
 			}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
 		}
-#endif
 
 		strcpy(buf, DEBUGFS);
 		strcat(buf, "events/kprobes/");
@@ -276,7 +266,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 		event += 11;
 
 		if (*event == 0) {
-			printf("event name cannot be empty\n");
+			fprintf(stderr,"[eBPF] Event name cannot be empty\n");
 			return -1;
 		}
 		strcpy(buf, DEBUGFS);
@@ -287,13 +277,13 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 
 	efd = open(buf, O_RDONLY, 0);
 	if (efd < 0) {
-		printf("failed to open event %s\n", event);
+		fprintf(stderr,"[eBPF] failed to open event %s\n", event);
 		return -1;
 	}
 
 	err = read(efd, buf, sizeof(buf));
 	if (err < 0 || err >= sizeof(buf)) {
-		printf("read from '%s' failed '%s'\n", event, strerror(errno));
+		fprintf(stderr,"[eBPF] read from '%s' failed '%s'\n", event, strerror(errno));
 		return -1;
 	}
 
@@ -305,19 +295,19 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 
 	efd = sys_perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
 	if (efd < 0) {
-		printf("event %d fd %d err %s\n", id, efd, strerror(errno));
+		fprintf(stderr,"[eBPF]event %d fd %d err %s\n", id, efd, strerror(errno));
 		return -1;
 	}
 	event_fd[prog_cnt - 1] = efd;
 	err = ioctl(efd, PERF_EVENT_IOC_ENABLE, 0);
 	if (err < 0) {
-		printf("ioctl PERF_EVENT_IOC_ENABLE failed err %s\n",
+		fprintf(stderr,"[eBPF]ioctl PERF_EVENT_IOC_ENABLE failed err %s\n",
 		       strerror(errno));
 		return -1;
 	}
 	err = ioctl(efd, PERF_EVENT_IOC_SET_BPF, fd);
 	if (err < 0) {
-		printf("ioctl PERF_EVENT_IOC_SET_BPF failed err %s\n",
+		fprintf(stderr,"[eBPF] ioctl PERF_EVENT_IOC_SET_BPF failed err %s\n",
 		       strerror(errno));
 		return -1;
 	}
@@ -368,7 +358,7 @@ static int load_maps(struct bpf_map_data *maps, int nr_maps,
 							numa_node);
 		}
 		if (map_fd[i] < 0) {
-			printf("failed to create a map: %d %s\n",
+			fprintf(stderr,"[eBPF] failed to create a map: %d %s\n",
 			       errno, strerror(errno));
 			return 1;
 		}
@@ -425,7 +415,7 @@ static int parse_relo_and_apply(Elf_Data *data, Elf_Data *symbols,
 		gelf_getsym(symbols, GELF_R_SYM(rel.r_info), &sym);
 
 		if (insn[insn_idx].code != (BPF_LD | BPF_IMM | BPF_DW)) {
-			printf("invalid relo for insn[%d].code 0x%x\n",
+			fprintf(stderr,"[eBPF] invalid relo for insn[%d].code 0x%x\n",
 			       insn_idx, insn[insn_idx].code);
 			return 1;
 		}
@@ -441,7 +431,7 @@ static int parse_relo_and_apply(Elf_Data *data, Elf_Data *symbols,
 		if (match) {
 			insn[insn_idx].imm = maps[map_idx].fd;
 		} else {
-			printf("invalid relo for insn[%d] no map_data match\n",
+			fprintf(stderr,"[eBPF] invalid relo for insn[%d] no map_data match\n",
 			       insn_idx);
 			return 1;
 		}
@@ -484,7 +474,7 @@ static int load_elf_maps_section(struct bpf_map_data *maps, int maps_shndx,
 	if (scn)
 		data_maps = elf_getdata(scn, NULL);
 	if (!scn || !data_maps) {
-		printf("Failed to get Elf_Data from maps section %d\n",
+		fprintf(stderr, "[eBPF] Failed to get Elf_Data from maps section %d\n",
 		       maps_shndx);
 		return -EINVAL;
 	}
@@ -542,7 +532,7 @@ static int load_elf_maps_section(struct bpf_map_data *maps, int maps_shndx,
 		map_name = elf_strptr(elf, strtabidx, sym[i].st_name);
 		maps[i].name = strdup(map_name);
 		if (!maps[i].name) {
-			printf("strdup(%s): %s(%d)\n", map_name,
+			fprintf(stderr,"strdup(%s): %s(%d)\n", map_name,
 			       strerror(errno), errno);
 			free(sym);
 			return -errno;
@@ -612,7 +602,7 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid)
 			continue;
 
 		if (0) /* helpful for llvm debugging */
-			printf("section %d:%s data %p size %zd link %d flags %d\n",
+			fprintf(stderr,"section %d:%s data %p size %zd link %d flags %d\n",
 			       i, shname, data->d_buf, data->d_size,
 			       shdr.sh_link, (int) shdr.sh_flags);
 
@@ -622,7 +612,7 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid)
 		} else if (strcmp(shname, "version") == 0) {
 			processed_sec[i] = true;
 			if (data->d_size != sizeof(int)) {
-				printf("invalid size of version section %zd\n",
+				fprintf(stderr,"invalid size of version section %zd\n",
 				       data->d_size);
 				return 1;
 			}
@@ -643,7 +633,7 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid)
 	ret = 1;
 
 	if (!symbols) {
-		printf("missing SHT_SYMTAB section\n");
+		fprintf(stderr,"missing SHT_SYMTAB section\n");
 		goto done;
 	}
 
@@ -651,7 +641,7 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid)
 		nr_maps = load_elf_maps_section(map_data, maps_shndx,
 						elf, symbols, strtabidx);
 		if (nr_maps < 0) {
-			printf("Error: Failed loading ELF maps (errno:%d):%s\n",
+			fprintf(stderr,"[eBPF] Error: Failed loading ELF maps (errno:%d):%s\n",
 			       nr_maps, strerror(-nr_maps));
 			goto done;
 		}
