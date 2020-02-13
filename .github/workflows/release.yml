@@ -53,9 +53,7 @@ jobs:
           # TODO: Generate ChagneLog here for Release Description
           body: Release ${{ github.ref }}
           draft: false
-          # TODO: Set this based on tag names
-          # v0.0.0-rc => prerelease: true
-          prerelease: true  # TODO: Change this to `false` later.
+          prerelease: false
       - name: Write upload_url
         run: |
           mkdir -p upload_url
