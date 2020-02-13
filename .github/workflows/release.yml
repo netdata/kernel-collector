@@ -87,7 +87,7 @@ jobs:
       - name: Set upload_url
         run: |
           echo "::set-env name=UPLOAD_URL::$(cat upload_url/upload_url.txt)"
-      - name: Download Artifact artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+      - name: Download artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
         uses: actions/download-artifact@v1
         with:
           name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
@@ -98,13 +98,14 @@ jobs:
         id: asset-filename
         run: |
           cd artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-          echo '::set-output name=filename::$(ls netdata_ebpf_*.tar.xz)'
-      - name: Upload Release Assets ${{ matrix.libc }}/${{ steps.asset-filename.name }}
+          ls netdata_ebpf_*.tar.xz
+          echo "::set-output name=name::$(ls netdata_ebpf_*.tar.xz)"
+      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.name }}
-          asset_name: ${{ matrix.libc }}/${{ steps.asset-filename.name }}
+          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}
+          asset_name: ${{ steps.asset-filename.outputs.name }}
           asset_content_type: application/x-gtar
