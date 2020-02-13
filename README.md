@@ -77,3 +77,18 @@ To compile the libraries and the eBPF programs, you only need to do the followin
 #  cd user
 # make
 ``` 
+
+## Releasing
+
+To release a new version and create a Github Release; create a Git tag like so:
+
+```sh
+$ TAG="v0.0.1"; git tag -a -s -m "Release ${TAG}" "${TAG}" && git push origin "${TAG}"
+```
+
+Replace `v0.0.1` with the next desired tag. SemVer is not strictly being followed
+here at this time so the specific tagged versions is not so important.
+
+This will kick off a Github Action Workflow that will Rebuild the NetData eBPF
+Kernel Collector for all Kernel and LIBC variants, create a Github Release and
+upload all assets to the release to be consumed by anyone or the NetData Installer.
