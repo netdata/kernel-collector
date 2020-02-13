@@ -56,18 +56,15 @@ jobs:
           # TODO: Set this based on tag names
           # v0.0.0-rc => prerelease: true
           prerelease: true  # TODO: Change this to `false` later.
-      - name: Store Release URL
+      - name: Write upload_url
         run: |
-          echo "::set-env name=upload_url::${{ steps.create_release.outputs.upload_url }}"
-
-  debug:
-    name: XXX
-    needs: release
-    runs-on: ubuntu-latest
-    steps:
-      - name: XXX Check upload_url
-        run: |
-          echo "upload_url=${{ env.upload_url }}"
+          mkdir -p upload_url
+          echo '${{ steps.create_release.outputs.upload_url }}' > upload_url/upload_url.txt
+      - name: Upload upload_url
+        uses: actions/upload-artifact@v1
+        with:
+          name: upload_url
+          path: upload_url
 
   upload:
     name: Upload
@@ -83,16 +80,31 @@ jobs:
           - musl
     runs-on: ubuntu-latest
     steps:
+      - name: Download upload_url
+        uses: actions/download-artifact@v1
+        with:
+          name: upload_url
+      - name: Set upload_url
+        run: |
+          echo "::set-env name=UPLOAD_URL::$(cat upload_url/upload_url.txt)"
       - name: Download Artifact artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
         uses: actions/download-artifact@v1
         with:
           name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-      - name: Upload Release Asset artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+      - name: List Artifact artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+        run: |
+          ls -lah artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+      - name: Compute Asset Filename
+        id: asset-filename
+        run: |
+          cd artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+          echo '::set-output name=filename::$(ls netdata_ebpf_*.tar.xz)'
+      - name: Upload Release Assets ${{ matrix.libc }}/${{ steps.asset-filename.name }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ env.upload_url }}
-          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-          asset_name: netdata_ebpf-${{ matrix.kernel_version }}-${{ matrix.libc }}.zip
-          asset_content_type: application/zip
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.name }}
+          asset_name: ${{ matrix.libc }}/${{ steps.asset-filename.name }}
+          asset_content_type: application/x-gtar
