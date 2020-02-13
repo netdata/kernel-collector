@@ -1,6 +1,7 @@
 # kernel-collector
 
 ![CI](https://github.com/netdata/kernel-collector/workflows/CI/badge.svg)
+![CD](https://github.com/netdata/kernel-collector/workflows/CD/badge.svg)
 
 Linux Kernel eBPF Collectors
 
