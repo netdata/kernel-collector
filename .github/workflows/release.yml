@@ -1,0 +1,99 @@
+---
+name: CD
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        kernel_version:
+          - '5.4.18'
+          - '4.19.102'
+          - '4.14.170'
+        libc:
+          - glibc
+          - musl
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Prepare Build Image
+        run: |
+          docker build --build-arg KERNEL_VERSION=${{ matrix.kernel_version }} -f Dockerfile.${{ matrix.libc }} -t kernel-collector:${{ matrix.libc }} .
+      - name: Build It
+        run: |
+          docker run --rm -v $PWD:/kernel-collector kernel-collector:${{ matrix.libc }}
+      - name: List Artifacts
+        run: |
+          ls -lah artifacts
+          test -f artifacts/netdata_ebpf_*.tar.xz
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v1
+        if: success()
+        with:
+          name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+          path: artifacts
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          # TODO: Generate ChagneLog here for Release Description
+          body: Release ${{ github.ref }}
+          draft: false
+          # TODO: Set this based on tag names
+          # v0.0.0-rc => prerelease: true
+          prerelease: true  # TODO: Change this to `false` later.
+      - name: Store Release URL
+        run: |
+          echo "::set-env name=upload_url::${{ steps.create_release.outputs.upload_url }}"
+
+  debug:
+    name: XXX
+    runs-on: ubuntu-latest
+    steps:
+      - name: XXX Check upload_url
+        run: |
+          echo "upload_url=${{ env.upload_url }}"
+
+  upload:
+    name: Upload
+    needs: release
+    strategy:
+      matrix:
+        kernel_version:
+          - '5.4.18'
+          - '4.19.102'
+          - '4.14.170'
+        libc:
+          - glibc
+          - musl
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifact artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+        uses: actions/download-artifact@v1
+        with:
+          name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+      - name: Upload Release Asset artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.upload_url }}
+          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+          asset_name: netdata_ebpf-${{ matrix.kernel_version }}-${{ matrix.libc }}.zip
+          asset_content_type: application/zip
