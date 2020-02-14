@@ -1,37 +1,22 @@
 #!/bin/bash
 
-parse_version() {
-  r="${1}"
-  if echo "${r}" | grep -q '^v.*'; then
-    # shellcheck disable=SC2001
-    # XXX: Need a regex group subsitutation here.
-    r="$(echo "${r}" | sed -e 's/^v\(.*\)/\1/')"
-  fi
+function get_kernel_version() {
+  r="$(uname -r | cut -f 1 -d '-')"
 
-  read -r -a p <<< "$(echo "${r}" | tr '-' ' ')"
+  read -r -a p <<< "$(echo "${r}" | tr '.' ' ')"
 
-  v="${p[0]}"
-  b="${p[1]}"
-  _="${p[2]}" # ignore the SHA
-
-  if [[ ! "${b}" =~ ^[0-9]+$ ]]; then
-    b="0"
-  fi
-
-  read -r -a pp <<< "$(echo "${v}" | tr '.' ' ')"
-  printf "%03d%03d%03d%03d" "${pp[0]}" "${pp[1]}" "${pp[2]}" "${b}"
+  printf "%03d%03d%03d" "${p[0]}" "${p[1]}" "${p[2]}"
 }
 
 if [ "$(uname -s)" != "Linux" ]; then
-  echo "This does not appear to be a Linux system."
+  echo >&2 "This does not appear to be a Linux system."
   exit 1
 fi
 
 KERNEL_VERSION="$(uname -r)"
 
-# This insane looking condition is checking the kernel version as a floating point number.
-if [ "$(parse_version "${KERNEL_VERSION}")" -lt "$(parse_version 4.14)" ]; then
-  echo "Your kernel appears to be older than 4.11. This may still work in some cases, but probably won't."
+if [ "$(get_kernel_version)" -lt 004014000 ]; then
+  echo >&2 "Your kernel appears to be older than 4.11. This may still work in some cases, but probably won't."
 fi
 
 CONFIG_PATH=""
@@ -56,14 +41,14 @@ if [ -n "${CONFIG_PATH}" ]; then
     GREP='zgrep'
   fi
 
-  if "${GREP}" -qv "CONFIG_KPROBES=y" "${CONFIG_PATH}" ||
-    "${GREP}" -qv "CONFIG_KPROBES_ON_FTRACE=y" "${CONFIG_PATH}" ||
-    "${GREP}" -qv "CONFIG_HAVE_KPROBES=y" "${CONFIG_PATH}" ||
-    "${GREP}" -qv "CONFIG_HAVE_KPROBES_ON_FTRACE=y" "${CONFIG_PATH}" ||
-    "${GREP}" -qv "CONFIG_KPROBE_EVENTS=y" "${CONFIG_PATH}"; then
-    echo "Required kernel config options not found."
-    exit 1
-  fi
+  REQUIRED_CONFIG="KPROBES KPROBES_ON_FTRACE HAVE_KPROBES HAVE_KPROBES_ON_FTRACE KPROBE_EVENTS"
+
+  for required_config in ${REQUIRED_CONFIG}; do
+    if ! "${GREP}" -q "CONFIG_${required_config}=y" "${CONFIG_PATH}"; then
+      echo >&2 " Missing Kernel Config: ${required_config}"
+      exit 1
+    fi
+  done
 fi
 
 if [ -n "${MODULE_LOADED}" ]; then
