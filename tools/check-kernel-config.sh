@@ -52,7 +52,7 @@ if [ -n "${CONFIG_PATH}" ]; then
 fi
 
 if [ -n "${MODULE_LOADED}" ]; then
-  modprobe -r configs 2> /dev/null
+  modprobe -r configs 2> /dev/null || true # Ignore failures from CONFIGS being builtin
 fi
 
 exit 0
