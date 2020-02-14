@@ -54,3 +54,5 @@ fi
 if [ -n "${MODULE_LOADED}" ]; then
   modprobe -r configs 2> /dev/null
 fi
+
+exit 0
