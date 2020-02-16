@@ -332,6 +332,10 @@ int main(int argc, char **argv)
         int_exit(5);
     }
 
+    if (map_memory()) {
+        int_exit(6);
+    }
+
     int_exit(0);
 
     return 0;
