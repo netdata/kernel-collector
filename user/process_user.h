@@ -13,4 +13,12 @@ typedef struct netdata_ebpf_events {
 
 } netdata_ebpf_events_t;
 
+typedef struct netdata_latency
+{
+    uint64_t period;
+    uint64_t counter;
+}netdata_latency_t;
+
+# define NETDATA_MAX_MONITOR_VECTOR 9
+
 #endif

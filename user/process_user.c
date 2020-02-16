@@ -281,6 +281,7 @@ int process_load_ebpf()
     build_complete_path(lpath, 4096, plugin_dir,  name);
     event_pid = getpid();
     if (load_bpf_file(lpath, event_pid) ) {
+        fprintf(stderr,"Cannot load the eBPF program (%d): %s\n", errno, lpath);
         return -1;
     }
 
@@ -316,15 +317,18 @@ int main(int argc, char **argv)
 
     struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
     if (setrlimit(RLIMIT_MEMLOCK, &r)) {
+        fprintf(stderr,"Cannot set limits\n");
         return 2;
     }
 
     page_cnt *= sysconf(_SC_NPROCESSORS_ONLN);
     if (!getcwd(plugin_dir, 1023)) {
+        fprintf(stderr,"Cannot find current directory\n");
         return 3;
     }
 
     if(ebpf_load_libraries()) {
+        fprintf(stderr,"Cannot load libebpf_netdata.so\n");
         int_exit(4);
     }
 
@@ -333,6 +337,7 @@ int main(int argc, char **argv)
     }
 
     if (map_memory()) {
+        fprintf(stderr,"Cannot map memory\n");
         int_exit(6);
     }
 
