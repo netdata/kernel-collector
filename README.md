@@ -153,3 +153,17 @@ here at this time so the specific tagged versions is not so important.
 This will kick off a Github Action Workflow that will Rebuild the NetData eBPF
 Kernel Collector for all Kernel and LIBC variants, create a Github Release and
 upload all assets to the release to be consumed by anyone or the NetData Installer.
+
+## Contribution
+
+Netdata is an open-software software and we are always open for contributions that
+you can give us.
+
+Case you want do a contribution with an eBPF program, please, be sure that your program
+is according with the following patterns:
+
+-   Your program must run on all kernels since at least kernel `4.11`
+-   Create an additional code that is responsible to measure the latency of your program.
+-   We have the variable NETDATASEL, that selects where the functions will be attached. Be
+    sure that inside your code `0` is associated `kretprobe`, `1` is associated with `kretprobe`
+    and `perf events` and `2` is assoacited with `kprobe`.
