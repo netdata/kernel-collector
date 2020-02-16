@@ -50,14 +50,14 @@ all: process_kern.o
 		-DNETDATASEL=0 \
 		-O2 -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o r$@ $(<:.c=.ll)
-	#$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
-	#	-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-	#    	-Wno-compare-distinct-pointer-types \
-	#    	-Wno-gnu-variable-sized-type-not-at-end \
-	#    	-Wno-tautological-compare \
-	#	-DNETDATASEL=1 \
-	#	-O2 -emit-llvm -c $<
-	#$(LLC) -march=bpf -filetype=obj -o d$@ $(<:.c=.ll)
+	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
+		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+	    	-Wno-compare-distinct-pointer-types \
+	    	-Wno-gnu-variable-sized-type-not-at-end \
+	    	-Wno-tautological-compare \
+		-DNETDATASEL=1 \
+		-O2 -emit-llvm -c $<
+	$(LLC) -march=bpf -filetype=obj -o d$@ $(<:.c=.ll)
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
 	    	-Wno-compare-distinct-pointer-types \
