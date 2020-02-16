@@ -36,9 +36,10 @@ VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
 
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
+latency_process_kern.o: latency_process_kern.c
 process_kern.o: process_kern.c
 
-all: process_kern.o
+all: process_kern.o latency_process_kern.o
 
 %.o: %.c
 	if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' /usr/src/linux/include/generated/autoconf.h; fi
