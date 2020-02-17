@@ -75,9 +75,12 @@ static int unmap_memory() {
     int i;
     int size = (int)sysconf(_SC_PAGESIZE)*(page_cnt + 1);
     for ( i = 0 ; i < nprocs ; i++ ) {
-        if (perf_event_unmap(headers[i], size) < 0) {
-            fprintf(stderr,"[EBPF PROCESS] CANNOT unmap headers.\n");
-            return -1;
+        if(headers[i])
+        {
+            if (perf_event_unmap(headers[i], size) < 0) {
+                fprintf(stderr,"[EBPF PROCESS] CANNOT unmap headers.\n");
+                return -1;
+            }
         }
 
         close(pmu_fd[i]);
