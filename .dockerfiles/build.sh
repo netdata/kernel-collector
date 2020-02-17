@@ -3,6 +3,7 @@
 set -e
 
 build() {
+  echo "[XXX]: Building against Kernel ${KERNEL_VERSION} for libc ${_LIBC} ..."
   (
     cd user || exit 1
     make CFLAGS='-fno-stack-protector -I /usr/src/linux/usr/include'
