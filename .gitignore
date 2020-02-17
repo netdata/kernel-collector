@@ -9,4 +9,6 @@
 *.ll
 *.o*
 
-/user/process_monitor
+user/process_monitor
+user/process_latency
+user/process_test
