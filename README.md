@@ -96,6 +96,20 @@ $ docker build -f Dodkcerfile.musl -t kernel-collector:musl_5_4 --build--arg KER
 $ docker run --rm -v $PWD:/kernel-collector kernel-collector:musl_5_4
 ```
 
+### Building with Debug Symbols
+
+To build with debug symbols enabled, set the environment variable `DEBUG` to `1`
+when running the build image.
+
+For example:
+
+```sh
+$ docker build -f Dodkcerfile.musl -t kernel-collector:musl ./
+$ docker run --rm -e DEBUG=1 -v $PWD:/kernel-collector kernel-collector:musl
+```
+
+This sets `EXTRA_CFLAGS=-g` up before building.
+
 ## Compilation (manually)
 
 After to do the necessaries changes inside the file `kernel/Makefille`, to compile the libraries

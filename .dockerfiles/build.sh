@@ -6,7 +6,12 @@ build() {
   echo "[XXX]: Building against Kernel ${KERNEL_VERSION} for libc ${_LIBC} ..."
   (
     cd user || exit 1
-    make CFLAGS='-fno-stack-protector -I /usr/src/linux/usr/include'
+    if [ "${DEBUG:-0}" -eq 1 ]; then
+      echo "[XXX]: Building with debug symbols ..."
+      make CFLAGS='-fno-stack-protector -I /usr/src/linux/usr/include' EXTRA_CFLAGS='-g'
+    else
+      make CFLAGS='-fno-stack-protector -I /usr/src/linux/usr/include'
+    fi
   ) || return 1
 }
 
