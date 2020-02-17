@@ -13,14 +13,16 @@ NETDATA_KERNEL_VERSION=$(shell echo $(KERNEL_VERSION) | tr -s "." "_")
 
 _LIBC ?= glibc
 
+EXTRA_CFLAGS += -fno-stack-protector
+
 all: $(OBJECT_LIBLOAD) $(KERNEL_PROGRAM)
 	cp $(KERNEL_DIR)rprocess_kern.o rnetdata_ebpf_process.o
 	cp $(KERNEL_DIR)pprocess_kern.o pnetdata_ebpf_process.o
 	cp $(KERNEL_DIR)dprocess_kern.o dnetdata_ebpf_process.o
 	cp $(KERNEL_DIR)dlatency_process_kern.o dlatency_process_kern.o
-	$(CC) -L. -I../includes/ -o process_monitor process_user.c $(LIBS)
-	$(CC) -L. -I../includes/ -o process_latency latency_process_user.c $(LIBS)
-	$(CC) -pthread -L. -I../includes/ -o process_test latency_test.c $(LIBS)
+	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_monitor process_user.c $(LIBS)
+	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_latency latency_process_user.c $(LIBS)
+	$(CC) $(EXTRA_CFLAGS) -pthread -L. -I../includes/ -o process_test latency_test.c $(LIBS)
 	if [ -f /usr/lib64/libbpf_kernel.so ]; then tar -acf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz /usr/lib64/libbpf_kernel.so* libnetdata_ebpf.so [pr]netdata_ebpf_process.o; elif [ -f /usr/lib/libbpf_kernel.so ]; then tar -acf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz /usr/lib/libbpf_kernel.so* libnetdata_ebpf.so [pr]netdata_ebpf_process.o; else echo "ERROR: Cannot find libbpf_kernel.so"; exit 1; fi
 
 
