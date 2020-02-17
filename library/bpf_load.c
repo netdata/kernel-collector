@@ -229,7 +229,6 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 		snprintf(buf_name,sizeof(buf),"%c_netdata_%s_%d", test, event, pid);
 #ifdef __x86_64__
 		if (strncmp(event, "sys_", 4) == 0) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
 			snprintf(buf, sizeof(buf), "%c:__x64_%s __x64_%s",
 				test, buf_name, event);
 			err = write_kprobe_events(buf);
@@ -238,11 +237,6 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 				need_normal_check = false;
 				event_prefix = "__x64_";
 			}
-#else
-			snprintf(buf, sizeof(buf), "echo '%c:__x64_%s __x64_%s' >> /sys/kernel/debug/tracing/kprobe_events",
-				test, buf_name, event);
-			err = system(buf);
-#endif
 		}
 #endif
 
