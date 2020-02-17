@@ -391,3 +391,4 @@ int netdata_return___close_fd(struct pt_regs* ctx)
 }
 
 char _license[] SEC("license") = "GPL";
+u32 _version SEC("version") = 0xFFFFFFFE;
