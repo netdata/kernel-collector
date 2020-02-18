@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 function get_kernel_version() {
   r="$(uname -r | cut -f 1 -d '-')"
