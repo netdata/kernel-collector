@@ -20,6 +20,10 @@ RUN mkdir -p /usr/src && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
     ln -s linux-${KERNEL_VERSION} linux
 
+COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
+COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
+RUN /patch_kernel.sh
+
 RUN cd /usr/src/linux && \
     make defconfig && \
     make scripts && \
