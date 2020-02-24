@@ -14,10 +14,15 @@ jobs:
         kernel_version:
           - '5.4.20'
           - '4.19.104'
+          - '4.15'
           - '4.14.171'
         libc:
           - glibc
           - musl
+        exclude:
+          # excludes musl on 4.15
+          - kernel_version: 4.15
+            libc: musl
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
