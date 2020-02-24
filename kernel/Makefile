@@ -22,7 +22,8 @@ LINUXINCLUDE += -I../includes
 CLANG_VERSION := $(shell clang --version | grep -o -E '[0-9]+\.[0-9]+\.[0-9]' | uniq)
 LLVM_INCLUDES = -I/usr/lib/clang/$(CLANG_VERSION)/include
 
-KERNEL_VERSION="$(shell basename $(realpath /usr/src/linux) | cut -f 2 -d '-')"
+#KERNEL_VERSION="$(shell basename $(realpath /usr/src/linux) | cut -f 2 -d '-')"
+KERNEL_VERSION="$(shell cat /usr/src/linux/include/config/kernel.release)"
 
 VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
 VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
