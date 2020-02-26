@@ -8,7 +8,7 @@ build() {
     cd user || exit 1
     if [ "${DEBUG:-0}" -eq 1 ]; then
       echo "[XXX]: Building with debug symbols ..."
-      make CFLAGS='-fno-stack-protector -I /usr/src/linux/usr/include' EXTRA_CFLAGS='-g'
+      make CFLAGS='-fno-stack-protector -I /usr/src/linux/usr/include' EXTRA_CFLAGS='-g -fno-stack-protector'
     else
       make CFLAGS='-fno-stack-protector -I /usr/src/linux/usr/include'
     fi
