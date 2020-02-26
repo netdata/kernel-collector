@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
       - name: Set build TAG
         run: |
           echo "::set-env name=TAG::$(echo ${{ matrix.kernel_version }} | cut -f 1,2 -d '.' | tr '.' '_')_${{ matrix.libc }}"
@@ -36,7 +36,7 @@ jobs:
           docker build --build-arg KERNEL_VERSION=${{ matrix.kernel_version }} -f Dockerfile.${{ matrix.libc }} -t kernel-collector:${TAG} .
       - name: Build It
         run: |
-          docker run --rm -v $PWD:/kernel-collector kernel-collector:${TAG}
+          docker run --rm -v $PWD:/kernel-collector -e DEBUG=1 kernel-collector:${TAG}
       - name: List Artifacts
         run: |
           ls -lah artifacts
