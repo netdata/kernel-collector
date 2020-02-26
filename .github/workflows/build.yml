@@ -36,7 +36,7 @@ jobs:
           docker build --build-arg KERNEL_VERSION=${{ matrix.kernel_version }} -f Dockerfile.${{ matrix.libc }} -t kernel-collector:${TAG} .
       - name: Build It
         run: |
-          docker run --rm -v $PWD:/kernel-collector kernel-collector:${TAG}
+          docker run --rm -v $PWD:/kernel-collector -e DEBUG=1 kernel-collector:${TAG}
       - name: List Artifacts
         run: |
           ls -lah artifacts
