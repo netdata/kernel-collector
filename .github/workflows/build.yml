@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
       - name: Set build TAG
         run: |
           echo "::set-env name=TAG::$(echo ${{ matrix.kernel_version }} | cut -f 1,2 -d '.' | tr '.' '_')_${{ matrix.libc }}"
