@@ -226,7 +226,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 			return populate_prog_array(event, fd);
 
 		char test = is_kprobe ? 'p' : 'r';
-		snprintf(buf_name,sizeof(buf),"%c_netdata_%s_%d", test, event, pid);
+		snprintf(buf_name,sizeof(buf_name),"%c_netdata_%s_%d", test, event, pid);
 #ifdef __x86_64__
 		if (strncmp(event, "sys_", 4) == 0) {
 			snprintf(buf, sizeof(buf), "%c:__x64_%s __x64_%s",
