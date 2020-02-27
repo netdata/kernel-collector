@@ -105,7 +105,9 @@ static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
     ptr->readv_call = 0;
     ptr->unlink_call = 0;
     ptr->exit_call = 0;
+    ptr->release_call = 0;
     ptr->fork_call = 0;
+    ptr->clone_call = 0;
     ptr->close_call = 0;
 
     ptr->write_bytes = 0;
@@ -120,6 +122,8 @@ static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
     ptr->readv_err = 0;
     ptr->unlink_err = 0;
     ptr->fork_err = 0;
+    ptr->clone_err = 0;
+    ptr->close_err = 0;
 }
 
 #if NETDATASEL == 1
