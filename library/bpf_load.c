@@ -310,7 +310,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 }
 
 static int load_maps(struct bpf_map_data *maps, int nr_maps,
-		     fixup_map_cb fixup_map)
+		     fixup_map_cb fixup_map, , int *entries)
 {
 	int i, numa_node;
 
@@ -327,6 +327,7 @@ static int load_maps(struct bpf_map_data *maps, int nr_maps,
 		numa_node = maps[i].def.map_flags & BPF_F_NUMA_NODE ?
 			maps[i].def.numa_node : -1;
 
+                int max_entries = (!entries)?maps[i].def.max_entries:entries[i];
 		if (maps[i].def.type == BPF_MAP_TYPE_ARRAY_OF_MAPS ||
 		    maps[i].def.type == BPF_MAP_TYPE_HASH_OF_MAPS) {
 			int inner_map_fd = map_fd[maps[i].def.inner_map_idx];
@@ -337,7 +338,8 @@ static int load_maps(struct bpf_map_data *maps, int nr_maps,
 #endif
 							maps[i].def.key_size,
 							inner_map_fd,
-							maps[i].def.max_entries,
+							//maps[i].def.max_entries,
+                                                        max_entries,
 							maps[i].def.map_flags,
 							numa_node);
 		} else {
@@ -347,7 +349,8 @@ static int load_maps(struct bpf_map_data *maps, int nr_maps,
 #endif
 							maps[i].def.key_size,
 							maps[i].def.value_size,
-							maps[i].def.max_entries,
+							//maps[i].def.max_entries,
+                                                        max_entries,
 							maps[i].def.map_flags,
 							numa_node);
 		}
@@ -556,7 +559,7 @@ static int load_elf_maps_section(struct bpf_map_data *maps, int maps_shndx,
 	return nr_maps;
 }
 
-static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid)
+static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid, int *entries)
 {
 	int fd, i, ret, maps_shndx = -1, strtabidx = -1;
 	Elf *elf;
@@ -639,7 +642,7 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid)
 			       nr_maps, strerror(-nr_maps));
 			goto done;
 		}
-		if (load_maps(map_data, nr_maps, fixup_map))
+		if (load_maps(map_data, nr_maps, fixup_map, entries))
 			goto done;
 		map_data_count = nr_maps;
 
@@ -879,14 +882,14 @@ done:
 }
 */
 
-int load_bpf_file(char *path, int pid)
+int load_bpf_file(char *path, int pid, int *entries)
 {
-	return do_load_bpf_file(path, NULL, pid);
+	return do_load_bpf_file(path, NULL, pid, entries);
 }
 
 int load_bpf_file_fixup_map(const char *path, fixup_map_cb fixup_map)
 {
-	return do_load_bpf_file(path, fixup_map, 0);
+	return do_load_bpf_file(path, fixup_map, 0, NULL);
 }
 
 void read_trace_pipe(void)

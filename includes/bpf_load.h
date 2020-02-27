@@ -50,7 +50,7 @@ extern int map_data_count;
  *
  * returns zero on success
  */
-int load_bpf_file(char *path, int pid);
+int load_bpf_file(char *path, int pid, int *entries);
 int load_bpf_file_fixup_map(const char *path, fixup_map_cb fixup_map);
 
 void read_trace_pipe(void);
