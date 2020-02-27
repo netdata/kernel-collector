@@ -65,6 +65,7 @@ static struct perf_event_mmap_page *headers[NETDATA_MAX_PROCESSOR];
 
 static char plugin_dir[1024];
 
+/*
 static int unmap_memory() {
     int nprocs = (int) sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -75,7 +76,7 @@ static int unmap_memory() {
     int i;
     int size = (int)sysconf(_SC_PAGESIZE)*(page_cnt + 1);
     for ( i = 0 ; i < nprocs ; i++ ) {
-        if(headers[i])
+        if (headers[i])
         {
             if (perf_event_unmap(headers[i], size) < 0) {
                 fprintf(stderr,"[EBPF PROCESS] CANNOT unmap headers.\n");
@@ -88,6 +89,7 @@ static int unmap_memory() {
 
     return 0;
 }
+*/
 
 static int clean_kprobe_event(char *filename, char *father_pid, netdata_ebpf_events_t *ptr) {
     int fd =  open(filename, O_WRONLY | O_APPEND, 0);
@@ -133,7 +135,7 @@ int clean_kprobe_events(int pid, netdata_ebpf_events_t *ptr) {
 
 static void int_exit(int sig)
 {
-    unmap_memory();
+   // unmap_memory();
 
     if (libnetdata) {
         dlclose(libnetdata);
@@ -279,7 +281,7 @@ int process_load_ebpf()
 {
     char lpath[4096];
 
-    char *name = { "dnetdata_ebpf_process.o" };
+    char *name = { "rnetdata_ebpf_process.o" };
 
     build_complete_path(lpath, 4096, plugin_dir,  name);
     event_pid = getpid();
@@ -291,6 +293,7 @@ int process_load_ebpf()
     return 0;
 }
 
+/*
 static int map_memory() {
     int nprocs = (int)sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -309,12 +312,14 @@ static int map_memory() {
 
     return 0;
 }
+*/
 
 
 int main(int argc, char **argv)
 {
     mykernel =  get_kernel_version();
     if(!has_condition_to_run(mykernel)) {
+        fprintf(stderr,"I cannot run on this kernel\n");
         return 1;
     }
 
@@ -339,10 +344,12 @@ int main(int argc, char **argv)
         int_exit(5);
     }
 
+    /*
     if (map_memory()) {
         fprintf(stderr,"Cannot map memory\n");
         int_exit(6);
     }
+    */
 
     int_exit(0);
 
