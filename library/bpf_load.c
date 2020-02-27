@@ -310,7 +310,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 }
 
 static int load_maps(struct bpf_map_data *maps, int nr_maps,
-		     fixup_map_cb fixup_map, , int *entries)
+		     fixup_map_cb fixup_map, int *entries)
 {
 	int i, numa_node;
 
