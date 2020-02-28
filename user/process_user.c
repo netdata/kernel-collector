@@ -341,7 +341,7 @@ int main(int argc, char** argv)
    }
 
    if (ebpf_load_libraries()) {
-      fprintf(stderr, "Cannot load libebpf_netdata.so\n");
+      fprintf(stderr, "Cannot load libnetdata_ebpf.so\n");
       int_exit(4);
    }
 
