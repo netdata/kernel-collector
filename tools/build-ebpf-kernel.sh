@@ -31,7 +31,7 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
-REQUIRED_KERNEL_CONFIG="KPROBES KPROBES_ON_FTRACE HAVE_KPROBES HAVE_KPROBES_ON_FTRACE KPROBE_EVENTS"
+REQUIRED_KERNEL_CONFIG="KPROBES KPROBES_ON_FTRACE HAVE_KPROBES HAVE_KPROBES_ON_FTRACE KPROBE_EVENTS PERF_EVENT HAVE_PERF_EVENT FTRACE BPF_SYSCALL"
 
 KERNEL_VERSION="${1}"
 shift
@@ -49,11 +49,12 @@ ln -s linux-"${KERNEL_VERSION}" linux
 
 cd /usr/src/linux || exit 1
 zcat /proc/config.gz > .config
-yes "" | make oldconfig
 
 for required_kernel_config in ${REQUIRED_KERNEL_CONFIG}; do
   config y "${required_kernel_config}"
 done
+
+yes "" | make oldconfig
 
 make
 make modules_install
