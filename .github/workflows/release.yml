@@ -13,6 +13,7 @@ jobs:
           - '5.4.20'
           - '4.19.104'
           - '4.19.98'
+          - '4.16.18'
           - '4.16.3'
           - '4.15'
           - '4.14.171'
@@ -22,6 +23,9 @@ jobs:
         exclude:
           # excludes musl on 4.15
           - kernel_version: 4.15
+            libc: musl
+          # excludes musl on 4.16.18
+          - kernel_version: 4.16.18
             libc: musl
           # excludes musl on 4.16.3
           - kernel_version: 4.16.3
@@ -83,6 +87,7 @@ jobs:
           - '5.4.20'
           - '4.19.104'
           - '4.19.98'
+          - '4.16.18'
           - '4.16.3'
           - '4.15'
           - '4.14.171'
@@ -92,6 +97,9 @@ jobs:
         exclude:
           # excludes musl on 4.15
           - kernel_version: 4.15
+            libc: musl
+          # excludes musl on 4.16.18
+          - kernel_version: 4.16.18
             libc: musl
           # excludes musl on 4.16.3
           - kernel_version: 4.16.3
