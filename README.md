@@ -9,7 +9,7 @@ Linux Kernel eBPF Collectors
 
 The respository has the following directory structure:
 
--   `artificats`: Directory that will have the eBPF programs and shared libraries when the compilation process ends.
+-   `artifacts`: Directory that will have the eBPF programs and shared libraries when the compilation process ends.
 -   `includes`: Common headers
 -   `kernel`: The eBPF programs source code
 -   `lib`: The libelf static used to create the shared library.
