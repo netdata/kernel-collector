@@ -25,6 +25,9 @@ jobs:
           # excludes musl on 4.15
           - kernel_version: 4.15
             libc: musl
+          # excludes musl on 4.16.3
+          - kernel_version: 4.16.3
+            libc: musl
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
