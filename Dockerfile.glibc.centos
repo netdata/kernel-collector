@@ -1,0 +1,16 @@
+FROM centos:7.7.1908 AS build
+
+ARG ARCH=x86
+ENV ARCH=$ARCH
+
+ARG KERNEL_VERSION=3.10.0-1062.12.1.el7.x86_64
+ENV KERNEL_VERSION=$KERNEL_VERSION
+
+ENV _LIBC=glibc
+
+RUN yum update -y && \
+    yum groupinstall -y "Development tools" && \
+    yum install -y elfutils-libelf-devel kernel-headers kernel-devel ncurses-devel hmaccalc zlib-devel binutils-devel
+
+RUN cd /usr/src/kernels/$KERNEL_VERSION && \
+    cp /boot/config-`uname -r` .config
