@@ -10,14 +10,19 @@ ENV _LIBC=glibc
 
 RUN yum update -y && \
     yum groupinstall -y "Development tools" && \
-    yum install -y asciidoc audit-libs-devel bash bc binutils binutils-devel bison diffutils elfutils elfutils-devel elfutils-libelf-devel findutils flex gawk gcc gettext gzip hmaccalc hostname java-devel m4 make module-init-tools ncurses-devel net-tools newt-devel numactl-devel openssl patch pciutils-devel perl perl-ExtUtils-Embed pesign python-devel python-docutils redhat-rpm-config rpm-build sh-utils tar xmlto xz zlib-devel && \
-    yuim install -y clang llvm
+    yum install -y asciidoc audit-libs-devel bash bc binutils binutils-devel bison diffutils elfutils elfutils-devel elfutils-libelf-devel findutils flex gawk gcc gettext gzip hmaccalc hostname java-devel m4 make module-init-tools ncurses-devel net-tools newt-devel numactl-devel openssl patch pciutils-devel perl perl-ExtUtils-Embed pesign python-devel python-docutils redhat-rpm-config rpm-build sh-utils tar xmlto xz zlib-devel
 
-RUN cd && mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+
+RUN yum install -y centos-release-scl && \
+    yum-config-manager --enable rhel-server-rhscl-7-rpms
+
+RUN yum install -y llvm-toolset-7.0*
+
+RUN cd ~/ && mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i http://vault.centos.org/7.7.1908/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 | grep -v exist
+    rpm -i http://vault.centos.org/7.7.1908/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
 
-RUN cd rpmbuild/SOURCES && \
+RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
     mkdir -p /usr/src/kernels/ && \
     ln -s linux-${KERNEL_VERSION} /usr/src/kernels/$(uname -r) && \
@@ -32,5 +37,7 @@ WORKDIR /kernel-collector
 
 COPY .dockerfiles/build.sh /build.sh
 COPY . .
+
+RUN scl enable llvm-toolset-7.0 bash
 
 CMD ["/build.sh"]

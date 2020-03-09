@@ -21,6 +21,7 @@ LINUXINCLUDE += -I../includes
 
 CLANG_VERSION := $(shell clang --version | grep -o -E '[0-9]+\.[0-9]+\.[0-9]' | uniq)
 LLVM_INCLUDES = -I/usr/lib/clang/$(CLANG_VERSION)/include
+LLVM_INCLUDES += -I/opt/rh/llvm-toolset-7.0/root/usr/lib64/clang/$(CLANG_VERSION)/include
 
 #KERNEL_VERSION="$(shell basename $(realpath /usr/src/linux) | cut -f 2 -d '-')"
 KERNEL_VERSION="$(shell cat /usr/src/linux/include/config/kernel.release)"
@@ -44,6 +45,8 @@ all: process_kern.o latency_process_kern.o
 	    	-Wno-gnu-variable-sized-type-not-at-end \
 	    	-Wno-tautological-compare \
 		-DNETDATASEL=0 \
+		-D__BPF_TRACING__ \
+		-include netdata_asm_goto.h \
 		-O2 -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o r$@ $(<:.c=.ll)
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
@@ -52,6 +55,8 @@ all: process_kern.o latency_process_kern.o
 	    	-Wno-gnu-variable-sized-type-not-at-end \
 	    	-Wno-tautological-compare \
 		-DNETDATASEL=1 \
+		-D__BPF_TRACING__ \
+		-include netdata_asm_goto.h \
 		-O2 -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o d$@ $(<:.c=.ll)
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
@@ -60,6 +65,8 @@ all: process_kern.o latency_process_kern.o
 	    	-Wno-gnu-variable-sized-type-not-at-end \
 	    	-Wno-tautological-compare \
 		-DNETDATASEL=2 \
+		-D__BPF_TRACING__ \
+		-include netdata_asm_goto.h \
 		-O2 -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o p$@ $(<:.c=.ll)
 

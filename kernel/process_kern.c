@@ -1,9 +1,9 @@
 #define KBUILD_MODNAME "process_kern"
 #include <linux/bpf.h>
 #include <linux/version.h>
-#include <linux/ptrace.h>
-#include <linux/sched.h>
-#include <linux/sched/task.h>
+# include <linux/ptrace.h>
+# include <linux/sched.h>
+# include <linux/sched/task.h>
 
 #include <linux/threads.h>
 #include <linux/version.h>
@@ -560,18 +560,23 @@ int netdata_release_task(struct pt_regs* ctx)
     return 0;
 }
 
-#if NETDATASEL < 2
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)) 
+# if NETDATASEL < 2
 SEC("kretprobe/_do_fork")
-#else
+# else
 SEC("kprobe/_do_fork")
+# endif
+#else 
+# if NETDATASEL < 2
+SEC("kretprobe/do_fork")
+# else
+SEC("kprobe/do_fork")
+# endif
 #endif
 int netdata_fork(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
-# if NETDATASEL == 1
-    struct netdata_error_report_t ner;
-# endif
 #endif
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
