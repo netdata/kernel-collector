@@ -1,0 +1,36 @@
+FROM centos:8.1.1911 AS build
+
+ARG ARCH=x86
+ENV ARCH=$ARCH
+
+ARG KERNEL_VERSION=4.18.0-147.5.1.el8_1
+ENV KERNEL_VERSION=$KERNEL_VERSION
+
+ENV _LIBC=glibc
+
+RUN yum update -y && \
+    yum groupinstall -y "Development tools" && \
+    yum install -y asciidoc audit-libs-devel bash bc binutils binutils-devel bison diffutils elfutils elfutils-devel elfutils-libelf-devel findutils flex gawk gcc gettext gzip hmaccalc hostname java-devel m4 make module-init-tools ncurses-devel net-tools newt-devel numactl-devel openssl openssl-devel patch pciutils-devel perl perl-ExtUtils-Embed pesign redhat-rpm-config rpm-build sh-utils tar xmlto xz zlib-devel
+    yuim install -y clang llvm
+
+RUN cd && mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+    echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
+    rpm -i http://vault.centos.org/8.1.1911/BaseOS/Source/SPackages/kernel-4.18.0-147.5.1.el8_1.src.rpm 2>&1 | grep -v exist
+
+RUN cd rpmbuild/SOURCES && \
+    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+    mkdir -p /usr/src/kernels/ && \
+    ln -s linux-${KERNEL_VERSION} /usr/src/kernels/$(uname -r) && \
+    cd linux-${KERNEL_VERSION}
+
+RUN make defconfig && \
+    make scripts && \
+    make prepare && \
+    make headers_install
+
+WORKDIR /kernel-collector
+
+COPY .dockerfiles/build.sh /build.sh
+COPY . .
+
+CMD ["/build.sh"]
