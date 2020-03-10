@@ -25,8 +25,14 @@ RUN cd ~/ && mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
 RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
     mkdir -p /usr/src/kernels/ && \
-    ln -s linux-${KERNEL_VERSION} /usr/src/kernels/$(uname -r) && \
-    cd linux-${KERNEL_VERSION} && \
+    # XXX: Do not do this `uname -r` is not what you think :)
+    ln -s linux-${KERNEL_VERSION} /usr/src/kernels/$(uname -r)
+
+COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
+COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
+RUN /patch_kernel.sh ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION}
+
+RUN cd ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} && \
     make defconfig && \
     make scripts && \
     make prepare && \
