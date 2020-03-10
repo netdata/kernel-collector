@@ -26,7 +26,7 @@ RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
     mkdir -p /usr/src/kernels/ && \
     ln -s linux-${KERNEL_VERSION} /usr/src/kernels/$(uname -r) && \
-    cd linux-${KERNEL_VERSION}
+    cd linux-${KERNEL_VERSION} && \
     make defconfig && \
     make scripts && \
     make prepare && \
