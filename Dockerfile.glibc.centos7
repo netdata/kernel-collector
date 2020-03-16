@@ -45,4 +45,4 @@ COPY .dockerfiles/build.sh /build.sh
 COPY . .
 
 ENTRYPOINT ["scl"]
-CMD ["enable", "llvm-toolset-7.0", "./build.sh"]
+CMD ["enable", "llvm-toolset-7.0", "/build.sh"]
