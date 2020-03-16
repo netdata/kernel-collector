@@ -149,9 +149,11 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 	} else if (is_sockops) {
 		prog_type = BPF_PROG_TYPE_SOCK_OPS;
 	} 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,10,0)
         else if (is_sk_skb) {
 		prog_type = BPF_PROG_TYPE_SK_SKB;
 	} 
+#endif
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4,17,0)
         else if (is_sk_msg) {
 		prog_type = BPF_PROG_TYPE_SK_MSG;

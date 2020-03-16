@@ -2,7 +2,9 @@
 
 set -e
 
-cd /usr/src/linux || exit 1
+srcdir="${1:-/usr/src/linux}"
+
+cd "${srcdir}" || exit
 
 for patch in /usr/src/linux-"${KERNEL_VERSION}"-patches/*.diff.gz; do
   printf >&2 " Patching linux-%s with %s ... " "${KERNEL_VERSION}" "${patch}"
