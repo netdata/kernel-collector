@@ -20,7 +20,7 @@ LINUXINCLUDE += -include $(KERNELSOURCE)/include/linux/kconfig.h
 LINUXINCLUDE += -I../includes
 
 CLANG_VERSION := $(shell clang --version | grep -o -E 'clang version [0-9]+\.[0-9]+\.[0-9]' | cut -f 3 -d ' ')
-LLVM_INCLUDES = -I/usr/lib/clang/$(CLANG_VERSION)/include
+LLVM_INCLUDES = $(shell [ -d /usr/lib/clang ] && echo "-I/usr/lib/clang/$(CLANG_VERSION)/include" || echo "-I/usr/lib64/clang/$(CLANG_VERSION)/include")
 LLVM_INCLUDES += -I/opt/rh/llvm-toolset-7.0/root/usr/lib64/clang/$(CLANG_VERSION)/include
 
 #KERNEL_VERSION="$(shell basename $(realpath /usr/src/linux) | cut -f 2 -d '-')"
