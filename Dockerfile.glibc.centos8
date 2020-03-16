@@ -19,15 +19,18 @@ RUN yum update -y && \
                    perl perl-ExtUtils-Embed pesign redhat-rpm-config \
                    rpm-build sh-utils tar xmlto xz zlib-devel clang llvm
 
-RUN cd ~/ && mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
     rpm -i http://vault.centos.org/8.1.1911/BaseOS/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
 
 RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
-    mkdir -p /usr/src/kernels/ && \
-    ln -s linux-${KERNEL_VERSION} /usr/src/kernels/$(uname -r) && \
-    cd linux-${KERNEL_VERSION} && \
+    mkdir -p /usr/src/kernels
+
+RUN cd /usr/src && \
+    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+
+RUN cd /usr/src/linux && \
     make defconfig && \
     make prepare && \
     make scripts && \
