@@ -301,12 +301,14 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 		       strerror(errno));
 		return -1;
 	}
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,3,0)        
 	err = ioctl(efd, PERF_EVENT_IOC_SET_BPF, fd);
 	if (err < 0) {
 		fprintf(stderr,"[eBPF] ioctl PERF_EVENT_IOC_SET_BPF failed err %s\n",
 		       strerror(errno));
 		return -1;
 	}
+#endif
 
 	return 0;
 }
