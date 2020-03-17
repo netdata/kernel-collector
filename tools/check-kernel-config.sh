@@ -14,7 +14,7 @@ function get_rh_version() {
      return
   fi
 
-  r="$(cat /etc/redhat-release | cut -f 4 -d ' ')"
+  r="$(cut -f 4 -d ' ' < /etc/redhat-release)"
 
   read -r -a p <<< "$(echo "${r}" | tr '.' ' ')"
 
