@@ -1,9 +1,11 @@
 #define KBUILD_MODNAME "process_kern"
 #include <linux/bpf.h>
 #include <linux/version.h>
-# include <linux/ptrace.h>
-# include <linux/sched.h>
+#include <linux/ptrace.h>
+#include <linux/sched.h>
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,10,17))
 # include <linux/sched/task.h>
+#endif
 
 #include <linux/threads.h>
 #include <linux/version.h>

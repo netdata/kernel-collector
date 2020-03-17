@@ -12,6 +12,7 @@
 
 int set_bpf_perf_event(int cpu, int map)
 {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,3,0)
     int pmu_fd;
     struct perf_event_attr attr = {
                 .sample_type = PERF_SAMPLE_RAW,
@@ -30,6 +31,9 @@ int set_bpf_perf_event(int cpu, int map)
     ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0);
 
     return pmu_fd;
+#else
+    return -1;
+#endif
 }
 
 void netdata_perf_loop_multi(int *pmu_fds, struct perf_event_mmap_page **headers, int numprocs, int *killme, int (*print_bpf_output)(void *, int), int page_cnt)
