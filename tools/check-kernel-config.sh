@@ -10,7 +10,7 @@ function get_kernel_version() {
 
 function get_rh_version() {
   if [ ! -f /etc/redhat-release ] ; then
-     echo "000000000"
+     printf "000000000"
      return
   fi
 
@@ -29,7 +29,7 @@ fi
 KERNEL_VERSION="$(uname -r)"
 
 if [ "$(get_kernel_version)" -lt 004014000 ] && [ "$(get_rh_version)" -lt 0070061810 ] ; then
-  echo >&2 "Your kernel appears to be older than 4.11 or you are using RH version older than 7.6.1810. This may still work in some cases, but probably won't."
+  echo >&2 "WARNING: Your kernel appears to be older than 4.11 or you are using RH version older than 7.6.1810. This may still work in some cases, but probably won't."
 fi
 
 CONFIG_PATH=""
