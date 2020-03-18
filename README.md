@@ -70,6 +70,17 @@ The build environments are:
 - `musl`  => `Dockerfile.musl` (_based on Alpine 3.11_)
 - `glibc` => `Dockerfile.glibc` (_based on Ubuntu 20.04_)
 
+Tjere is also a convenient `./build.sh` script that you can use that helps
+simplify local builds/testing:
+
+```sh
+$ ./build.sh
+Usage: build.sh <kernel_version> [<libc>]
+```
+
+**NOTE:** That this script doesn't work for the "special" CentOS/RHEL builds
+          as those required their own special build enviornment.
+
 ### Building for glibc
 
 ```sh
@@ -94,6 +105,28 @@ For example:
 ```sh
 $ docker build -f Dodkcerfile.musl -t kernel-collector:musl_5_4 --build--arg KERNEL_VERSION=5.4.18 ./
 $ docker run --rm -v $PWD:/kernel-collector kernel-collector:musl_5_4
+```
+
+### Building for CentOS / RHEL
+
+To build for CentOS / RHEL which required a "special" build environment
+because they use Kernels that are old and heavily patch, Run the following
+with `os` replaced with one of:
+
+- `centos7`
+- `centos8`
+
+```sh
+os="centos7"
+git clean -d -f -x
+docker build -f Dockerfile.glibc."${os}" -t kernel-collector:glibc_"${os}"
+docker run -i -t -v "$PWD":/kernel-collector -w /kernel-collector kernel-collector:glibc_"${os}"
+```
+
+Example:
+
+```sh
+$ os="centos7"; git clean -d -f -x && docker build -f Dockerfile.glibc."${os}" -t kernel-collector:glibc_"${os}" . | tee prepare.log && dki -t -v "$PWD":/kernel-collector -w /kernel-collector kernel-collector:glibc_"${os}" | tee build.log
 ```
 
 ### Building with Debug Symbols
