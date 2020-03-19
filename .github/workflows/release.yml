@@ -1,4 +1,5 @@
 ---
+# Builds and Releases packages for eBPF to be consumed by NetData Agent
 name: CD
 on:
   push:
@@ -21,36 +22,48 @@ jobs:
           - '4.16.18'
           - '4.16.3'
           - '4.15'
+          - '4.18.0'
           - '4.14.171'
+          - '3.10.0'
         libc:
           - glibc
           - musl
         exclude:
+          # excludes musl on 4.18.20
+          - kernel_version: 4.18.20
+            libc: musl
+          # excludes musl on 4.18.16
+          - kernel_version: 4.18.16
+            libc: musl
+          # excludes musl on 4.18.0
+          - kernel_version: 4.18.0
+            libc: musl
+          # excludes musl on 4.16.18
+          - kernel_version: 4.16.18
+            libc: musl
+          # excludes musl on 4.16.3
+          - kernel_version: 4.16.3
+            libc: musl
           # excludes musl on 4.15
           - kernel_version: 4.15
             libc: musl
-          # excludes musl on 4.18.20
-          - kernel_version: 4.18.20
-            libc: musl          
-          # excludes musl on 4.18.16
-          - kernel_version: 4.18.16
-            libc: musl          
-          # excludes musl on 4.16.18
-          - kernel_version: 4.16.18
-            libc: musl          
-          # excludes musl on 4.16.3
-          - kernel_version: 4.16.3
+          # excludes musl on 3.10.0
+          - kernel_version: 3.10.0
             libc: musl
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
-      - name: Prepare Build Image
+        uses: actions/checkout@v2
+      - name: Run buil.sh
         run: |
-          docker build --build-arg KERNEL_VERSION=${{ matrix.kernel_version }} -f Dockerfile.${{ matrix.libc }} -t kernel-collector:${{ matrix.libc }} .
-      - name: Build It
-        run: |
-          docker run --rm -v $PWD:/kernel-collector kernel-collector:${{ matrix.libc }}
+          if [ ${{ matrix.kernel_version }} = "4.18.0" ]; then
+            os=centos8
+          elif [ ${{ matrix.kernel_version }} = "3.10.0" ]; then
+            os=centos7
+          else
+            os=generic
+          fi
+          ./build.sh ${{ matrix.kernel_version }} ${{ matrix.libc }} "${os}"
       - name: List Artifacts
         run: |
           ls -lah artifacts
@@ -106,25 +119,33 @@ jobs:
           - '4.16.18'
           - '4.16.3'
           - '4.15'
+          - '4.18.0'
           - '4.14.171'
+          - '3.10.0'
         libc:
           - glibc
           - musl
         exclude:
+          # excludes musl on 4.18.20
+          - kernel_version: 4.18.20
+            libc: musl
+          # excludes musl on 4.18.16
+          - kernel_version: 4.18.16
+            libc: musl
+          # excludes musl on 4.18.0
+          - kernel_version: 4.18.0
+            libc: musl
+          # excludes musl on 4.16.18
+          - kernel_version: 4.16.18
+            libc: musl
+          # excludes musl on 4.16.3
+          - kernel_version: 4.16.3
+            libc: musl
           # excludes musl on 4.15
           - kernel_version: 4.15
             libc: musl
-          # excludes musl on 4.18.20
-          - kernel_version: 4.18.20
-            libc: musl          
-          # excludes musl on 4.18.16
-          - kernel_version: 4.18.16
-            libc: musl          
-          # excludes musl on 4.16.18
-          - kernel_version: 4.16.18
-            libc: musl          
-          # excludes musl on 4.16.3
-          - kernel_version: 4.16.3
+          # excludes musl on 3.10.0
+          - kernel_version: 3.10.0
             libc: musl
     runs-on: ubuntu-latest
     steps:

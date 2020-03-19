@@ -3,8 +3,7 @@ FROM centos:8.1.1911 AS build
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ARG KERNEL_VERSION=4.18.0-147.5.1.el8_1
-ENV KERNEL_VERSION=$KERNEL_VERSION
+ENV KERNEL_VERSION=4.18.0-147.5.1.el8_1
 
 ENV _LIBC=glibc
 
@@ -29,6 +28,10 @@ RUN cd ~/rpmbuild/SOURCES && \
 
 RUN cd /usr/src && \
     ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+
+COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
+COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
+RUN /patch_kernel.sh
 
 RUN cd /usr/src/linux && \
     make defconfig && \

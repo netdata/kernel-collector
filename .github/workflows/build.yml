@@ -23,19 +23,21 @@ jobs:
           - '4.16.18'
           - '4.16.3'
           - '4.15'
+          - '4.18.0'
           - '4.14.171'
+          - '3.10.0'
         libc:
           - glibc
           - musl
         exclude:
-          # excludes musl on 4.15
-          - kernel_version: 4.15
-            libc: musl
           # excludes musl on 4.18.20
           - kernel_version: 4.18.20
             libc: musl
           # excludes musl on 4.18.16
           - kernel_version: 4.18.16
+            libc: musl
+          # excludes musl on 4.18.0
+          - kernel_version: 4.18.0
             libc: musl
           # excludes musl on 4.16.18
           - kernel_version: 4.16.18
@@ -43,19 +45,26 @@ jobs:
           # excludes musl on 4.16.3
           - kernel_version: 4.16.3
             libc: musl
+          # excludes musl on 4.15
+          - kernel_version: 4.15
+            libc: musl
+          # excludes musl on 3.10.0
+          - kernel_version: 3.10.0
+            libc: musl
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Set build TAG
+      - name: Run buil.sh
         run: |
-          echo "::set-env name=TAG::$(echo ${{ matrix.kernel_version }} | cut -f 1,2 -d '.' | tr '.' '_')_${{ matrix.libc }}"
-      - name: Prepare Build Image
-        run: |
-          docker build --build-arg KERNEL_VERSION=${{ matrix.kernel_version }} -f Dockerfile.${{ matrix.libc }} -t kernel-collector:${TAG} .
-      - name: Build It
-        run: |
-          docker run --rm -v $PWD:/kernel-collector -e DEBUG=1 kernel-collector:${TAG}
+          if [ ${{ matrix.kernel_version }} = "4.18.0" ]; then
+            os=centos8
+          elif [ ${{ matrix.kernel_version }} = "3.10.0" ]; then
+            os=centos7
+          else
+            os=generic
+          fi
+          ./build.sh ${{ matrix.kernel_version }} ${{ matrix.libc }} "${os}"
       - name: List Artifacts
         run: |
           ls -lah artifacts
@@ -65,33 +74,4 @@ jobs:
         if: success()
         with:
           name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-          path: artifacts
-
-  build-special:
-    name: Build Special
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - 'centos7'
-          - 'centos8'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Prepare Build Image
-        run: |
-          docker build -f Dockerfile.glibc.${{ matrix.os }} -t kernel-collector:glibc_${{ matrix.os }} .
-      - name: Build It
-        run: |
-          docker run --rm -v $PWD:/kernel-collector -e DEBUG=1 kernel-collector:glibc_${{ matrix.os }}
-      - name: List Artifacts
-        run: |
-          ls -lah artifacts
-          test -f artifacts/netdata_ebpf-*.tar.xz
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v1
-        if: success()
-        with:
-          name: artifacts-glibc_${{ matrix.os }}
           path: artifacts
