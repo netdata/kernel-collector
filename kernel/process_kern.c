@@ -1,11 +1,9 @@
 #define KBUILD_MODNAME "process_kern"
 #include <linux/bpf.h>
 #include <linux/version.h>
-#include <linux/ptrace.h>
-#include <linux/sched.h>
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,10,17))
+# include <linux/ptrace.h>
+# include <linux/sched.h>
 # include <linux/sched/task.h>
-#endif
 
 #include <linux/threads.h>
 #include <linux/version.h>
@@ -13,6 +11,11 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
+/************************************************************************************
+ *     
+ *                                 Table Section
+ *     
+ ***********************************************************************************/
 
 struct bpf_map_def SEC("maps") tbl_pid_stats = {
     .type = BPF_MAP_TYPE_HASH,
@@ -34,14 +37,13 @@ struct bpf_map_def SEC("maps") tbl_total_stats = {
 
 
 #if NETDATASEL == 1
-struct bpf_map_def SEC("maps") tbl_syscall_stats = {
-    .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
-    .max_entries = 1024
+struct bpf_map_def SEC("maps") tbl_process_error = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(__u64),
+    .value_size = sizeof(struct netdata_error_report_t),
+    .max_entries = 16384
 };
 #endif
-
 
 /************************************************************************************
  *     
@@ -125,18 +127,18 @@ static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
 }
 
 #if NETDATASEL == 1
-static inline void send_perf_error(struct pt_regs* ctx, int ret, int type, __u32 pid)
+static inline void store_error(int ret, int type, __u32 pid)
 {
     struct netdata_error_report_t ner;
+    __u64 ct = bpf_ktime_get_ns();
 
     bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
     ner.pid = pid;
-    ner.type = 4;
+    ner.type = type;
     int err = (int)ret;
     bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
 
-    pid = (__u32)bpf_get_smp_processor_id();
-    bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
+    bpf_map_update_elem(&tbl_process_error, &ct, &ner, BPF_ANY);
 }
 #endif
 
@@ -206,7 +208,7 @@ int netdata_sys_write(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 4, pid);
+        store_error((int)ret, 4, pid);
     }
 #endif
 
@@ -273,7 +275,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 4, pid);
+        store_error((int)ret, 4, pid);
     }
 #endif
 
@@ -340,7 +342,7 @@ int netdata_sys_read(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 3, pid);
+        store_error((int)ret, 3, pid);
     }
 #endif
 
@@ -407,7 +409,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 3, pid);
+        store_error((int)ret, 3, pid);
     }
 #endif
 
@@ -461,7 +463,7 @@ int netdata_sys_open(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 0, pid);
+        store_error((int)ret, 0, pid);
     }
 #endif
 
@@ -515,7 +517,7 @@ int netdata_sys_unlink(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 2, pid);
+        store_error((int)ret, 2, pid);
     }
 #endif
 
@@ -652,10 +654,10 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL == 1
     if (ret < 0) {
 # if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
-        send_perf_error(ctx,(int)ret, 7, pid);
+        store_error((int)ret, 7, pid);
 # else
         int sel = (threads)?8:7 ;
-        send_perf_error(ctx,(int)ret, sel, pid);
+        store_error((int)ret, sel, pid);
 # endif
     }
 #endif
@@ -719,7 +721,7 @@ int netdata_clone(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 8, pid);
+        store_error((int)ret, 8, pid);
     }
 #endif
 
@@ -769,7 +771,7 @@ int netdata_close(struct pt_regs* ctx)
 
 #if NETDATASEL == 1
     if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 1, pid);
+        store_error((int)ret, 1, pid);
     }
 #endif
 
