@@ -21,11 +21,12 @@ all: $(OBJECT_LIBLOAD) $(KERNEL_PROGRAM)
 	cp $(KERNEL_DIR)pprocess_kern.o pnetdata_ebpf_process.o
 	cp $(KERNEL_DIR)dprocess_kern.o dnetdata_ebpf_process.o
 	cp $(KERNEL_DIR)dlatency_process_kern.o dlatency_process_kern.o
+	cp $(KERNEL_DIR)rnetwork_viewer_kern.o netdata_ebpf_network_viewer.o
 	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_monitor process_user.c $(LIBS)
 	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_latency latency_process_user.c $(LIBS)
 	$(CC) $(EXTRA_CFLAGS) -pthread -L. -I../includes/ -o process_test latency_test.c $(LIBS)
-	if [ -f /usr/lib64/libbpf_kernel.so ]; then tar -cf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar /usr/lib64/libbpf_kernel.so* libnetdata_ebpf.so [pr]netdata_ebpf_process.o; elif [ -f /usr/lib/libbpf_kernel.so ]; then tar -cf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar /usr/lib/libbpf_kernel.so* libnetdata_ebpf.so [pr]netdata_ebpf_process.o; else echo "ERROR: Cannot find libbpf_kernel.so"; exit 1; fi
-	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar dnetdata_ebpf_process.o process_latency process_monitor process_test ../tools/check-kernel-config.sh ../tools/install.sh ../tools/uninstall.sh; fi
+	if [ -f /usr/lib64/libbpf_kernel.so ]; then tar -cf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar /usr/lib64/libbpf_kernel.so* libnetdata_ebpf.so [pr]netdata_ebpf_process.o netdata_ebpf_network_viewer.o; elif [ -f /usr/lib/libbpf_kernel.so ]; then tar -cf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar /usr/lib/libbpf_kernel.so* libnetdata_ebpf.so [pr]netdata_ebpf_process.o netdata_ebpf_network_viewer.o; else echo "ERROR: Cannot find libbpf_kernel.so"; exit 1; fi
+	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar dnetdata_ebpf_process.o process_latency process_monitor process_test ../tools/check-kernel-config.sh ../tools/install.sh ../tools/uninstall.sh netdata_ebpf_network_viewer.o; fi
 	xz ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar
 
 $(OBJECT_LIBLOAD):
@@ -42,8 +43,9 @@ clean:
 	if [ -h /usr/lib/libbpf_kernel.so.0 ] ; then rm /usr/lib/libbpf_kernel.so* ; fi
 	if [ -f libnetdata_ebpf.so ] ; then rm libnetdata_ebpf.so; fi
 	if [ -f libnetdata.a ] ; then rm libnetdata.a avl.o libnetdata.o ; fi
-	if [ -f pnetdata_ebpf_process.o ] ; then rm *netdata_ebpf_process.o; fi
+	if [ -f pnetdata_ebpf_process.o ] ; then rm *netdata_ebpf_process.o ; fi
+	if [ -f netdata_ebpf_network_viewer.o ] ; then rm netdata_ebpf_network_viewer.o ; fi
 	rm netdata_ebpf_*.tar.xz
 
 install:
-	cp *netdata_ebpf_process.o libnetdata_ebpf.so /usr/libexec/netdata/plugins.d/
+	cp *netdata_ebpf_process.o libnetdata_ebpf.so netdata_ebpf_network_viewer.o /usr/libexec/netdata/plugins.d/
