@@ -11,7 +11,7 @@ struct netdata_error_report_t {
 };
 
 # define NETDATA_GLOBAL_COUNTER 24
-# define NETDATA_SOCKET_COUNTER 6
+# define NETDATA_SOCKET_COUNTER 10
 
 
 //fork() creates process

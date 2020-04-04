@@ -40,3 +40,28 @@ void netdata_perf_loop_multi(int *pmu_fds, struct perf_event_mmap_page **headers
 {
     perf_event_poller_multi(pmu_fds, headers, numprocs, print_bpf_output, killme, page_cnt);
 }
+
+//The next function was created for we have access to `bpf_*`
+//functions used inside it.
+struct map_me_to_others {
+    int useless;
+};
+
+static void force_map() {
+    int fd = 1;
+    uint64_t key = 0, next_key;
+    struct map_me_to_others value;
+    while (bpf_map_get_next_key(fd, &key, &next_key) == 0) {
+        bpf_map_lookup_elem(fd, &next_key, &value);
+
+        bpf_map_delete_elem(fd, &next_key);
+    }
+}
+
+void do_not_call_me_I_am_here_to_avoid_compilation_warning() {
+    int test = 1;
+    if (test)
+        return;
+
+    force_map();
+}

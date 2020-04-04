@@ -16,25 +16,34 @@
 # define NETDATA_SOCKET_COUNTER 10
 # define NETDATA_GET_TGID 0X00000000FFFFFFFF
 
+struct netdata_error_report_t {
+    char comm[TASK_COMM_LEN];
+    __u32 pid;
+
+    int type;
+    int err;
+};
+
 union netdata_ip {
     __u8 addr8[16];
     __u16 addr16[8];
     __u32 addr32[4];
 };
 
-struct netdata_statistic_t {
-    __u32 tgid;
-
-    __u64 first;
-    __u64 ct;
+struct netdata_tuple_t {
+    __u32 pid;
     union netdata_ip saddr;
     union netdata_ip daddr;
     __u16 dport;
+};
+
+struct netdata_statistic_t {
+    __u64 first;
+    __u64 ct;
     __u16 retransmit;
     __u64 sent;
     __u64 recv;
     __u8 protocol;
-    __u16 family;
     __u8 removeme;
 };
 
@@ -70,7 +79,7 @@ struct netdata_pid_stat_t {
 
 struct bpf_map_def SEC("maps") tbl_nv_conn_stats = {
     .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
+    .key_size = sizeof(struct netdata_tuple_t),
     .value_size = sizeof(struct netdata_statistic_t),
     .max_entries = 65536
 };
@@ -107,11 +116,36 @@ struct bpf_map_def SEC("maps") tbl_nv_udp_stats = {
     .max_entries = 65536
 };
 
+#if NETDATASEL < 2
+struct bpf_map_def SEC("maps") tbl_nv_process_error = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(__u64),
+    .value_size = sizeof(struct netdata_error_report_t),
+    .max_entries = 16384
+};
+#endif
+
 /************************************************************************************
  *     
  *                                 COMMON Section
  *     
  ***********************************************************************************/
+
+#if NETDATASEL < 2
+static inline void store_error(int ret, int type, __u32 pid)
+{
+    struct netdata_error_report_t ner;
+    __u64 ct = bpf_ktime_get_ns();
+
+    bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
+    ner.pid = pid;
+    ner.type = type;
+    int err = (int)ret;
+    bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
+
+    bpf_map_update_elem(&tbl_nv_process_error, &ct, &ner, BPF_ANY);
+}
+#endif
 
 static void netdata_update_u32(u32 *res, u32 value)
 {
@@ -165,28 +199,37 @@ static void set_port_stats(struct bpf_map_def *ptr, __u16 port, __u64 sent, __u6
     }
 }
 
+static __u16 set_tuple_key_value(struct netdata_tuple_t *nt, struct inet_sock *is, uint32_t pid)
+{
+    __u16 family;
+
+    nt->pid = pid;
+    bpf_probe_read(&family, sizeof(u16), &is->sk.__sk_common.skc_family);
+    if ( family == AF_INET ) { //AF_INET
+        bpf_probe_read(&nt->saddr.addr32[0], sizeof(u32), &is->inet_saddr);
+        bpf_probe_read(&nt->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
+    }
+#if IS_ENABLED(CONFIG_IPV6)
+    else if ( family == AF_INET6){
+        struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr;
+        bpf_probe_read(&nt->saddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+
+        addr6 = &is->sk.sk_v6_daddr;
+        bpf_probe_read(&nt->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+    }
+#endif
+
+    bpf_probe_read(&nt->dport, sizeof(u16), &is->inet_dport);
+
+    return family;
+}
+
+
 static void set_statistic(struct netdata_statistic_t *ns, struct inet_sock *is, size_t sent, size_t received)
 {
     __u64 ct = bpf_ktime_get_ns();
     ns->first = ct;
     ns->ct = ct;
-
-    bpf_probe_read(&ns->family, sizeof(u16), &is->sk.__sk_common.skc_family);
-    if ( ns->family == AF_INET ) { //AF_INET
-        bpf_probe_read(&ns->saddr.addr32[0], sizeof(u32), &is->inet_saddr);
-        bpf_probe_read(&ns->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
-    }
-#if IS_ENABLED(CONFIG_IPV6)
-    else if ( ns->family == AF_INET6){
-        struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr;
-        bpf_probe_read(&ns->saddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
-
-        addr6 = &is->sk.sk_v6_daddr;
-        bpf_probe_read(&ns->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
-    }
-#endif
-
-    bpf_probe_read(&ns->dport, sizeof(u16), &is->inet_dport);
     ns->retransmit = 0;
     ns->sent = (__u64)sent;
     ns->recv = (__u64)received;
@@ -208,9 +251,20 @@ static void netdata_update_global(__u32 key, __u32 value)
  *     
  ***********************************************************************************/
 
+#if NETDATASEL < 2
+SEC("kretprobe/tcp_sendmsg")
+#else
 SEC("kprobe/tcp_sendmsg")
+#endif
 int trace_tcp_sendmsg(struct pt_regs* ctx)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+    struct netdata_tuple_t key = { };
+    __u16 family;
+#endif
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+#endif
     size_t length = (size_t)PT_REGS_PARM3(ctx);
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
     struct netdata_statistic_t data = { };
@@ -222,7 +276,8 @@ int trace_tcp_sendmsg(struct pt_regs* ctx)
 
     struct netdata_statistic_t *ns;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &pid);
+    family = set_tuple_key_value(&key, is, pid);
+    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &key);
     if(ns)
     {
         ns->sent += (__u64)length;
@@ -232,38 +287,39 @@ int trace_tcp_sendmsg(struct pt_regs* ctx)
     {
 #endif
         set_statistic(&data, is, length, 0);
-        data.tgid = (__u32)(pid_tgid & NETDATA_GET_TGID);
         data.protocol = 6;
         data.removeme = 0;
 
         ns = &data;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-        bpf_map_update_elem(&tbl_nv_conn_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_nv_conn_stats, &key, &data, BPF_ANY);
     }
 
-    set_port_stats(&tbl_nv_tcp_stats, ns->dport, (__u64)length, 0, ns->family);
+    set_port_stats(&tbl_nv_tcp_stats, key.dport, (__u64)length, 0, family);
 #endif
 
     /*
     __u32 cpuid = bpf_get_smp_processor_id();
     bpf_perf_event_output(ctx, &tbl_nv_netdata_stats, cpuid, ns, sizeof(struct netdata_statistic_t));
     */
+#if NETDATASEL < 2
+    if (ret < 0) {
+        netdata_update_global(6, 1);
+        store_error(ret, 0, pid);
+    }
+#endif
 
     return 0;
 }
-
-/* CREATE A TABLE TO REGISTRY FAILS
-SEC("kretprobe/tcp_sendmsg")
-int ret_tcp_sendmsg(struct pt_regs* ctx)
-{
-    return 0;
-}
-*/
 
 SEC("kprobe/tcp_cleanup_rbuf")
 int netdata_trace_tcp_cleanup_rbuf(struct pt_regs* ctx)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+    struct netdata_tuple_t key = { };
+    __u16 family;
+#endif
     struct netdata_statistic_t data = { };
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
     int copied = (int)PT_REGS_PARM2(ctx);
@@ -274,13 +330,13 @@ int netdata_trace_tcp_cleanup_rbuf(struct pt_regs* ctx)
         return 0;
     }
 
-
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
     struct netdata_statistic_t *ns;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &pid);
+    family = set_tuple_key_value(&key, is, pid);
+    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &key);
     if(ns)
     {
         ns->recv += (__u64)copied;
@@ -290,16 +346,15 @@ int netdata_trace_tcp_cleanup_rbuf(struct pt_regs* ctx)
     {
 #endif
         set_statistic(&data, is, 0, (size_t)copied);
-        data.tgid = (__u32)(pid_tgid & NETDATA_GET_TGID);
         data.protocol = 6;
         data.removeme = 0;
         ns = &data;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-        bpf_map_update_elem(&tbl_nv_conn_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_nv_conn_stats, &key, &data, BPF_ANY);
     }
 
-    set_port_stats(&tbl_nv_tcp_stats, ns->dport, 0, (__u64)copied, ns->family);
+    set_port_stats(&tbl_nv_tcp_stats, key.dport, 0, (__u64)copied, family);
 #endif
 
     /*
@@ -310,9 +365,20 @@ int netdata_trace_tcp_cleanup_rbuf(struct pt_regs* ctx)
     return 0;
 }
 
+#if NETDATASEL < 2
+SEC("kretprobe/tcp_retransmit_skb")
+#else
 SEC("kprobe/tcp_retransmit_skb")
+#endif
 int netdata_trace_retransmit(struct pt_regs* ctx)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+    struct netdata_tuple_t key = { };
+    __u16 family;
+#endif
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+#endif
     struct netdata_statistic_t data = { };
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
@@ -323,7 +389,8 @@ int netdata_trace_retransmit(struct pt_regs* ctx)
 
     struct netdata_statistic_t *ns;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &pid);
+    family = set_tuple_key_value(&key, is, pid);
+    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &key);
     if(ns)
     {
         ns->retransmit += 1;
@@ -333,13 +400,12 @@ int netdata_trace_retransmit(struct pt_regs* ctx)
     {
 #endif
         set_statistic(&data, is, 0, 0);
-        data.tgid = (__u32)(pid_tgid & NETDATA_GET_TGID);
         data.protocol = 6;
         data.removeme = 0;
         data.retransmit = 1;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-        bpf_map_update_elem(&tbl_nv_conn_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_nv_conn_stats, &key, &data, BPF_ANY);
     }
 #endif
 
@@ -347,6 +413,12 @@ int netdata_trace_retransmit(struct pt_regs* ctx)
     __u32 cpuid = bpf_get_smp_processor_id();
     bpf_perf_event_output(ctx, &tbl_nv_netdata_stats, cpuid, &data, sizeof(data));
     */
+#if NETDATASEL < 2
+    if (ret < 0) {
+        netdata_update_global(7, 1);
+        store_error(ret, 2, pid);
+    }
+#endif
 
     return 0;
 }
@@ -355,44 +427,26 @@ SEC("kprobe/tcp_close")
 int netdata_tcp_v4_destroy_sock(struct pt_regs* ctx)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+    struct netdata_tuple_t key = { };
+    __u16 family;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
-
-    struct netdata_statistic_t data = { };
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     struct netdata_statistic_t *ns;
-    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &pid);
+    family = set_tuple_key_value(&key, is, pid);
+    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &key);
     if(!ns)
     {
        return 0;
     }
-
-    data.first = ns->first;
-    data.ct = bpf_ktime_get_ns();
-    data.saddr.addr32[0] = ns->saddr.addr32[0];
-    data.saddr.addr32[1] = ns->saddr.addr32[1];
-    data.saddr.addr32[2] = ns->saddr.addr32[2];
-    data.saddr.addr32[3] = ns->saddr.addr32[3];
-
-    data.daddr.addr32[0] = ns->daddr.addr32[0];
-    data.daddr.addr32[1] = ns->daddr.addr32[1];
-    data.daddr.addr32[2] = ns->daddr.addr32[2];
-    data.daddr.addr32[3] = ns->daddr.addr32[3];
-
-    data.dport = ns->dport;
-    data.retransmit = ns->retransmit;
-    data.sent = ns->sent;
-    data.recv = ns->recv;
-    data.protocol = ns->protocol;
-    data.family = 0;
-    data.removeme = 1;
 
     /*
     __u32 cpuid = bpf_get_smp_processor_id();
     bpf_perf_event_output(ctx, &tbl_nv_netdata_stats, cpuid, &data, sizeof(data));
     */
 
-    bpf_map_delete_elem(&tbl_nv_conn_stats, &pid);
+    bpf_map_delete_elem(&tbl_nv_conn_stats, &key);
 
     netdata_update_global(3, 1);
 #endif
@@ -423,6 +477,10 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
 SEC("kretprobe/udp_recvmsg")
 int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+    struct netdata_tuple_t key = { };
+    __u16 family;
+#endif
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
@@ -438,13 +496,18 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     if(copied < 0)
     {
         bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
+#if NETDATASEL < 2
+        netdata_update_global(8, 1);
+        store_error(copied, 4, pid);
+#endif
         return 0;
     }
 
     struct netdata_statistic_t data = { };
     struct netdata_statistic_t *ns;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &pid);
+    family = set_tuple_key_value(&key, is, pid);
+    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &key);
     if(ns)
     {
         ns->recv += (__u64)copied;
@@ -453,16 +516,15 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     {
 #endif
         set_statistic(&data, is, 0, (size_t)copied);
-        data.tgid = (__u32)(pid_tgid & NETDATA_GET_TGID);
         data.protocol = 17;
         data.removeme = 0;
         ns = &data;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-        bpf_map_update_elem(&tbl_nv_conn_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_nv_conn_stats, &key, &data, BPF_ANY);
     }
     bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
 
-    set_port_stats(&tbl_nv_udp_stats, ns->dport, 0, (__u64)copied, ns->family);
+    set_port_stats(&tbl_nv_udp_stats, key.dport, 0, (__u64)copied, family);
 #endif
 
     /*
@@ -473,9 +535,20 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     return 0;
 }
 
+#if NETDATASEL < 2
+SEC("kretprobe/udp_sendmsg")
+#else
 SEC("kprobe/udp_sendmsg")
+#endif
 int trace_udp_sendmsg(struct pt_regs* ctx)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+    struct netdata_tuple_t key = { };
+    __u16 family;
+#endif
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+#endif
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
     size_t length = (size_t)PT_REGS_PARM3(ctx);
     struct netdata_statistic_t data = { };
@@ -486,7 +559,8 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 
     struct netdata_statistic_t *ns;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &pid);
+    family = set_tuple_key_value(&key, is, pid);
+    ns = (struct netdata_statistic_t *) bpf_map_lookup_elem(&tbl_nv_conn_stats, &key);
     if(ns)
     {
         ns->sent += (__u64)length;
@@ -496,22 +570,27 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     {
 #endif
         set_statistic(&data, is, length, 0);
-        data.tgid = (__u32)(pid_tgid & NETDATA_GET_TGID);
         data.protocol = 17;
         data.removeme = 0;
         ns = &data;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
-        bpf_map_update_elem(&tbl_nv_conn_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_nv_conn_stats, &key, &data, BPF_ANY);
     }
 
-    set_port_stats(&tbl_nv_udp_stats, ns->dport, (__u64)length, 0, ns->family);
+    set_port_stats(&tbl_nv_udp_stats, key.dport, (__u64)length, 0, family);
 #endif
 
     /*
     __u32 cpuid = bpf_get_smp_processor_id();
     bpf_perf_event_output(ctx, &tbl_nv_netdata_stats, cpuid, ns, sizeof(struct netdata_statistic_t));
     */
+#if NETDATASEL < 2
+    if (ret < 0) {
+        netdata_update_global(9, 1);
+        store_error(ret, 5, pid);
+    }
+#endif
 
     return 0;
 }
