@@ -21,6 +21,9 @@
 #include <limits.h>
 #include <string.h>
 #include <unistd.h>
+// clang-format off
+#include <linux/stddef.h>
+// clang-format on
 #include <endian.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -35,9 +38,6 @@
 #include <linux/perf_event.h>
 #include <linux/ring_buffer.h>
 #include <linux/version.h>
-// clang-format off
-#include <linux/stddef.h>
-// clang-format on
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
