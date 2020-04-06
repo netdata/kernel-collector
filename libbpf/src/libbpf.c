@@ -35,6 +35,9 @@
 #include <linux/perf_event.h>
 #include <linux/ring_buffer.h>
 #include <linux/version.h>
+// clang-format off
+#include <linux/stddef.h>
+// clang-format on
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
