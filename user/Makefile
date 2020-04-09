@@ -27,6 +27,7 @@ all: $(OBJECT_LIBLOAD) $(KERNEL_PROGRAM)
 	if [ -f /usr/lib64/libbpf_kernel.so ]; then tar -cf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar /usr/lib64/libbpf_kernel.so* libnetdata_ebpf.so [pr]netdata_ebpf_process.o; elif [ -f /usr/lib/libbpf_kernel.so ]; then tar -cf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar /usr/lib/libbpf_kernel.so* libnetdata_ebpf.so [pr]netdata_ebpf_process.o; else echo "ERROR: Cannot find libbpf_kernel.so"; exit 1; fi
 	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar dnetdata_ebpf_process.o process_latency process_monitor process_test ../tools/check-kernel-config.sh ../tools/install.sh ../tools/uninstall.sh; fi
 	xz ../artifacts/netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar
+	( cd ../artifacts; sha256sum netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz > netdata_ebpf-$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz.sha256sum )
 
 $(OBJECT_LIBLOAD):
 	cd $(LIBLOAD_DIR) && $(MAKE) all;
