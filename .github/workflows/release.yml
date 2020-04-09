@@ -178,3 +178,12 @@ jobs:
           asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}
           asset_name: ${{ steps.asset-filename.outputs.name }}
           asset_content_type: application/x-gtar
+      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}.sha256sum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}.sha256sum
+          asset_name: ${{ steps.asset-filename.outputs.name }}
+          asset_content_type: application/x-gtar
