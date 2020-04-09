@@ -33,7 +33,7 @@ struct bpf_map_def SEC("maps") tbl_total_stats = {
 };
 
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
 struct bpf_map_def SEC("maps") tbl_syscall_stats = {
     .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
     .key_size = sizeof(__u32),
@@ -124,7 +124,7 @@ static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
     ptr->fork_err = 0;
 }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
 static inline void send_perf_error(struct pt_regs* ctx, int ret, int type, __u32 pid)
 {
     struct netdata_error_report_t ner;
@@ -204,7 +204,7 @@ int netdata_sys_write(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
     if (ret < 0) {
         send_perf_error(ctx,(int)ret, 4, pid);
     }
@@ -271,7 +271,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
     if (ret < 0) {
         send_perf_error(ctx,(int)ret, 4, pid);
     }
@@ -338,7 +338,7 @@ int netdata_sys_read(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
     if (ret < 0) {
         send_perf_error(ctx,(int)ret, 3, pid);
     }
@@ -405,7 +405,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
     if (ret < 0) {
         send_perf_error(ctx,(int)ret, 3, pid);
     }
@@ -459,7 +459,7 @@ int netdata_sys_open(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
     if (ret < 0) {
         send_perf_error(ctx,(int)ret, 0, pid);
     }
@@ -513,7 +513,7 @@ int netdata_sys_unlink(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
     if (ret < 0) {
         send_perf_error(ctx,(int)ret, 2, pid);
     }
@@ -653,7 +653,7 @@ int netdata_fork(struct pt_regs* ctx)
     if (ret < 0) {
 # if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
         send_perf_error(ctx,(int)ret, 7, pid);
-# else
+# elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
         int sel = (threads)?8:7 ;
         send_perf_error(ctx,(int)ret, sel, pid);
 # endif
@@ -717,7 +717,7 @@ int netdata_clone(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
     if (ret < 0) {
         send_perf_error(ctx,(int)ret, 8, pid);
     }
@@ -767,7 +767,7 @@ int netdata_close(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
     }
 
-#if NETDATASEL == 1
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
     if (ret < 0) {
         send_perf_error(ctx,(int)ret, 1, pid);
     }
