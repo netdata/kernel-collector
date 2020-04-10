@@ -149,7 +149,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 	} else if (is_sockops) {
 		prog_type = BPF_PROG_TYPE_SOCK_OPS;
 	} 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
         else if (is_sk_skb) {
 		prog_type = BPF_PROG_TYPE_SK_SKB;
 	} 
@@ -301,14 +301,12 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 		       strerror(errno));
 		return -1;
 	}
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4,3,0)        
 	err = ioctl(efd, PERF_EVENT_IOC_SET_BPF, fd);
 	if (err < 0) {
 		fprintf(stderr,"[eBPF] ioctl PERF_EVENT_IOC_SET_BPF failed err %s\n",
 		       strerror(errno));
 		return -1;
 	}
-#endif
 
 	return 0;
 }
