@@ -83,7 +83,7 @@ $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSIO
 
 $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
 	$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
-		      -Wl,-soname,libbpf.so.$(LIBBPF_MAJOR_VERSION) \
+		      -Wl,-soname,libbpf_kernel.so.$(LIBBPF_MAJOR_VERSION) \
 		      $^ $(ALL_LDFLAGS) -o $@
 
 $(OBJDIR)/libbpf.pc:
