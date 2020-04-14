@@ -22,6 +22,7 @@
 #include <sys/syscall.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/utsname.h>
 #include <poll.h>
 #include <ctype.h>
 #include <assert.h>
