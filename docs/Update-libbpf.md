@@ -10,7 +10,7 @@ This is the first version released by Libbpf team that we modified. This version
  older than `4.15`.  The selection is done inside `library/Makefile` depending on the kernel used to compile 
 the library.
 
-We only need to change this directory, case we begin to support kernels older than `4.11`.
+We only need to update this directory if we decide to support Kernels older than `4.11`.
 
 ## Libbpf
 
