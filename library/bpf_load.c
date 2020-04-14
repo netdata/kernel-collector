@@ -45,7 +45,7 @@ struct bpf_map_data map_data[MAX_MAPS];
 int map_data_count;
 
 //Source:libbpf/src/libbpf.c
-static int get_kernel_version() {
+static __u32 get_kernel_version() {
     __u32 major, minor, patch;
     struct utsname info;
 
