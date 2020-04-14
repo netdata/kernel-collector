@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
+//
+// SOURCE: https://github.com/torvalds/linux/blob/master/samples/bpf/bpf_load.c
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>

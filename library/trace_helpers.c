@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
+//
+// SOURCE: https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/trace_helpers.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
