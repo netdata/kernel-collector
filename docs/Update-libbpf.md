@@ -7,7 +7,7 @@ updating our repository with the latest version of Libbpf every time a new relea
 ## Libbpf 0.0.1
 
 This is the first version released by Libbpf team that we modified. This version is used to compile any kernel 
- older than `4.15`.  The selection is done inside `library/Makefile` depending of the kernel used to compile 
+ older than `4.15`.  The selection is done inside `library/Makefile` depending on the kernel used to compile 
 the library.
 
 We only need to change this directory, case we begin to support kernels older than `4.11`.
