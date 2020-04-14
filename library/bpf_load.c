@@ -42,6 +42,45 @@ int prog_array_fd = -1;
 struct bpf_map_data map_data[MAX_MAPS];
 int map_data_count;
 
+static int get_kernel_version() {
+    char major[16], minor[16], patch[16];
+    char ver[256];
+    char *version = ver;
+
+    int fd = open("/proc/sys/kernel/osrelease", O_RDONLY);
+    if (fd < 0)
+        return 0;
+
+    ssize_t len = read(fd, ver, sizeof(ver));
+    if (len < 0) {
+        close(fd);
+        return 0;
+    }
+    ver[len] = 0x00;
+
+    close(fd);
+
+    char *move = major;
+    while (*version && *version != '.') *move++ = *version++;
+    *move = '\0';
+
+    version++;
+    move = minor;
+    while (*version && *version != '.') *move++ = *version++;
+    *move = '\0';
+
+    if (*version)
+        version++;
+    else
+        return 0;
+
+    move = patch;
+    while (*version) *move++ = *version++;
+    *move = '\0';
+
+    return ((int)(atoi(major)*65536) + (int)(atoi(minor)*256) + (int)atoi(patch));
+}
+
 static int populate_prog_array(const char *event, int prog_fd)
 {
 	int ind = atoi(event), err;
@@ -118,6 +157,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 	char buf_name[128];
 	int fd, efd, err, id;
 	struct perf_event_attr attr = {};
+        int kv;
 
 	buf_name[0] = '\0';
 
@@ -166,6 +206,10 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 
 	if (prog_cnt == MAX_PROGS)
 		return -1;
+
+        kv = get_kernel_version();
+        if (kern_version != kv)
+            kern_version = kv;
 
 	fd = bpf_load_program(prog_type, prog, insns_cnt, license, kern_version,
 			      bpf_log_buf, BPF_LOG_BUF_SIZE);
