@@ -14,10 +14,8 @@ We only need to update this directory if we decide to support Kernels older than
 
 ## Libbpf
 
-This is the latest version of the library. The update process of this directory is not a simple overwrite of files,
- because we had to do adjusts to avoid errors with old compilers, we also need to change some files inside 
- the library, because we are not using the default shared library name, instead we are renaming it to 
- `libbpf_kernel.so`.
+This is the latest version of the library. The update process of this directory is not as simple as overwriting the files,
+ because we need to do adjusts the sources and build slightly to avoid compilation errors with older compilers. We also need to change some files inside the library, because we are not using the default shared library name, instead we are renaming it to  `libbpf_kernel.so`.
 
 ### Changes inside `src/libbpf.c`
 
