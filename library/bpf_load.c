@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
+//
+// SOURCE: https://github.com/torvalds/linux/blob/master/samples/bpf/bpf_load.c
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -20,6 +22,7 @@
 #include <sys/syscall.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/utsname.h>
 #include <poll.h>
 #include <ctype.h>
 #include <assert.h>
@@ -41,6 +44,18 @@ int prog_array_fd = -1;
 
 struct bpf_map_data map_data[MAX_MAPS];
 int map_data_count;
+
+//Source:libbpf/src/libbpf.c
+static __u32 get_kernel_version() {
+    __u32 major, minor, patch;
+    struct utsname info;
+
+    uname(&info);
+    if (sscanf(info.release, "%u.%u.%u", &major, &minor, &patch) != 3)
+        return 0;
+
+    return KERNEL_VERSION(major, minor, patch);
+}
 
 static int populate_prog_array(const char *event, int prog_fd)
 {
@@ -118,6 +133,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 	char buf_name[128];
 	int fd, efd, err, id;
 	struct perf_event_attr attr = {};
+        int kv;
 
 	buf_name[0] = '\0';
 
@@ -166,6 +182,10 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 
 	if (prog_cnt == MAX_PROGS)
 		return -1;
+
+        kv = get_kernel_version();
+        if (kern_version != kv)
+            kern_version = kv;
 
 	fd = bpf_load_program(prog_type, prog, insns_cnt, license, kern_version,
 			      bpf_log_buf, BPF_LOG_BUF_SIZE);
