@@ -28,7 +28,7 @@ struct bpf_map_def SEC("maps") tbl_total_stats = {
     .type = BPF_MAP_TYPE_PERCPU_HASH,
 #endif
     .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
     .max_entries =  NETDATA_GLOBAL_COUNTER
 };
 
@@ -82,18 +82,18 @@ static void netdata_update_u32(u32 *res, u32 value)
 
 static void netdata_update_u64(u64 *res, u64 value) 
 {
-    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value)
+    if ( (0x7FFFFFFFFFFFFFFF - *res) <= value)
         *res = value;
     else 
         *res += value;
 }
 
-static void netdata_update_global(__u32 key, __u32 value)
+static void netdata_update_global(__u32 key, __u64 value)
 {
     u32 *res;
     res = bpf_map_lookup_elem(&tbl_total_stats, &key);
     if (res) {
-        netdata_update_u32(res, value) ;
+        netdata_update_u64(res, value) ;
     } else
         bpf_map_update_elem(&tbl_total_stats, &key, &value, BPF_NOEXIST);
 }
@@ -158,7 +158,7 @@ int netdata_sys_write(struct pt_regs* ctx)
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
-    __u32 tot;
+    __u64 tot;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
@@ -172,7 +172,7 @@ int netdata_sys_write(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITE, 1);
             netdata_update_u32(&fill->write_err, 1) ;
         } else {
-            tot = (__u32)log2l(ret);
+            tot = log2l(ret);
 #else
             tot = 0;
 #endif
@@ -190,7 +190,7 @@ int netdata_sys_write(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITE, 1);
             data.write_err = 1;
         } else {
-            tot = (__u32)log2l(ret);
+            tot = log2l(ret);
 #else
             tot = 0;
 #endif
@@ -225,7 +225,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
-    __u32 tot;
+    __u64 tot;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
@@ -239,7 +239,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITEV, 1);
             netdata_update_u32(&fill->writev_err, 1) ;
         } else {
-            tot = (__u32)log2l(ret);
+            tot = log2l(ret);
 #else
             tot = 0;
 #endif
@@ -257,7 +257,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITEV, 1);
             data.writev_err = 1;
         } else {
-            tot = (__u32)log2l(ret);
+            tot = log2l(ret);
 #else
             tot = 0;
 #endif
@@ -292,7 +292,7 @@ int netdata_sys_read(struct pt_regs* ctx)
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
-    __u32 tot;
+    __u64 tot;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
@@ -306,7 +306,7 @@ int netdata_sys_read(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_READ, 1);
             netdata_update_u32(&fill->read_err, 1) ;
         } else {
-            tot = (__u32)log2l(ret);
+            tot = log2l(ret);
 #else
             tot = 0;
 #endif
@@ -324,7 +324,7 @@ int netdata_sys_read(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_READ, 1);
             data.read_err = 1;
         } else {
-            tot = (__u32)log2l(ret);
+            tot = log2l(ret);
 #else
             tot = 0;
 #endif
@@ -359,7 +359,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
-    __u32 tot;
+    __u64 tot;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
@@ -373,7 +373,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_READV, 1);
             netdata_update_u32(&fill->readv_err, 1) ;
         } else {
-            tot = (__u32)log2l(ret);
+            tot = log2l(ret);
 #else
             tot = 0;
 #endif
@@ -391,7 +391,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_READV, 1);
             data.readv_err = 1;
         } else {
-            tot = (__u32)log2l(ret);
+            tot = log2l(ret);
 #else
             tot = 0;
 #endif
