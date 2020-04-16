@@ -162,21 +162,21 @@ int netdata_sys_write(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(2, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_VFS_WRITE, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->write_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(3, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITE, 1);
             netdata_update_u32(&fill->write_err, 1) ;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(4, tot);
+            netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITE, tot);
             netdata_update_u64(&fill->write_bytes, (u64) tot);
 #if NETDATASEL < 2
         }
@@ -187,14 +187,14 @@ int netdata_sys_write(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(3, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITE, 1);
             data.write_err = 1;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(4, tot);
+            netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITE, tot);
             data.write_bytes = (u64)tot;
 #if NETDATASEL < 2
         }
@@ -229,21 +229,21 @@ int netdata_sys_writev(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(18, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_VFS_WRITEV, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->writev_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(19, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITEV, 1);
             netdata_update_u32(&fill->writev_err, 1) ;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(20, tot);
+            netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITEV, tot);
             netdata_update_u64(&fill->writev_bytes, (u64) tot);
 #if NETDATASEL < 2
         }
@@ -254,14 +254,14 @@ int netdata_sys_writev(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(19, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITEV, 1);
             data.writev_err = 1;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(20, tot);
+            netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITEV, tot);
             data.writev_bytes = (unsigned long)tot;
 #if NETDATASEL < 2
         }
@@ -296,21 +296,21 @@ int netdata_sys_read(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(5, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_VFS_READ, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->read_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(6, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_READ, 1);
             netdata_update_u32(&fill->read_err, 1) ;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(7, tot);
+            netdata_update_global(NETDATA_KEY_BYTES_VFS_READ, tot);
             netdata_update_u64(&fill->read_bytes, (u64) tot);
 #if NETDATASEL < 2
         }
@@ -321,14 +321,14 @@ int netdata_sys_read(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(6, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_READ, 1);
             data.read_err = 1;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(7, tot);
+            netdata_update_global(NETDATA_KEY_BYTES_VFS_READ, tot);
             data.read_bytes = (unsigned long)tot;
 #if NETDATASEL < 2
         }
@@ -363,21 +363,21 @@ int netdata_sys_readv(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(21, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_VFS_READV, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->readv_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(22, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_READV, 1);
             netdata_update_u32(&fill->readv_err, 1) ;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(23, tot);
+            netdata_update_global(NETDATA_KEY_BYTES_VFS_READV, tot);
             netdata_update_u64(&fill->readv_bytes, (u64) tot);
 #if NETDATASEL < 2
         }
@@ -388,14 +388,14 @@ int netdata_sys_readv(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(22, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_READV, 1);
             data.readv_err = 1;
         } else {
             tot = (__u32)log2l(ret);
 #else
             tot = 0;
 #endif
-            netdata_update_global(23, tot);
+            netdata_update_global(NETDATA_KEY_BYTES_VFS_READV, tot);
             data.readv_bytes = (unsigned long)tot;
 #if NETDATASEL < 2
         }
@@ -429,14 +429,14 @@ int netdata_sys_open(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(0, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_DO_SYS_OPEN, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->open_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(1, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_DO_SYS_OPEN, 1);
             netdata_update_u32(&fill->open_err, 1) ;
         } 
 #endif
@@ -447,7 +447,7 @@ int netdata_sys_open(struct pt_regs* ctx)
 #if NETDATASEL < 2
         if (ret < 0) {
             data.open_err = 1;
-            netdata_update_global(1, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_DO_SYS_OPEN, 1);
         } else {
 #endif
             data.open_err = 0;
@@ -483,14 +483,14 @@ int netdata_sys_unlink(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(8, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_VFS_UNLINK, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->unlink_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(9, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_UNLINK, 1);
             netdata_update_u32(&fill->unlink_err, 1) ;
         } 
 #endif
@@ -500,7 +500,7 @@ int netdata_sys_unlink(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(9, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_VFS_UNLINK, 1);
             data.unlink_err = 1;
         } else {
 #endif
@@ -536,7 +536,7 @@ int netdata_sys_exit(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(10, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_DO_EXIT, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->exit_call, 1) ;
@@ -552,7 +552,7 @@ int netdata_release_task(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(11, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_RELEASE_TASK, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->release_call, 1) ;
@@ -597,10 +597,10 @@ int netdata_fork(struct pt_regs* ctx)
     }
 #endif
 
-    netdata_update_global(12, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_DO_FORK, 1);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
     if(threads) {
-        netdata_update_global(16, 1);
+        netdata_update_global(NETDATA_KEY_CALLS_SYS_CLONE, 1);
     }
 #endif
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
@@ -616,10 +616,10 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL < 2
         if (ret < 0) {
             netdata_update_u32(&fill->fork_err, 1) ;
-            netdata_update_global(13, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
 # if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
             if(threads) {
-                netdata_update_global(17, 1);
+                netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
                 netdata_update_u32(&fill->clone_err, 1) ;
             }
 # endif
@@ -636,11 +636,11 @@ int netdata_fork(struct pt_regs* ctx)
         }
 # endif
         if (ret < 0) {
-            netdata_update_global(13, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
             data.fork_err = 1;
 # if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
             if (threads) {
-                netdata_update_global(17, 1);
+                netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
                 data.clone_err = 1;
             }
 # endif
@@ -692,14 +692,14 @@ int netdata_clone(struct pt_regs* ctx)
     if(!arg1)
         return 0;
 
-    netdata_update_global(16, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_SYS_CLONE, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->clone_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(17, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
             netdata_update_u32(&fill->clone_err, 1) ;
         } 
 #endif
@@ -709,7 +709,7 @@ int netdata_clone(struct pt_regs* ctx)
         data.clone_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(17, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
             data.clone_err = 1;
         } 
 #endif
@@ -742,14 +742,14 @@ int netdata_close(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
 
-    netdata_update_global(14, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_CLOSE_FD, 1);
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
     if (fill) {
         netdata_update_u32(&fill->close_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(15, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_CLOSE_FD, 1);
             netdata_update_u32(&fill->close_err, 1) ;
         } 
 #endif
@@ -759,7 +759,7 @@ int netdata_close(struct pt_regs* ctx)
         data.close_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
-            netdata_update_global(15, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_CLOSE_FD, 1);
             data.close_err = 1;
         } 
 #endif
