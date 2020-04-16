@@ -616,7 +616,7 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL < 2
         if (ret < 0) {
             netdata_update_u32(&fill->fork_err, 1) ;
-            netdata_update_global(NETDATA_KEY_ERROR_ERROR_DO_FORK, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
 # if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
             if(threads) {
                 netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
@@ -636,7 +636,7 @@ int netdata_fork(struct pt_regs* ctx)
         }
 # endif
         if (ret < 0) {
-            netdata_update_global(NETDATA_KEY_ERROR_ERROR_DO_FORK, 1);
+            netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
             data.fork_err = 1;
 # if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
             if (threads) {
