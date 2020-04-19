@@ -1,6 +1,6 @@
 # Compilation as normal user
 
-The `kernel-collector` repository can be compiled as normal user, but before this it is neessary to do
+The `kernel-collector` repository can be compiled as normal user, but before to do this it is necessary 
 some steps as `root`.
 
 ## Steps as root
