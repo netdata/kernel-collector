@@ -38,7 +38,7 @@ process_kern.o: process_kern.c
 all: process_kern.o latency_process_kern.o
 
 %.o: %.c
-	if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' /usr/src/linux/include/generated/autoconf.h; fi
+	if [ -w /usr/src/linux/include/generated/autoconf.h ]; then  if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' /usr/src/linux/include/generated/autoconf.h; fi ; fi
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
 	    	-Wno-compare-distinct-pointer-types \
