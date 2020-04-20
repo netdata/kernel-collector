@@ -90,7 +90,7 @@ static void netdata_update_u64(u64 *res, u64 value)
 
 static void netdata_update_global(__u32 key, __u64 value)
 {
-    u32 *res;
+    u64 *res;
     res = bpf_map_lookup_elem(&tbl_total_stats, &key);
     if (res) {
         netdata_update_u64(res, value) ;
