@@ -26,9 +26,6 @@ jobs:
           # excludes musl on 4.16.18
           - kernel_version: 4.16.18
             libc: musl
-          # excludes musl on 4.15
-          - kernel_version: 4.15
-            libc: musl
           # excludes musl on 3.10.0
           - kernel_version: 3.10.0
             libc: musl
