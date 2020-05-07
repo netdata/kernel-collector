@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 
+ON_RC="$(shell if [ -f /etc/redhat-release ]; then cat /etc/redhat-release; else echo "NONE" ; fi)"
+
 LIBBPF_VERSION := $(shell \
 	grep -oE '^LIBBPF_([0-9.]+)' libbpf.map | \
 	sort -rV | head -n1 | cut -d'_' -f2)
@@ -82,9 +84,15 @@ $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSIO
 	ln -sf $(^F) $@
 
 $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
+ifeq ($(ON_RC),"NONE")
 	$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
 		      -Wl,-soname,libbpf_kernel-7.so \
 		      $^ $(ALL_LDFLAGS) -o $@
+else
+	$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
+		      -Wl,-soname,libbpf_kernel-7s.so \
+		      $^ $(ALL_LDFLAGS) -o $@
+endif
 
 $(OBJDIR)/libbpf.pc:
 	sed -e "s|@PREFIX@|$(PREFIX)|" \
