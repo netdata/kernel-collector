@@ -34,7 +34,7 @@ override EXTRA_CFLAGS =
 
 all: $(OBJECT_LIBBPF)
 	cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) $(LIBRARY_NAME)
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR) api.c bpf_load.c trace_helpers.c $(LIBS)
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c trace_helpers.c $(LIBS)
 
 $(OBJECT_LIBBPF): 
 	cd $(LIBBPF_DIR) && $(MAKE) all; \
@@ -43,4 +43,4 @@ $(OBJECT_LIBBPF):
 
 clean:
 	cd $(LIBBPF_DIR) && $(MAKE) clean;
-	rm libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR)
+	rm libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH)
