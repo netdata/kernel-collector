@@ -78,7 +78,7 @@ $(OBJDIR)/libbpf.so.$(VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION)
 
 $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(OBJS)
 	$(CC) -L../../lib/ -shared $(ALL_LDFLAGS) -Wl,--version-script=$(VERSION_SCRIPT) \
-				     -Wl,-soname,libbpf_kernel.so \
+				     -Wl,-soname,libbpf_kernel-3.so \
 				     $^ -o $@
 
 $(OBJDIR)/libbpf.pc:

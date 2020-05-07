@@ -1,7 +1,8 @@
 CC=gcc
-LIBS=-lelfs -lbpf_kernel
+LIBS=-lelfs
 LIBBPF_DIR =
 LIBRARY_VERSION = 
+LIBRARY_NAME =
 
 #KERNEL_VERSION="$(shell basename $(realpath /usr/src/linux) | cut -f 2 -d '-')"
 KERNEL_VERSION="$(shell if [ -f /usr/src/linux/include/config/kernel.release ]; then cat /usr/src/linux/include/config/kernel.release; else cat /proc/sys/kernel/osrelease; fi)"
@@ -15,9 +16,13 @@ CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATC
 ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
     LIBBPF_DIR = ../libbpf/src/
     LIBRARY_VERSION="libbpf.so.0.0.7"
+    LIBRARY_NAME="libbpf_kernel-7.so"
+    LIBS += -lbpf_kernel-7
 else
     LIBBPF_DIR = ../libbpf_0_0_1/src/
     LIBRARY_VERSION="libbpf.so.0.0.3"
+    LIBRARY_NAME="libbpf_kernel-3.so"
+    LIBS += -lbpf_kernel-3 
 endif
 
 
@@ -28,7 +33,7 @@ override CFLAGS += -I$(LIBBPF_DIR)root/usr/include/ -I../includes -I./ -L../lib/
 override EXTRA_CFLAGS =
 
 all: $(OBJECT_LIBBPF)
-	cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) libbpf_kernel.so
+	cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) $(LIBRARY_NAME)
 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.1,-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.1.0 api.c bpf_load.c trace_helpers.c $(LIBS)
 
 $(OBJECT_LIBBPF): 
