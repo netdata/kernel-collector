@@ -93,7 +93,6 @@ jobs:
       - name: Set upload_url
         run: |
           echo "::set-env name=UPLOAD_URL::$(cat upload_url/upload_url.txt)"
-
       - name: Download all Artifacts
         uses: actions/download-artifact@v2
         with:
@@ -101,7 +100,18 @@ jobs:
       - name: Display Artifacts
         run: ls -R
         working-directory: artifacts
-
+      - name: Package Relase Assets
+        run: |
+          mkdir -p packages/netdata-kernel-collector-glibc-${GITHUB_REF##*/}
+          mkdir -p packages/netdata-kernel-collector-musl-${GITHUB_REF##*/}
+          for libc in glibc musl; do
+            for dir in artifacts/artifacts-*-"$libc"; do
+              tar -C packages/netdata-kernel-collector-"$libc"-${GITHUB_REF##*/} -xvf "$dir"/*.tar.xz
+            done
+          done
+      - name: Display Assets
+        run: ls -R
+        working-directory: packages
   #      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}
   #      uses: actions/upload-release-asset@v1
   #      env:
