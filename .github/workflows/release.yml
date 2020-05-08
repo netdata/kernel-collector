@@ -59,6 +59,9 @@ jobs:
     needs: build-artifacts
     runs-on: ubuntu-latest
     steps:
+      - name: Set release_tag
+        run: |
+          echo "::set-env name=RELEASE_TAG::${GITHUB_REF##*/}"
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -68,8 +71,15 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
           # TODO: Generate ChagneLog here for Release Description
-          body: Release ${{ github.ref }}
-          draft: false
+          body: |
+            # Release ${{ env.RELEASE_TAG }}
+
+            <!--- Summary of Release -->
+
+            ## Release Notes
+
+            <!--- Release Notes -->
+          draft: true
           prerelease: false
       - name: Write upload_url
         run: |
