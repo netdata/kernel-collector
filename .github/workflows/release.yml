@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Run buil.sh
+      - name: Run build.sh
         run: |
           if [ ${{ matrix.kernel_version }} = "4.18.0" ]; then
             os=centos8
@@ -84,24 +84,6 @@ jobs:
   upload:
     name: Upload
     needs: release
-    strategy:
-      matrix:
-        kernel_version:
-          - '5.4.20'
-          - '4.20.17'
-          - '4.18.0'
-          - '4.14.171'
-          - '3.10.0'
-        libc:
-          - glibc
-          - musl
-        exclude:
-          # excludes musl on 4.18.0
-          - kernel_version: 4.18.0
-            libc: musl
-          # excludes musl on 3.10.0
-          - kernel_version: 3.10.0
-            libc: musl
     runs-on: ubuntu-latest
     steps:
       - name: Download upload_url
@@ -111,34 +93,21 @@ jobs:
       - name: Set upload_url
         run: |
           echo "::set-env name=UPLOAD_URL::$(cat upload_url/upload_url.txt)"
-      - name: Download artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-        uses: actions/download-artifact@v1
+
+      - name: Download all Artifacts
+        uses: actions/download-artifact@v2
         with:
-          name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-      - name: List Artifact artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-        run: |
-          ls -lah artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-      - name: Compute Asset Filename
-        id: asset-filename
-        run: |
-          cd artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-          ls netdata_ebpf-*.tar.xz
-          echo "::set-output name=name::$(ls netdata_ebpf-*.tar.xz)"
-      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}
-          asset_name: ${{ steps.asset-filename.outputs.name }}
-          asset_content_type: application/x-gtar
-      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}.sha256sum
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}.sha256sum
-          asset_name: ${{ steps.asset-filename.outputs.name }}.sha256sum
-          asset_content_type: application/x-gtar
+          path: artifacts
+      - name: Display Artifacts
+        run: ls -R
+        working-directory: artifacts
+
+  #      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}
+  #      uses: actions/upload-release-asset@v1
+  #      env:
+  #        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #      with:
+  #        upload_url: ${{ env.UPLOAD_URL }}
+  #        asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}
+  #        asset_name: ${{ steps.asset-filename.outputs.name }}
+  #        asset_content_type: application/x-gtar
