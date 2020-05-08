@@ -6,8 +6,8 @@ on:
     tags:
       - 'v*'
 jobs:
-  build:
-    name: Build
+  build-artifacts:
+    name: Build Artifacts
     strategy:
       matrix:
         kernel_version:
@@ -54,9 +54,9 @@ jobs:
           name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
           path: artifacts
 
-  release:
-    name: Release
-    needs: build
+  create-release:
+    name: Create Release
+    needs: build-artifacts
     runs-on: ubuntu-latest
     steps:
       - name: Create Release
@@ -81,9 +81,9 @@ jobs:
           name: upload_url
           path: upload_url
 
-  upload:
-    name: Upload
-    needs: release
+  package-upload:
+    name: Package & Upload
+    needs: create-release
     runs-on: ubuntu-latest
     steps:
       - name: Download upload_url
@@ -93,6 +93,9 @@ jobs:
       - name: Set upload_url
         run: |
           echo "::set-env name=UPLOAD_URL::$(cat upload_url/upload_url.txt)"
+      - name: Set release_tag
+        run: |
+          echo "::set-env name=RELEASE_TAG::${GITHUB_REF##*/}"
       - name: Download all Artifacts
         uses: actions/download-artifact@v2
         with:
@@ -100,24 +103,44 @@ jobs:
       - name: Display Artifacts
         run: ls -R
         working-directory: artifacts
-      - name: Package Relase Assets
+      - name: Package Release Assets
         run: |
-          mkdir -p packages/netdata-kernel-collector-glibc-${GITHUB_REF##*/}
-          mkdir -p packages/netdata-kernel-collector-musl-${GITHUB_REF##*/}
+          mkdir -p packages/netdata-kernel-collector-glibc-${RELEASE_TAG}
+          mkdir -p packages/netdata-kernel-collector-musl-${RELEASE_TAG}
           for libc in glibc musl; do
             for dir in artifacts/artifacts-*-"$libc"; do
-              tar -C packages/netdata-kernel-collector-"$libc"-${GITHUB_REF##*/} -xvf "$dir"/*.tar.xz
+              tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -xvf "$dir"/*.tar.xz
             done
+            tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -Jcvf packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG}.tar.xz ./
           done
-      - name: Display Assets
+          cd packages && sha256sum *.tar.xz > sha256sums.txt
+      - name: Display Release Assets
         run: ls -R
         working-directory: packages
-  #      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}
-  #      uses: actions/upload-release-asset@v1
-  #      env:
-  #        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #      with:
-  #        upload_url: ${{ env.UPLOAD_URL }}
-  #        asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}
-  #        asset_name: ${{ steps.asset-filename.outputs.name }}
-  #        asset_content_type: application/x-gtar
+      - name: Upload Release Assets (glibc)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: packages/netdata-kernel-collector-glibc-${{ env.RELEASE_TAG }}.tar.xz
+          asset_name: netdata-kernel-collector-glibc-${{ env.RELEASE_TAG }}.tar.xz
+          asset_content_type: application/x-gtar
+      - name: Upload Release Assets (musl)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: packages/netdata-kernel-collector-musl-${{ env.RELEASE_TAG }}.tar.xz
+          asset_name: netdata-kernel-collector-musl-${{ env.RELEASE_TAG }}.tar.xz
+          asset_content_type: application/x-gtar
+      - name: Upload Release Assets (sha256sums)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: packages/sha256sums.txt
+          asset_name: sha256sums.txt
+          asset_content_type: text/plain
