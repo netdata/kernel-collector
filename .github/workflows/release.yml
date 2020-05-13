@@ -12,20 +12,7 @@ jobs:
       matrix:
         kernel_version:
           - '5.4.20'
-          - '4.20.17'
-          - '4.19.105'
-          - '4.19.104'
-          - '4.19.98'
-          - '4.19.67'
-          - '4.19.37'
-          - '4.19.28'
-          - '4.19.6'
-          - '4.19'
-          - '4.18.20'
-          - '4.18.16'
           - '4.16.18'
-          - '4.16.3'
-          - '4.15'
           - '4.18.0'
           - '4.14.171'
           - '3.10.0'
@@ -33,23 +20,11 @@ jobs:
           - glibc
           - musl
         exclude:
-          # excludes musl on 4.18.20
-          - kernel_version: 4.18.20
-            libc: musl
-          # excludes musl on 4.18.16
-          - kernel_version: 4.18.16
-            libc: musl
           # excludes musl on 4.18.0
           - kernel_version: 4.18.0
             libc: musl
           # excludes musl on 4.16.18
           - kernel_version: 4.16.18
-            libc: musl
-          # excludes musl on 4.16.3
-          - kernel_version: 4.16.3
-            libc: musl
-          # excludes musl on 4.15
-          - kernel_version: 4.15
             libc: musl
           # excludes musl on 3.10.0
           - kernel_version: 3.10.0
@@ -114,15 +89,6 @@ jobs:
         kernel_version:
           - '5.4.20'
           - '4.20.17'
-          - '4.19.105'
-          - '4.19.104'
-          - '4.19.98'
-          - '4.19.6'
-          - '4.18.20'
-          - '4.18.16'
-          - '4.16.18'
-          - '4.16.3'
-          - '4.15'
           - '4.18.0'
           - '4.14.171'
           - '3.10.0'
@@ -130,23 +96,8 @@ jobs:
           - glibc
           - musl
         exclude:
-          # excludes musl on 4.18.20
-          - kernel_version: 4.18.20
-            libc: musl
-          # excludes musl on 4.18.16
-          - kernel_version: 4.18.16
-            libc: musl
           # excludes musl on 4.18.0
           - kernel_version: 4.18.0
-            libc: musl
-          # excludes musl on 4.16.18
-          - kernel_version: 4.16.18
-            libc: musl
-          # excludes musl on 4.16.3
-          - kernel_version: 4.16.3
-            libc: musl
-          # excludes musl on 4.15
-          - kernel_version: 4.15
             libc: musl
           # excludes musl on 3.10.0
           - kernel_version: 3.10.0

@@ -47,8 +47,21 @@ $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
 to
 
 ```
+ifeq ($(ON_RC),"NONE")
 $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
         $(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
                       -Wl,-soname,libbpf_kernel.so \
                       $^ $(ALL_LDFLAGS) -o $@
+else
+        $(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
+                      -Wl,-soname,libbpf_kernel-7s.so \
+                      $^ $(ALL_LDFLAGS) -o $@
+endif
 ```
+
+As you can see it is also necessary to define `$ON_RC` variable, this variable is defined at the third line of the Makefile
+as:
+
+``` 
+ON_RC="$(shell if [ -f /etc/redhat-release ]; then cat /etc/redhat-release; else echo "NONE" ; fi)"
+``` 
