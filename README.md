@@ -155,7 +155,9 @@ After this you can start the new collector `ebpf_program.plugin`.
 
 ## Releasing
 
-To release a new version and create a Github Release; create a Git tag like so:
+To release a new version and create a Github Release:
+
+1. Create a Git tag like so:
 
 ```sh
 $ TAG="v0.0.1"; git tag -a -s -m "Release ${TAG}" "${TAG}" && git push origin "${TAG}"
@@ -167,6 +169,10 @@ here at this time so the specific tagged versions is not so important.
 This will kick off a Github Action Workflow that will Rebuild the NetData eBPF
 Kernel Collector for all Kernel and LIBC variants, create a Github Release and
 upload all assets to the release to be consumed by anyone or the NetData Installer.
+
+2. Wait for the CD pipeline to finish in the Github Actions UI.
+3. Review the Release, Updates Release Notes, etc in the Github Releases UI.
+4. Push the "Publish Release" button in the Github Releases UI.
 
 ## Contribution
 

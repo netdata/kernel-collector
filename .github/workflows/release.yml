@@ -6,8 +6,8 @@ on:
     tags:
       - 'v*'
 jobs:
-  build:
-    name: Build
+  build-artifacts:
+    name: Build Artifacts
     strategy:
       matrix:
         kernel_version:
@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Run buil.sh
+      - name: Run build.sh
         run: |
           if [ ${{ matrix.kernel_version }} = "4.18.0" ]; then
             os=centos8
@@ -54,11 +54,14 @@ jobs:
           name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
           path: artifacts
 
-  release:
-    name: Release
-    needs: build
+  create-release:
+    name: Create Release
+    needs: build-artifacts
     runs-on: ubuntu-latest
     steps:
+      - name: Set release_tag
+        run: |
+          echo "::set-env name=RELEASE_TAG::${GITHUB_REF##*/}"
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -68,8 +71,15 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
           # TODO: Generate ChagneLog here for Release Description
-          body: Release ${{ github.ref }}
-          draft: false
+          body: |
+            # Release ${{ env.RELEASE_TAG }}
+
+            <!--- Summary of Release -->
+
+            ## Release Notes
+
+            <!--- Release Notes -->
+          draft: true
           prerelease: false
       - name: Write upload_url
         run: |
@@ -81,27 +91,9 @@ jobs:
           name: upload_url
           path: upload_url
 
-  upload:
-    name: Upload
-    needs: release
-    strategy:
-      matrix:
-        kernel_version:
-          - '5.4.20'
-          - '4.20.17'
-          - '4.18.0'
-          - '4.14.171'
-          - '3.10.0'
-        libc:
-          - glibc
-          - musl
-        exclude:
-          # excludes musl on 4.18.0
-          - kernel_version: 4.18.0
-            libc: musl
-          # excludes musl on 3.10.0
-          - kernel_version: 3.10.0
-            libc: musl
+  package-upload:
+    name: Package & Upload
+    needs: create-release
     runs-on: ubuntu-latest
     steps:
       - name: Download upload_url
@@ -111,34 +103,54 @@ jobs:
       - name: Set upload_url
         run: |
           echo "::set-env name=UPLOAD_URL::$(cat upload_url/upload_url.txt)"
-      - name: Download artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-        uses: actions/download-artifact@v1
+      - name: Set release_tag
+        run: |
+          echo "::set-env name=RELEASE_TAG::${GITHUB_REF##*/}"
+      - name: Download all Artifacts
+        uses: actions/download-artifact@v2
         with:
-          name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-      - name: List Artifact artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+          path: artifacts
+      - name: Display Artifacts
+        run: ls -R
+        working-directory: artifacts
+      - name: Package Release Assets
         run: |
-          ls -lah artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-      - name: Compute Asset Filename
-        id: asset-filename
-        run: |
-          cd artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
-          ls netdata_ebpf-*.tar.xz
-          echo "::set-output name=name::$(ls netdata_ebpf-*.tar.xz)"
-      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}
+          mkdir -p packages/netdata-kernel-collector-glibc-${RELEASE_TAG}
+          mkdir -p packages/netdata-kernel-collector-musl-${RELEASE_TAG}
+          for libc in glibc musl; do
+            for dir in artifacts/artifacts-*-"$libc"; do
+              tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -xvf "$dir"/*.tar.xz
+            done
+            tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -Jcvf packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG}.tar.xz ./
+          done
+          cd packages && sha256sum *.tar.xz > sha256sums.txt
+      - name: Display Release Assets
+        run: ls -R
+        working-directory: packages
+      - name: Upload Release Assets (glibc)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}
-          asset_name: ${{ steps.asset-filename.outputs.name }}
+          asset_path: packages/netdata-kernel-collector-glibc-${{ env.RELEASE_TAG }}.tar.xz
+          asset_name: netdata-kernel-collector-glibc-${{ env.RELEASE_TAG }}.tar.xz
           asset_content_type: application/x-gtar
-      - name: Upload Release Asset ${{ steps.asset-filename.outputs.name }}.sha256sum
+      - name: Upload Release Assets (musl)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}/${{ steps.asset-filename.outputs.name }}.sha256sum
-          asset_name: ${{ steps.asset-filename.outputs.name }}.sha256sum
+          asset_path: packages/netdata-kernel-collector-musl-${{ env.RELEASE_TAG }}.tar.xz
+          asset_name: netdata-kernel-collector-musl-${{ env.RELEASE_TAG }}.tar.xz
           asset_content_type: application/x-gtar
+      - name: Upload Release Assets (sha256sums)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: packages/sha256sums.txt
+          asset_name: sha256sums.txt
+          asset_content_type: text/plain
