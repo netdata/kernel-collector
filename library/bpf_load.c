@@ -120,7 +120,7 @@ static __u32 choose_kernel_version(__u32 current)
         return current;
 
     struct utsname u;
-    uname(&info);
+    uname(&u);
 
     if (fp_d)
         fclose(fp_d);
@@ -131,13 +131,13 @@ static __u32 choose_kernel_version(__u32 current)
     __u32 v_kernel,v_major, v_minor, v_patch;
     __u32 r_kernel,r_major, r_minor, r_patch;
 
-    if (sscanf(u->release, "%u.%u.%u-%u", &v_kernel, &v_major, &v_minor, &v_patch) != 4)
+    if (sscanf(u.release, "%u.%u.%u-%u", &v_kernel, &v_major, &v_minor, &v_patch) != 4)
         return current;
 
     int length = snprintf(tmp, 31, "%u.%u", v_kernel, v_major);
     tmp[length] = '\0';
 
-    char *parse = strstr(u->version, tmp);
+    char *parse = strstr(u.version, tmp);
     __u32 ret;
     if (!parse) {
         ret = KERNEL_VERSION(v_kernel, v_major, v_minor) + v_patch;
