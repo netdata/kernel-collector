@@ -109,6 +109,55 @@ static int remove_kprobe_events(const char *val)
 	return ret;
 }
 
+static __u32 choose_kernel_version(__u32 current) 
+{
+    FILE *fp_d = fopen("/etc/debian_version","r");
+    FILE *fp_rh = fopen("/etc/redhat-release","r");
+    char tmp[32];
+    char *real;
+
+    if (!fp_d && !fp_rh)
+        return current;
+
+    struct utsname u;
+    uname(&info);
+
+    if (fp_d)
+        fclose(fp_d);
+
+    if (fp_rh)
+        fclose(fp_rh);
+
+    __u32 v_kernel,v_major, v_minor, v_patch;
+    __u32 r_kernel,r_major, r_minor, r_patch;
+
+    if (sscanf(u->release, "%u.%u.%u-%u", &v_kernel, &v_major, &v_minor, &v_patch) != 4)
+        return current;
+
+    int length = snprintf(tmp, 31, "%u.%u", v_kernel, v_major);
+    tmp[length] = '\0';
+
+    char *parse = strstr(u->version, tmp);
+    __u32 ret;
+    if (!parse) {
+        ret = KERNEL_VERSION(v_kernel, v_major, v_minor) + v_patch;
+        return (ret > current)?ret:current;
+    }
+
+    char *space = strchr(parse, ' ');
+    if(space) {
+        length = (int)(space - parse);
+        strncpy(tmp, parse, (size_t)length);
+        tmp[length] = '\0';
+    }
+
+    if (sscanf(tmp, "%u.%u.%u-%u", &r_kernel, &r_major, &r_minor, &r_patch) != 4)
+        return current;
+
+    ret = (int)KERNEL_VERSION(r_kernel, r_major, r_minor) + (int)r_patch;
+    return (ret > current)?ret:current;
+}
+
 static int load_and_attach(const char *event, struct bpf_insn *prog, int size, int pid)
 {
 	bool is_socket = strncmp(event, "socket", 6) == 0;
@@ -184,11 +233,11 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 		return -1;
 
         kv = get_kernel_version();
-        fprintf(stderr, "KILLME %d %d\n", kv, kern_version);
-        if (kern_version != kv)
-            kern_version = kv + 118;
 
-        fprintf(stderr, "KILLME %d %d\n", kv, kern_version);
+        kv = (int) choose_kernel_version((__u32) kv);
+        if (kern_version != kv)
+            kern_version = kv;
+
 
 	fd = bpf_load_program(prog_type, prog, insns_cnt, license, kern_version,
 			      bpf_log_buf, BPF_LOG_BUF_SIZE);
