@@ -184,8 +184,11 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 		return -1;
 
         kv = get_kernel_version();
+        fprintf(stderr, "KILLME %d %d\n", kv, kern_version);
         if (kern_version != kv)
             kern_version = kv;
+
+        fprintf(stderr, "KILLME %d %d\n", kv, kern_version);
 
 	fd = bpf_load_program(prog_type, prog, insns_cnt, license, kern_version,
 			      bpf_log_buf, BPF_LOG_BUF_SIZE);
