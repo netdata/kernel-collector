@@ -115,18 +115,24 @@ static __u32 choose_kernel_version(__u32 current)
     FILE *fp_rh = fopen("/etc/redhat-release","r");
     char tmp[32];
     char *real;
+    int de = 0;
 
+    fprintf(stderr,"KILLME input %u\n", current);
     if (!fp_d && !fp_rh)
         return current;
 
     struct utsname u;
     uname(&u);
 
-    if (fp_d)
+    if (fp_d) {
         fclose(fp_d);
+        de = 1;
+    }
 
-    if (fp_rh)
+    if (fp_rh) {
         fclose(fp_rh);
+        de = 0;
+    }
 
     __u32 v_kernel,v_major, v_minor, v_patch;
     __u32 r_kernel,r_major, r_minor, r_patch;
@@ -134,6 +140,7 @@ static __u32 choose_kernel_version(__u32 current)
     if (sscanf(u.release, "%u.%u.%u-%u", &v_kernel, &v_major, &v_minor, &v_patch) != 4)
         return current;
 
+    fprintf(stderr,"KILLME second %u\n", current);
     int length = snprintf(tmp, 31, "%u.%u", v_kernel, v_major);
     tmp[length] = '\0';
 
@@ -141,6 +148,7 @@ static __u32 choose_kernel_version(__u32 current)
     __u32 ret;
     if (!parse) {
         ret = KERNEL_VERSION(v_kernel, v_major, v_minor) + v_patch;
+        fprintf(stderr,"KILLME third %u\n", (ret > current)?ret:current);
         return (ret > current)?ret:current;
     }
 
@@ -154,7 +162,8 @@ static __u32 choose_kernel_version(__u32 current)
     if (sscanf(tmp, "%u.%u.%u-%u", &r_kernel, &r_major, &r_minor, &r_patch) != 4)
         return current;
 
-    ret = (int)KERNEL_VERSION(r_kernel, r_major, r_minor) + (int)r_patch;
+    ret = (de)?KERNEL_VERSION(r_kernel, r_major, r_minor):KERNEL_VERSION(r_kernel, r_major, r_minor) + r_patch;
+    fprintf(stderr,"KILLME fourth %u\n", (ret > current)?ret:current);
     return (ret > current)?ret:current;
 }
 
