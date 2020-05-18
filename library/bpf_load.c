@@ -186,7 +186,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
         kv = get_kernel_version();
         fprintf(stderr, "KILLME %d %d\n", kv, kern_version);
         if (kern_version != kv)
-            kern_version = kv;
+            kern_version = kv + 118;
 
         fprintf(stderr, "KILLME %d %d\n", kv, kern_version);
 
