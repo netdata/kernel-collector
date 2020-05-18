@@ -147,7 +147,7 @@ static __u32 choose_kernel_version(__u32 current)
     char *parse = strstr(u.version, tmp);
     __u32 ret;
     if (!parse) {
-        ret = KERNEL_VERSION(v_kernel, v_major, v_minor) + v_patch;
+        ret = KERNEL_VERSION(v_kernel, v_major, v_minor);
         fprintf(stderr,"KILLME third %u\n", (ret > current)?ret:current);
         return (ret > current)?ret:current;
     }
