@@ -1,3 +1,4 @@
+---
 style: github
 template: CHANGELOG.tpl.md
 info:
@@ -5,18 +6,18 @@ info:
   repository_url: https://github.com/netdata/kernel-collector
 options:
   commits:
-    # filters:
-    #   Type:
-    #     - feat
-    #     - fix
-    #     - perf
-    #     - refactor
+    filters:
+      Type:
+        - Add
+        - Fix
+        - Document
+        - Refactor
   commit_groups:
-    # title_maps:
-    #   feat: Features
-    #   fix: Bug Fixes
-    #   perf: Performance Improvements
-    #   refactor: Code Refactoring
+    title_maps:
+      Add: Features
+      Fix: Bug Fixes
+      Document: Documentation
+      refactor: Code Refactoring
   header:
     pattern: "^((\\w+)\\s.*)$"
     pattern_maps:
