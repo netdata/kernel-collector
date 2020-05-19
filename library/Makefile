@@ -55,3 +55,4 @@ clean:
 	cd $(LIBBPF_DIR) && $(MAKE) clean;
 	rm libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH)
 	rm -rf $(LIBBPF_DIR)/root  $(LIBBPF_DIR)/build
+	if [ -f libbpf.a ]; then rm  libbpf.a ; fi
