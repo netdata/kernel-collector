@@ -1,8 +1,8 @@
 #include <assert.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+//#include <sys/ioctl.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
+//#include <arpa/inet.h>
 //#include "perf-sys.h"
 #include "trace_helpers.h"
 #include "api.h"
