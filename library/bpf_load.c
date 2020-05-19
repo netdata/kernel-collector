@@ -109,16 +109,45 @@ static int remove_kprobe_events(const char *val)
 	return ret;
 }
 
+static __u32 choose_specific_version0(int fd, __u32 current)
+{
+    char ver[256];
+    __u32 v_major, v_minor, v_patch;
+    ssize_t len = read(fd, ver, sizeof(ver));
+    if (len < 0) {
+        return 0;
+    }
+    ver[len] = '\0';
+
+    char *first = strchr(ver, ' ');
+    if (!first) {
+        return 0;
+    }
+
+    first++;
+    char *version = strchr(first, ' ');
+    if (!version) {
+        return 0;
+    }
+
+    version++;
+    if (sscanf(version, "%u.%u.%u", &v_major, &v_minor, &v_patch) != 3)
+        return current;
+
+    return KERNEL_VERSION(v_kernel, v_major, v_minor);
+}
+
 static __u32 choose_kernel_version(__u32 current) 
 {
     FILE *fp_d = fopen("/etc/debian_version","r");
+    int fp_u = open("/proc/version_signature", O_RDONLY);
     FILE *fp_rh = fopen("/etc/redhat-release","r");
     char tmp[32];
     char *real;
     int de = 0;
+    __u32 ret;
 
-    fprintf(stderr,"KILLME input %u\n", current);
-    if (!fp_d && !fp_rh)
+    if (!fp_d && !fp_rh && fp_u == -1)
         return current;
 
     struct utsname u;
@@ -134,25 +163,24 @@ static __u32 choose_kernel_version(__u32 current)
         de = 0;
     }
 
+    if ( fp_u > 0 ) {
+        ret = choose_specific_version0(fp_u);
+        close(fp_u);
+        return (!ret)?current:ret;
+    }
+
     __u32 v_kernel,v_major, v_minor, v_patch;
     __u32 r_kernel,r_major, r_minor, r_patch;
 
     if (sscanf(u.release, "%u.%u.%u-%u", &v_kernel, &v_major, &v_minor, &v_patch) != 4)
         return current;
 
-    fprintf(stderr,"KILLME second %u\n", current);
     int length = snprintf(tmp, 31, "%u.%u", v_kernel, v_major);
     tmp[length] = '\0';
 
     char *parse = strstr(u.version, tmp);
-    __u32 ret;
     if (!parse) {
         return current;
-        /*
-        ret = (!de)?KERNEL_VERSION(v_kernel, v_major, v_minor):KERNEL_VERSION(v_kernel, v_major, v_minor) + 20;
-        fprintf(stderr,"KILLME third %u\n", (ret > current)?ret:current);
-        return (ret > current)?ret:current;
-        */
     }
 
     char *space = strchr(parse, ' ');
@@ -166,7 +194,6 @@ static __u32 choose_kernel_version(__u32 current)
         return current;
 
     ret = (de)?KERNEL_VERSION(r_kernel, r_major, r_minor):KERNEL_VERSION(r_kernel, r_major, r_minor) + r_patch;
-    fprintf(stderr,"KILLME fourth %u\n", (ret > current)?ret:current);
     return (ret > current)?ret:current;
 }
 
