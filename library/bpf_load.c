@@ -134,7 +134,7 @@ static __u32 choose_specific_version0(int fd, __u32 current)
     if (sscanf(version, "%u.%u.%u", &v_major, &v_minor, &v_patch) != 3)
         return current;
 
-    return KERNEL_VERSION(v_kernel, v_major, v_minor);
+    return KERNEL_VERSION(v_major, v_minor, v_patch);
 }
 
 static __u32 choose_kernel_version(__u32 current) 
