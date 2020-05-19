@@ -109,6 +109,94 @@ static int remove_kprobe_events(const char *val)
 	return ret;
 }
 
+static __u32 choose_specific_version0(int fd, __u32 current)
+{
+    char ver[256];
+    __u32 v_major, v_minor, v_patch;
+    ssize_t len = read(fd, ver, sizeof(ver));
+    if (len < 0) {
+        return 0;
+    }
+    ver[len] = '\0';
+
+    char *first = strchr(ver, ' ');
+    if (!first) {
+        return 0;
+    }
+
+    first++;
+    char *version = strchr(first, ' ');
+    if (!version) {
+        return 0;
+    }
+
+    version++;
+    if (sscanf(version, "%u.%u.%u", &v_major, &v_minor, &v_patch) != 3)
+        return current;
+
+    return KERNEL_VERSION(v_major, v_minor, v_patch);
+}
+
+static __u32 choose_kernel_version(__u32 current) 
+{
+    FILE *fp_d = fopen("/etc/debian_version","r");
+    int fp_u = open("/proc/version_signature", O_RDONLY);
+    FILE *fp_rh = fopen("/etc/redhat-release","r");
+    char tmp[32];
+    char *real;
+    int de = 0;
+    __u32 ret;
+
+    if (!fp_d && !fp_rh && fp_u == -1)
+        return current;
+
+    struct utsname u;
+    uname(&u);
+
+    if (fp_d) {
+        fclose(fp_d);
+        de = 1;
+    }
+
+    if (fp_rh) {
+        fclose(fp_rh);
+        de = 0;
+    }
+
+    if ( fp_u > 0 ) {
+        ret = choose_specific_version0(fp_u, current);
+        close(fp_u);
+        return (!ret)?current:ret;
+    }
+
+    __u32 v_kernel,v_major, v_minor, v_patch;
+    __u32 r_kernel,r_major, r_minor, r_patch;
+
+    if (sscanf(u.release, "%u.%u.%u-%u", &v_kernel, &v_major, &v_minor, &v_patch) != 4)
+        return current;
+
+    int length = snprintf(tmp, 31, "%u.%u", v_kernel, v_major);
+    tmp[length] = '\0';
+
+    char *parse = strstr(u.version, tmp);
+    if (!parse) {
+        return current;
+    }
+
+    char *space = strchr(parse, ' ');
+    if(space) {
+        length = (int)(space - parse);
+        strncpy(tmp, parse, (size_t)length);
+        tmp[length] = '\0';
+    }
+
+    if (sscanf(tmp, "%u.%u.%u-%u", &r_kernel, &r_major, &r_minor, &r_patch) != 4)
+        return current;
+
+    ret = (de)?KERNEL_VERSION(r_kernel, r_major, r_minor):KERNEL_VERSION(r_kernel, r_major, r_minor) + r_patch;
+    return (ret > current)?ret:current;
+}
+
 static int load_and_attach(const char *event, struct bpf_insn *prog, int size, int pid)
 {
 	bool is_socket = strncmp(event, "socket", 6) == 0;
@@ -184,8 +272,11 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 		return -1;
 
         kv = get_kernel_version();
+
+        kv = (int) choose_kernel_version((__u32) kv);
         if (kern_version != kv)
             kern_version = kv;
+
 
 	fd = bpf_load_program(prog_type, prog, insns_cnt, license, kern_version,
 			      bpf_log_buf, BPF_LOG_BUF_SIZE);
