@@ -164,7 +164,7 @@ static __u32 choose_kernel_version(__u32 current)
     }
 
     if ( fp_u > 0 ) {
-        ret = choose_specific_version0(fp_u);
+        ret = choose_specific_version0(fp_u, current);
         close(fp_u);
         return (!ret)?current:ret;
     }
