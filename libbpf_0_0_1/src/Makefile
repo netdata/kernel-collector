@@ -22,8 +22,8 @@ ifndef BUILD_STATIC_ONLY
 	ALL_CFLAGS += -fPIC -fvisibility=hidden
 endif
 
-CFLAGS ?= -g -O2 -Werror -Wall -fPIC
-ALL_CFLAGS += $(CFLAGS)
+CFLAGS ?= -g -O2 -Werror -Wall
+ALL_CFLAGS += $(CFLAGS) -fPIC
 ALL_LDFLAGS += $(LDFLAGS)
 ifdef NO_PKG_CONFIG
 	ALL_LDFLAGS += -lelfs
