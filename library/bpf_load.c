@@ -147,9 +147,12 @@ static __u32 choose_kernel_version(__u32 current)
     char *parse = strstr(u.version, tmp);
     __u32 ret;
     if (!parse) {
+        return current;
+        /*
         ret = (!de)?KERNEL_VERSION(v_kernel, v_major, v_minor):KERNEL_VERSION(v_kernel, v_major, v_minor) + 20;
         fprintf(stderr,"KILLME third %u\n", (ret > current)?ret:current);
         return (ret > current)?ret:current;
+        */
     }
 
     char *space = strchr(parse, ' ');
