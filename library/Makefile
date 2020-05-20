@@ -63,7 +63,7 @@ ifeq ("$(STATIC)","1")
 else
 	cp $(LIBBPF_DEST)/$(LIBRARY_VERSION) $(LIBRARY_NAME)
 endif    
-	$(CC) -I$(LIBBPF_DIR)root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c trace_helpers.c $(LIBS)
+	$(CC) -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c trace_helpers.c $(LIBS)
 
 $(OBJECT_LIBBPF): 
 ifeq ("$(STATIC)","1")
