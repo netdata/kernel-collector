@@ -1,5 +1,10 @@
 CC=gcc
-LIBS= -lbpf -lelfs -lz2
+LIBS =
+ifeq ("$(STATIC)","1")
+    LIBS= -lbpf -lelfs -lz2
+else
+    LIBS= -lelfs
+endif
 LIBBPF_DIR =
 LIBBPF_DEST =
 LIBRARY_VERSION="libbpf.a" 
@@ -17,7 +22,12 @@ CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATC
 
 ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
     LIBBPF_DIR = ../libbpf/src
+ifeq ("$(STATIC)","1")
     LIBBPF_DEST = ../libbpf/src/root/usr/lib64
+else
+    LIBRARY_VERSION="libbpf.so.0.0.7"
+    LIBBPF_DEST = ../libbpf/src
+endif
 ifeq ($(ON_RC),"NONE")
     LIBRARY_NAME="libbpf_kernel-7.so"
 else
@@ -26,7 +36,12 @@ endif
 
 else
     LIBBPF_DIR = ../libbpf_0_0_1/src
+ifeq ("$(STATIC)","1")
+    LIBBPF_DEST = ../libbpf_0_0_1/src
+else
+    LIBRARY_VERSION="libbpf.so.0.0.3"
     LIBBPF_DEST = ../libbpf_0_0_1/src/root/usr/lib64
+endif
 ifeq ($(ON_RC),"NONE")
     LIBRARY_NAME="libbpf_kernel-3.so"
 else
@@ -43,16 +58,27 @@ override CFLAGS += -I$(LIBBPF_DIR)root/usr/include/ -I../includes -I./ -L../lib/
 override EXTRA_CFLAGS =
 
 all: $(OBJECT_LIBBPF) $(OBJECT_LIBRARY)
+ifeq ("$(STATIC)","1")
 	cp $(LIBBPF_DEST)/$(LIBRARY_VERSION) $(LIBRARY_VERSION)
+else
+	cp $(LIBBPF_DEST)/$(LIBRARY_VERSION) $(LIBRARY_NAME)
+endif    
 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c trace_helpers.c $(LIBS)
 
 $(OBJECT_LIBBPF): 
+ifeq ("$(STATIC)","1")
 	cd $(LIBBPF_DIR); \
 	mkdir build root; BUILD_STATIC_ONLY=y OBJDIR=build DESTDIR=root $(MAKE) install; $(MAKE) install_headers
+else
+	cd $(LIBBPF_DIR) && $(MAKE) all; \
+	mkdir -p root; DESTDIR=root $(MAKE) install_headers;
+endif
 
 
 clean:
 	cd $(LIBBPF_DIR) && $(MAKE) clean;
 	rm libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH)
+	rm lib*
+ifeq ("$(STATIC)","1")
 	rm -rf $(LIBBPF_DIR)/root  $(LIBBPF_DIR)/build
-	if [ -f libbpf.a ]; then rm  libbpf.a ; fi
+endif
