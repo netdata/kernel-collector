@@ -61,7 +61,11 @@ all: $(OBJECT_LIBBPF) $(OBJECT_LIBRARY)
 ifeq ("$(STATIC)","1")
 	cp $(LIBBPF_DEST)/$(LIBRARY_VERSION) $(LIBRARY_VERSION)
 else
+ifeq ("libbpf.so.0.0.3", "libbpf.so.0.0.3")    
+	cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) $(LIBRARY_NAME)
+else    
 	cp $(LIBBPF_DEST)/$(LIBRARY_VERSION) $(LIBRARY_NAME)
+endif	
 endif    
 	$(CC) -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c trace_helpers.c $(LIBS)
 
