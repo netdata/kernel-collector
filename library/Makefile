@@ -85,6 +85,11 @@ endif
 endif    
 
 ifeq ("$(STATIC)","1")
+	if [ ! -d /usr/include/musl/linux ] ; then ln -s /usr/include/linux/ /usr/include/musl ; fi
+	if [ ! -d /usr/include/musl/asm ] ; then ln -s /usr/include/asm/ /usr/include/musl ; fi
+	if [ ! -d /usr/include/musl/asm-generic ] ; then ln -s /usr/include/asm-generic/ /usr/include/musl ; fi
+	if [ ! -d /usr/include/musl/libelf.h ] ; then ln -s /usr/include/libelf.h /usr/include/musl ; fi
+	if [ ! -d /usr/include/musl/gelf.h ] ; then ln -s /usr/include/gelf.h /usr/include/musl ; fi
 	$(MCC) $(CFLAGS) -static -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/  -idirafter  -I/usr/include -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c $(LIBS)
 else
 	$(CC) $(CFLAGS) -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c  $(LIBS)

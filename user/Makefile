@@ -46,11 +46,11 @@ $(KERNEL_PROGRAM):
 	cp $(OBJECT_LIBLOAD)* .
 
 clean:
-	cd $(LIBLOAD_DIR) && $(MAKE) clean;
-	cd $(KERNEL_DIR) && $(MAKE) clean;
 	if [ -f libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) ] ; then rm libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH); fi
 	if [ -f libnetdata.a ] ; then rm libnetdata.a avl.o libnetdata.o ; fi
 	if [ -f pnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o ] ; then rm *.o; fi
+	cd $(LIBLOAD_DIR) && $(MAKE) clean;
+	cd $(KERNEL_DIR) && $(MAKE) clean;
 	rm ../artifacts/*
 
 install:
