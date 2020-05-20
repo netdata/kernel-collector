@@ -29,20 +29,35 @@ else
     LIBRARY_VERSION="libbpf.so.0.0.7"
     LIBBPF_DEST = ../libbpf/src
 endif
+
 ifeq ($(ON_RC),"NONE")
     LIBRARY_NAME="libbpf_kernel-7.so"
+ifneq ("$(STATIC)","1")
+    LIBS += -lbpf_kernel-7
+endif
 else
     LIBRARY_NAME="libbpf_kernel-7s.so"
+ifneq ("$(STATIC)","1")
+    LIBS += -lbpf_kernel-7s
+endif
 endif
 
 else
+
     LIBBPF_DIR = ../libbpf_0_0_1/src
 ifeq ("$(STATIC)","1")
     LIBBPF_DEST = ../libbpf_0_0_1/src
+ifneq ("$(STATIC)","1")
+    LIBS += -lbpf_kernel-3
+endif
 else
     LIBRARY_VERSION="libbpf.so.0.0.3"
     LIBBPF_DEST = ../libbpf_0_0_1/src/root/usr/lib64
+ifneq ("$(STATIC)","1")
+    LIBS += -lbpf_kernel-3s
 endif
+endif
+
 ifeq ($(ON_RC),"NONE")
     LIBRARY_NAME="libbpf_kernel-3.so"
 else
