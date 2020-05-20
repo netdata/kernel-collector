@@ -72,7 +72,7 @@ endif
 ifeq ("$(STATIC)","1")
 	$(MCC) $(CFLAGS) -static -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/  -idirafter  -I/usr/include -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c $(LIBS)
 else
-	$(CC) $(CFLAGS) -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c $(LIBS)
+	$(CC) $(CFLAGS) -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c  $(LIBS)
 endif    
 
 $(OBJECT_LIBBPF): 
@@ -87,8 +87,7 @@ endif
 
 clean:
 	cd $(LIBBPF_DIR) && $(MAKE) clean;
-	rm libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH)
-	rm lib*
+	if [ -f libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) ]; then rm lib* ; fi
 ifeq ("$(STATIC)","1")
 	rm -rf $(LIBBPF_DIR)/root  $(LIBBPF_DIR)/build
 endif
