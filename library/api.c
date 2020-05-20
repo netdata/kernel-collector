@@ -4,11 +4,11 @@
 //#include <netinet/in.h>
 //#include <arpa/inet.h>
 //#include "perf-sys.h"
-#include "trace_helpers.h"
-#include "api.h"
+//#include "trace_helpers.h"
+//#include "api.h"
 
-#include "bpf/bpf.h"
-#include "bpf_load.h"
+//#include "bpf/bpf.h"
+//#include "bpf_load.h"
 
 int set_bpf_perf_event(int cpu, int map)
 {
@@ -39,7 +39,9 @@ int set_bpf_perf_event(int cpu, int map)
     return -1;
 }
 
+/*
 void netdata_perf_loop_multi(int *pmu_fds, struct perf_event_mmap_page **headers, int numprocs, int *killme, int (*print_bpf_output)(void *, int), int page_cnt)
 {
 //    perf_event_poller_multi(pmu_fds, headers, numprocs, print_bpf_output, killme, page_cnt);
 }
+*/

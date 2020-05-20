@@ -1,4 +1,5 @@
 CC=gcc
+MCC=musl-gcc
 LIBS =
 ifeq ("$(STATIC)","1")
     LIBS= -lbpf -lelfs -lz2
@@ -53,7 +54,7 @@ endif
 
 OBJECT_LIBBPF = $(LIBBPF_DIR)/libbpf.a
 
-override CFLAGS += -I$(LIBBPF_DIR)root/usr/include/ -I../includes -I./ -L../lib/ -L.
+override CFLAGS += -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L.
 
 override EXTRA_CFLAGS =
 
@@ -69,9 +70,9 @@ endif
 endif    
 
 ifeq ("$(STATIC)","1")
-	$(CC) $(CFLAGS) -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c trace_helpers.c $(LIBS)
+	$(MCC) $(CFLAGS) -static -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/  -idirafter  -I/usr/include -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c $(LIBS)
 else
-	$(CC) $(CFLAGS) -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c trace_helpers.c $(LIBS)
+	$(CC) $(CFLAGS) -I$(LIBBPF_DIR)/root/usr/include/ -I../includes -I./ -L../lib/ -L. $(EXTRA_CFLAGS) $(LDFLAGS) -fPIC -shared -Wl,-soname,libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH),-rpath,'$$ORIGIN' -o libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) api.c bpf_load.c $(LIBS)
 endif    
 
 $(OBJECT_LIBBPF): 
