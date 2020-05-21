@@ -27,9 +27,25 @@ OS="${3:-generic}"
 TAG="kernel-collector:$(echo "${KERNEL_VERSION}" | tr '.' '_')_${LIBC}_${OS}"
 
 git clean -d -f -x
-docker build -f Dockerfile."${LIBC}"."${OS}" -t "${TAG}" --build-arg KERNEL_VERSION="${KERNEL_VERSION}" ./ | tee prepare.log
+docker build \
+  -f Dockerfile."${LIBC}"."${OS}" \
+  -t "${TAG}" \
+  --build-arg KERNEL_VERSION="${KERNEL_VERSION}" \
+  ./ | tee prepare.log
 if [ -t 1 ]; then
-  docker run -i -t --rm -v "$PWD":/kernel-collector -w /kernel-collector -e DEBUG "${TAG}" | tee build.log
+  docker run \
+    -i -t --rm \
+    -v "$PWD":/kernel-collector \
+    -w /kernel-collector \
+    -e DEBUG \
+    -e STATIC \
+    "${TAG}" | tee build.log    
 else
-  docker run --rm -v "$PWD":/kernel-collector -w /kernel-collector -e DEBUG "${TAG}" | tee build.log
+  docker run \
+    --rm \
+    -v "$PWD":/kernel-collector \
+    -w /kernel-collector \
+    -e DEBUG \
+    -e STATIC \
+    "${TAG}" | tee build.log
 fi
