@@ -1,17 +1,18 @@
 #include <assert.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include "perf-sys.h"
-#include "trace_helpers.h"
-#include "api.h"
+//#include <sys/ioctl.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
+//#include <arpa/inet.h>
+//#include "perf-sys.h"
+//#include "trace_helpers.h"
+//#include "api.h"
 
 #include "bpf/bpf.h"
 #include "bpf_load.h"
 
 int set_bpf_perf_event(int cpu, int map)
 {
+    /*
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4,3,0)
     int pmu_fd;
     struct perf_event_attr attr = {
@@ -34,9 +35,30 @@ int set_bpf_perf_event(int cpu, int map)
 #else
     return -1;
 #endif
+*/
+    return -1;
 }
 
+/*
 void netdata_perf_loop_multi(int *pmu_fds, struct perf_event_mmap_page **headers, int numprocs, int *killme, int (*print_bpf_output)(void *, int), int page_cnt)
 {
-    perf_event_poller_multi(pmu_fds, headers, numprocs, print_bpf_output, killme, page_cnt);
+//    perf_event_poller_multi(pmu_fds, headers, numprocs, print_bpf_output, killme, page_cnt);
+}
+*/
+
+struct map_me_to_others {
+    int reserved;
+};
+
+//The next function was created for we have access to `bpf_*`
+//functions used inside it.
+void foce_map(int fd) {
+    struct map_me_to_others key = {}, next_key;
+    int values[2];
+    while (bpf_map_get_next_key(fd, &key, &next_key) == 0) {
+        bpf_map_lookup_elem(fd, &next_key, values);
+    }
+
+    int pmu_fd = 0;
+    assert(bpf_map_update_elem(1, &fd, &pmu_fd, BPF_ANY) == 0);
 }

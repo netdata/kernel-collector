@@ -12,3 +12,7 @@
 user/process_monitor
 user/process_latency
 user/process_test
+
+libbpf/src/build/
+libbpf/src/root/
+library/libbpf.a

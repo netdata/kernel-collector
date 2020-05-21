@@ -23,7 +23,11 @@ ifndef BUILD_STATIC_ONLY
 endif
 
 CFLAGS ?= -g -O2 -Werror -Wall
-ALL_CFLAGS += $(CFLAGS)
+ifeq ("$(STATIC)","1")
+    ALL_CFLAGS += $(CFLAGS) -fPIC
+else
+    ALL_CFLAGS += $(CFLAGS)
+endif
 ALL_LDFLAGS += $(LDFLAGS)
 ifdef NO_PKG_CONFIG
 	ALL_LDFLAGS += -lelfs
