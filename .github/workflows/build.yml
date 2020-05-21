@@ -15,6 +15,7 @@ jobs:
           - '4.14.171'
           - '3.10.0'
         libc:
+          - static
           - glibc
           - musl
         exclude:

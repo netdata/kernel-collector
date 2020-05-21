@@ -26,12 +26,20 @@ OS="${3:-generic}"
 
 TAG="kernel-collector:$(echo "${KERNEL_VERSION}" | tr '.' '_')_${LIBC}_${OS}"
 
+# Treat a LIBC=static as a static build (STATIC=1)
+if [ "$LIBC" = "static" ]; then
+  STATIC=1
+  export STATIC
+fi
+
 git clean -d -f -x
+
 docker build \
   -f Dockerfile."${LIBC}"."${OS}" \
   -t "${TAG}" \
   --build-arg KERNEL_VERSION="${KERNEL_VERSION}" \
   ./ | tee prepare.log
+
 if [ -t 1 ]; then
   docker run \
     -i -t --rm \
@@ -39,7 +47,7 @@ if [ -t 1 ]; then
     -w /kernel-collector \
     -e DEBUG \
     -e STATIC \
-    "${TAG}" | tee build.log    
+    "${TAG}" | tee build.log
 else
   docker run \
     --rm \
