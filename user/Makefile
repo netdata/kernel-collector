@@ -24,17 +24,18 @@ EXTRA_CFLAGS += -fno-stack-protector
 all: $(OBJECT_LIBLOAD) $(KERNEL_PROGRAM)
 	cp $(KERNEL_DIR)rprocess_kern.o rnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	cp $(KERNEL_DIR)pprocess_kern.o pnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
-	cp $(KERNEL_DIR)dprocess_kern.o dnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	cp $(KERNEL_DIR)dlatency_process_kern.o dlatency_process_kern.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
+	cp $(KERNEL_DIR)rnetwork_viewer.o rnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
+	cp $(KERNEL_DIR)pnetwork_viewer.o pnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_monitor process_user.c $(LIBS)
 	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_latency latency_process_user.c $(LIBS)
 	$(CC) $(EXTRA_CFLAGS) -pthread -L. -I../includes/ -o process_test latency_test.c $(LIBS)
 ifneq ("$(STATIC)","1")
-	if [ -f libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) ]; then tar -cf ../artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar $(LIBLOAD_DIR)libbpf_kernel*.so libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) [pr]netdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o; else echo "ERROR: Cannot find libbpf_kernel.so"; exit 1; fi
+	if [ -f libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) ]; then tar -cf ../artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar $(LIBLOAD_DIR)libbpf_kernel*.so libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) [pr]netdata_ebpf_*.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o; else echo "ERROR: Cannot find libbpf_kernel.so"; exit 1; fi
 else
-	if [ -f libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) ]; then tar -cf ../artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) [pr]netdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o; else echo "ERROR: Cannot find necessary libraries."; exit 1; fi
+	if [ -f libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) ]; then tar -cf ../artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar libnetdata_ebpf.so.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH) [pr]netdata_ebpf_*.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o; else echo "ERROR: Cannot find necessary libraries."; exit 1; fi
 endif    
-	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf ../artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar dnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o process_latency process_monitor process_test ../tools/check-kernel-config.sh ../tools/install.sh ../tools/uninstall.sh; fi
+	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf ../artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar dnetdata_ebpf_*.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o process_latency process_monitor process_test ../tools/check-kernel-config.sh ../tools/install.sh ../tools/uninstall.sh; fi
 	xz ../artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar
 	( cd ../artifacts; sha256sum netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz > netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz.sha256sum )
 
