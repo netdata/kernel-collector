@@ -56,7 +56,9 @@ void foce_map(int fd) {
     struct map_me_to_others key = {}, next_key;
     int values[2];
     while (bpf_map_get_next_key(fd, &key, &next_key) == 0) {
-        bpf_map_lookup_elem(fd, &next_key, values);
+        if (!bpf_map_lookup_elem(fd, &next_key, values) ) {
+             bpf_map_delete_elem(fd, &next_key);
+        }
     }
 
     int pmu_fd = 0;
