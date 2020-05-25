@@ -230,6 +230,9 @@ static void reset_socket_stats(netdata_socket_t *val, __u64 sent, __u64 received
     val->removeme = 0;
 }
 
+/**
+ * Update the table for the index idx
+ */
 static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *idx, __u64 sent, __u64 received, __u64 pid_tgid, __u8 protocol)
 {
     netdata_socket_t *val;
@@ -252,6 +255,9 @@ static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *i
     }
 }
 
+/**
+ * Update the table for the specified PID
+ */
 static void update_pid_stats(__u32 pid,__u64 sent, __u64 received)
 {
     netdata_bandwidth_t *b;
@@ -496,6 +502,9 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
  *     
  ***********************************************************************************/
 
+/**
+ * https://elixir.bootlin.com/linux/latest/source/kernel/exit.c#L711
+ */
 SEC("kprobe/do_exit")
 int netdata_sys_exit(struct pt_regs* ctx)
 {
