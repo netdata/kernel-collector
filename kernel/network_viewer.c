@@ -67,7 +67,6 @@ typedef struct netdata_bandwidth {
 
 /**
  * Bandwidth hash table
- *
  */
 struct bpf_map_def SEC("maps") tbl_bandwidth = {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))    
@@ -128,7 +127,6 @@ struct bpf_map_def SEC("maps") tbl_nv_udp_conn_stats = {
 
 /*
  * Hash table used to create charts based in calls.
- *
 */
 struct bpf_map_def SEC("maps") tbl_sock_total_stats = {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
@@ -167,16 +165,15 @@ static void netdata_update_global(__u32 key, __u64 value)
     res = bpf_map_lookup_elem(&tbl_sock_total_stats, &key);
     if (res) {
         netdata_update_u64(res, value) ;
-    } else {
+    } else
         bpf_map_update_elem(&tbl_sock_total_stats, &key, &value, BPF_NOEXIST);
-    }
 }
 
 /**
  * Set Index value
  *
  * Read information from socket to update the index.
- */
+*/
 static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is, uint32_t pid)
 {
     __u16 family;
@@ -249,11 +246,13 @@ static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *i
     } else {
         data.pid_tgid = pid_tgid;
         data.first = bpf_ktime_get_ns();
+        data.protocol = protocol;
         update_socket_stats(&data, sent, received);
 
-        bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
+        bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
     }
 }
+
 
 /**
  * Update the table for the specified PID
@@ -375,7 +374,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
     __u32 pid = (__u32)(pid_tgid >> 32);
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
-    netdata_update_global(NETDATA_KEY_CALLS_TCP_CLOSE, 1);
+   netdata_update_global(NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
     family =  set_idx_value(&idx, is, pid);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
@@ -442,6 +441,8 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
         bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
         return 0;
     }
+
+    bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
 
     family =  set_idx_value(&idx, is, pid);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
@@ -516,7 +517,6 @@ int netdata_sys_exit(struct pt_regs* ctx)
     //Am I the child?
     if ( pid != tgid )
         return 0;
-
 
     //Remove PID from table
     b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &tgid);
