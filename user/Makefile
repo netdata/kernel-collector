@@ -25,8 +25,8 @@ all: $(OBJECT_LIBLOAD) $(KERNEL_PROGRAM)
 	cp $(KERNEL_DIR)rprocess_kern.o rnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	cp $(KERNEL_DIR)pprocess_kern.o pnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	cp $(KERNEL_DIR)dlatency_process_kern.o dlatency_process_kern.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
-	cp $(KERNEL_DIR)rnetwork_viewer.o rnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
-	cp $(KERNEL_DIR)pnetwork_viewer.o pnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
+	cp $(KERNEL_DIR)rnetwork_viewer_kern.o rnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
+	cp $(KERNEL_DIR)pnetwork_viewer_kern.o pnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_monitor process_user.c $(LIBS)
 	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_latency latency_process_user.c $(LIBS)
 	$(CC) $(EXTRA_CFLAGS) -pthread -L. -I../includes/ -o process_test latency_test.c $(LIBS)
