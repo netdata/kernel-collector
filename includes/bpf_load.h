@@ -33,8 +33,8 @@ extern int prog_cnt;
 
 /* There is a one-to-one mapping between map_fd[] and map_data[].
  * The map_data[] just contains more rich info on the given map.
- */
 extern int map_fd[MAX_MAPS];
+ */
 extern struct bpf_map_data map_data[MAX_MAPS];
 extern int map_data_count;
 
@@ -50,8 +50,8 @@ extern int map_data_count;
  *
  * returns zero on success
  */
-int load_bpf_file(char *path, int pid);
-int load_bpf_file_fixup_map(const char *path, fixup_map_cb fixup_map);
+int load_bpf_file(int *map_fd,char *path, int pid);
+int load_bpf_file_fixup_map(int *map_fd,const char *path, fixup_map_cb fixup_map);
 
 void read_trace_pipe(void);
 int bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags);

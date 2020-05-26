@@ -36,7 +36,7 @@ static char license[128];
 static int kern_version;
 static bool processed_sec[128];
 char bpf_log_buf[BPF_LOG_BUF_SIZE];
-int map_fd[MAX_MAPS];
+//int map_fd[MAX_MAPS];
 int prog_fd[MAX_PROGS];
 int event_fd[MAX_PROGS];
 int prog_cnt;
@@ -422,11 +422,12 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size, i
 	return 0;
 }
 
-static int load_maps(struct bpf_map_data *maps, int nr_maps,
+static int load_maps(int *map_fd, struct bpf_map_data *maps, int nr_maps,
 		     fixup_map_cb fixup_map)
 {
 	int i, numa_node;
 
+        fprintf(stderr,"KILLME %d\n", nr_maps);
 	for (i = 0; i < nr_maps; i++) {
 		if (fixup_map) {
 			fixup_map(&maps[i], i);
@@ -436,6 +437,7 @@ static int load_maps(struct bpf_map_data *maps, int nr_maps,
 				continue;
 			}
 		}
+                fprintf(stderr,"KILLME 1: %d\n", i);
 
 		numa_node = maps[i].def.map_flags & BPF_F_NUMA_NODE ?
 			maps[i].def.numa_node : -1;
@@ -464,6 +466,7 @@ static int load_maps(struct bpf_map_data *maps, int nr_maps,
 							maps[i].def.map_flags,
 							numa_node);
 		}
+                fprintf(stderr,"KILLME 2: %d\n", map_fd[i]);
 		if (map_fd[i] < 0) {
 			fprintf(stderr,"[eBPF] failed to create a map: %d %s\n",
 			       errno, strerror(errno));
@@ -669,7 +672,7 @@ static int load_elf_maps_section(struct bpf_map_data *maps, int maps_shndx,
 	return nr_maps;
 }
 
-static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid)
+static int do_load_bpf_file(int *map_fd,const char *path, fixup_map_cb fixup_map, int pid)
 {
 	int fd, i, ret, maps_shndx = -1, strtabidx = -1;
 	Elf *elf;
@@ -752,7 +755,7 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map, int pid)
 			       nr_maps, strerror(-nr_maps));
 			goto done;
 		}
-		if (load_maps(map_data, nr_maps, fixup_map))
+		if (load_maps(map_fd, map_data, nr_maps, fixup_map))
 			goto done;
 		map_data_count = nr_maps;
 
@@ -992,14 +995,14 @@ done:
 }
 */
 
-int load_bpf_file(char *path, int pid)
+int load_bpf_file(int *map_fd,char *path, int pid)
 {
-	return do_load_bpf_file(path, NULL, pid);
+	return do_load_bpf_file(map_fd, path, NULL, pid);
 }
 
-int load_bpf_file_fixup_map(const char *path, fixup_map_cb fixup_map)
+int load_bpf_file_fixup_map(int *map_fd,const char *path, fixup_map_cb fixup_map)
 {
-	return do_load_bpf_file(path, fixup_map, 0);
+	return do_load_bpf_file(map_fd, path, fixup_map, 0);
 }
 
 void read_trace_pipe(void)
