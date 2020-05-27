@@ -45,7 +45,7 @@ typedef struct netdata_socket {
 } netdata_socket_t;
 
 /**
- * Index used togethre previous structure
+ * Index used together previous structure
  */
 typedef struct netdata_socket_idx {
     __u32 pid;
