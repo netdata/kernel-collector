@@ -427,7 +427,6 @@ static int load_maps(int *map_fd, struct bpf_map_data *maps, int nr_maps,
 {
 	int i, numa_node;
 
-        fprintf(stderr,"KILLME %d\n", nr_maps);
 	for (i = 0; i < nr_maps; i++) {
 		if (fixup_map) {
 			fixup_map(&maps[i], i);
@@ -437,7 +436,6 @@ static int load_maps(int *map_fd, struct bpf_map_data *maps, int nr_maps,
 				continue;
 			}
 		}
-                fprintf(stderr,"KILLME 1: %d\n", i);
 
 		numa_node = maps[i].def.map_flags & BPF_F_NUMA_NODE ?
 			maps[i].def.numa_node : -1;
@@ -466,7 +464,6 @@ static int load_maps(int *map_fd, struct bpf_map_data *maps, int nr_maps,
 							maps[i].def.map_flags,
 							numa_node);
 		}
-                fprintf(stderr,"KILLME 2: %d\n", map_fd[i]);
 		if (map_fd[i] < 0) {
 			fprintf(stderr,"[eBPF] failed to create a map: %d %s\n",
 			       errno, strerror(errno));
