@@ -1,0 +1,35 @@
+FROM alpine:3.11 AS build
+
+ARG ARCH=x86
+ENV ARCH=$ARCH
+
+ARG KERNEL_VERSION=5.4.20
+ENV KERNEL_VERSION=$KERNEL_VERSION
+
+ENV _LIBC=static
+
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
+                          bc elfutils-dev openssl-dev clang clang-dev llvm \
+                          rsync bison flex tar xz bash
+RUN apk add --no-cache -U linux-headers  # Why?
+
+RUN mkdir -p /usr/src && \
+    cd /usr/src && \
+    wget -q https://cdn.kernel.org/pub/linux/kernel/v$(echo "$KERNEL_VERSION" | cut -f 1 -d '.').x/linux-${KERNEL_VERSION}.tar.xz && \
+    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+    ln -s linux-${KERNEL_VERSION} linux
+
+RUN cd /usr/src/linux && \
+    make defconfig && \
+    make scripts && \
+    make prepare && \
+    make headers_install
+
+WORKDIR /kernel-collector
+
+COPY .dockerfiles/build.sh /build.sh
+COPY . .
+
+CMD ["/build.sh"]

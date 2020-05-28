@@ -46,10 +46,10 @@ else
 
     LIBBPF_DIR = ../libbpf_0_0_1/src
 ifeq ("$(STATIC)","1")
-    LIBBPF_DEST = ../libbpf_0_0_1/src
+    LIBBPF_DEST = ../libbpf_0_0_1/src/root/usr/lib64
 else
     LIBRARY_VERSION="libbpf.so.0.0.3"
-    LIBBPF_DEST = ../libbpf_0_0_1/src/root/usr/lib64
+    LIBBPF_DEST = ../libbpf_0_0_1/src
 endif
 
 ifeq ($(ON_RC),"NONE")

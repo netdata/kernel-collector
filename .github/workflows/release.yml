@@ -17,9 +17,19 @@ jobs:
           - '4.14.171'
           - '3.10.0'
         libc:
+          - static
           - glibc
           - musl
         exclude:
+          # excludes static on 4.16.18 (https://github.com/netdata/kernel-collector/issues/153)
+          - kernel_version: 4.16.18
+            libc: static
+          # excludes static on 4.18.18 (https://github.com/netdata/kernel-collector/issues/153)
+          - kernel_version: 4.18.0
+            libc: static
+          # excludes static on 3.10.0 (https://github.com/netdata/kernel-collector/issues/153)
+          - kernel_version: 3.10.0
+            libc: static
           # excludes musl on 4.18.0
           - kernel_version: 4.18.0
             libc: musl
@@ -115,9 +125,10 @@ jobs:
         working-directory: artifacts
       - name: Package Release Assets
         run: |
+          mkdir -p packages/netdata-kernel-collector-static-${RELEASE_TAG}
           mkdir -p packages/netdata-kernel-collector-glibc-${RELEASE_TAG}
           mkdir -p packages/netdata-kernel-collector-musl-${RELEASE_TAG}
-          for libc in glibc musl; do
+          for libc in static glibc musl; do
             for dir in artifacts/artifacts-*-"$libc"; do
               tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -xvf "$dir"/*.tar.xz
             done
@@ -127,6 +138,15 @@ jobs:
       - name: Display Release Assets
         run: ls -R
         working-directory: packages
+      - name: Upload Release Assets (static)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: packages/netdata-kernel-collector-static-${{ env.RELEASE_TAG }}.tar.xz
+          asset_name: netdata-kernel-collector-static-${{ env.RELEASE_TAG }}.tar.xz
+          asset_content_type: application/x-gtar
       - name: Upload Release Assets (glibc)
         uses: actions/upload-release-asset@v1
         env:
