@@ -10,7 +10,6 @@ struct netdata_error_report_t {
     int err;
 };
 
-# define NETDATA_GLOBAL_COUNTER 24
 
 //fork() creates process
 //
@@ -49,6 +48,9 @@ struct netdata_pid_stat_t {
     __u32 close_err;
 };
 
+//ebpf_process.c
+# define NETDATA_GLOBAL_COUNTER 24
+
 # define NETDATA_KEY_CALLS_DO_SYS_OPEN 0
 # define NETDATA_KEY_ERROR_DO_SYS_OPEN 1
 
@@ -83,5 +85,26 @@ struct netdata_pid_stat_t {
 # define NETDATA_KEY_CALLS_VFS_READV 21
 # define NETDATA_KEY_ERROR_VFS_READV 22
 # define NETDATA_KEY_BYTES_VFS_READV 23
+
+//network_viewer.c
+# define NETDATA_SOCKET_COUNTER 13
+
+# define NETDATA_KEY_CALLS_TCP_SENDMSG 0
+# define NETDATA_KEY_ERROR_TCP_SENDMSG 1
+# define NETDATA_KEY_BYTES_TCP_SENDMSG 2
+
+# define NETDATA_KEY_CALLS_TCP_CLEANUP_RBUF 3
+# define NETDATA_KEY_ERROR_TCP_CLEANUP_RBUF 4
+# define NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF 5
+
+# define NETDATA_KEY_CALLS_TCP_CLOSE 6
+
+# define NETDATA_KEY_CALLS_UDP_RECVMSG 7
+# define NETDATA_KEY_ERROR_UDP_RECVMSG 8
+# define NETDATA_KEY_BYTES_UDP_RECVMSG 9
+
+# define NETDATA_KEY_CALLS_UDP_SENDMSG 10
+# define NETDATA_KEY_ERROR_UDP_SENDMSG 11
+# define NETDATA_KEY_BYTES_UDP_SENDMSG 12
 
 #endif
