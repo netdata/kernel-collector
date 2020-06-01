@@ -778,5 +778,25 @@ int netdata_close(struct pt_regs* ctx)
     return 0;
 }
 
+SEC("kprobe/try_to_wake_up")
+int netdata_enter_try_to_wake_up(struct pt_regs* ctx)
+{
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = (__u32)(pid_tgid >> 32);
+    struct netdata_pid_stat_t *fill;
+    struct netdata_pid_stat_t data = { };
+
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    if (!fill) {
+        data.pid_tgid = pid_tgid;  
+        data.pid = pid;  
+
+        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+    }
+
+
+    return 0;
+}
+
 char _license[] SEC("license") = "GPL";
 u32 _version SEC("version") = LINUX_VERSION_CODE;
