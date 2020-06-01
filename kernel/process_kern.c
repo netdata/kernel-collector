@@ -557,6 +557,8 @@ int netdata_release_task(struct pt_regs* ctx)
     if (fill) {
         netdata_update_u32(&fill->release_call, 1) ;
         netdata_reset_stat(fill);
+
+        bpf_map_delete_elem(&tbl_pid_stats, &pid);
     }
 
     return 0;
