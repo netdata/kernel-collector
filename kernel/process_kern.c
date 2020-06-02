@@ -98,6 +98,7 @@ static void netdata_update_global(__u32 key, __u64 value)
         bpf_map_update_elem(&tbl_total_stats, &key, &value, BPF_NOEXIST);
 }
 
+/*
 static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
 {
     ptr->open_call = 0;
@@ -123,6 +124,7 @@ static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
     ptr->unlink_err = 0;
     ptr->fork_err = 0;
 }
+**/
 
 #if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
 static inline void send_perf_error(struct pt_regs* ctx, int ret, int type, __u32 pid)
@@ -565,7 +567,7 @@ int netdata_release_task(struct pt_regs* ctx)
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&tgid);
     if (fill) {
         netdata_update_u32(&fill->release_call, 1) ;
-        netdata_reset_stat(fill);
+        //netdata_reset_stat(fill);
 
         bpf_map_delete_elem(&tbl_pid_stats, &tgid);
     }
