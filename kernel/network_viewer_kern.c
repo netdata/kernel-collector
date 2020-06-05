@@ -58,6 +58,8 @@ typedef struct netdata_socket_idx {
  * Bandwidth information, the index for this structure is the TGID
  */
 typedef struct netdata_bandwidth {
+    __u32 pid;
+
     __u64 first;
     __u64 ct;
     __u64 sent;
@@ -257,7 +259,7 @@ static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *i
 /**
  * Update the table for the specified PID
  */
-static void update_pid_stats(__u32 pid,__u64 sent, __u64 received)
+static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
@@ -268,6 +270,7 @@ static void update_pid_stats(__u32 pid,__u64 sent, __u64 received)
         netdata_update_u64(&b->sent, sent);
         netdata_update_u64(&b->received, received);
     } else {
+        data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         data.sent = sent;
@@ -315,7 +318,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
     update_socket_table(tbl, &idx, (__u64) sent, 0, pid_tgid, 6);
 
-    update_pid_stats(tgid, (__u64) sent, 0);
+    update_pid_stats(pid, tgid, (__u64) sent, 0);
 
 #if NETDATASEL < 2
     if (ret < 0) {
@@ -354,7 +357,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, (__u64) copied);
     update_socket_table(tbl, &idx, 0, (__u64) copied, pid_tgid, 6);
 
-    update_pid_stats(tgid, 0, (__u64) copied);
+    update_pid_stats(pid, tgid, 0, (__u64) copied);
 
     return 0;
 }
@@ -450,7 +453,7 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, (__u64) copied);
     update_socket_table(tbl, &idx, 0, (__u64) copied, pid_tgid, 17);
 
-    update_pid_stats(tgid, 0, (__u64) copied);
+    update_pid_stats(pid, tgid, 0, (__u64) copied);
 
     return 0;
 }
@@ -486,7 +489,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     update_socket_table(tbl, &idx, (__u64) sent, 0, pid_tgid, 17);
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
-    update_pid_stats(tgid, (__u64) sent, 0);
+    update_pid_stats(pid, tgid, (__u64) sent, 0);
 
 #if NETDATASEL < 2
     if (ret < 0) {
