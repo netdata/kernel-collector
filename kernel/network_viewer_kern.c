@@ -150,8 +150,11 @@ struct bpf_map_def SEC("maps") tbl_sock_total_stats = {
 /**
  * Function used to update 64 bit values and avoid overflow
  */
-static void netdata_update_u64(u64 *res, u64 value)
+static void netdata_update_u64(__u64 *res, __u64 value)
 {
+    if (!value)
+        return;
+
     if ( (0xFFFFFFFFFFFFFFFF - *res) <= value)
         *res = value;
     else
