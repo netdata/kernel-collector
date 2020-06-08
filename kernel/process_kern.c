@@ -74,23 +74,29 @@ static unsigned int log2l(unsigned long v)
 
 static void netdata_update_u32(u32 *res, u32 value) 
 {
-    if ( (0xFFFFFFFF - *res) <= value)
+    if (!value)
+        return;
+
+    __sync_fetch_and_add(res, value);
+    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
         *res = value;
-    else 
-        *res += value;
+    }
 }
 
-static void netdata_update_u64(u64 *res, u64 value) 
+static void netdata_update_u64(__u64 *res, __u64 value) 
 {
-    if ( (0x7FFFFFFFFFFFFFFF - *res) <= value)
+    if (!value)
+        return;
+
+    __sync_fetch_and_add(res, value);
+    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
         *res = value;
-    else 
-        *res += value;
+    }
 }
 
 static void netdata_update_global(__u32 key, __u64 value)
 {
-    u64 *res;
+    __u64 *res;
     res = bpf_map_lookup_elem(&tbl_total_stats, &key);
     if (res) {
         netdata_update_u64(res, value) ;
@@ -181,7 +187,7 @@ int netdata_sys_write(struct pt_regs* ctx)
             tot = 0;
 #endif
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITE, tot);
-            netdata_update_u64(&fill->write_bytes, (u64) tot);
+            netdata_update_u64(&fill->write_bytes, tot);
 #if NETDATASEL < 2
         }
 #endif
@@ -199,7 +205,7 @@ int netdata_sys_write(struct pt_regs* ctx)
             tot = 0;
 #endif
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITE, tot);
-            data.write_bytes = (u64)tot;
+            data.write_bytes = tot;
 #if NETDATASEL < 2
         }
 #endif
@@ -249,7 +255,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
             tot = 0;
 #endif
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITEV, tot);
-            netdata_update_u64(&fill->writev_bytes, (u64) tot);
+            netdata_update_u64(&fill->writev_bytes, tot);
 #if NETDATASEL < 2
         }
 #endif
@@ -317,7 +323,7 @@ int netdata_sys_read(struct pt_regs* ctx)
             tot = 0;
 #endif
             netdata_update_global(NETDATA_KEY_BYTES_VFS_READ, tot);
-            netdata_update_u64(&fill->read_bytes, (u64) tot);
+            netdata_update_u64(&fill->read_bytes, tot);
 #if NETDATASEL < 2
         }
 #endif
@@ -385,7 +391,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
             tot = 0;
 #endif
             netdata_update_global(NETDATA_KEY_BYTES_VFS_READV, tot);
-            netdata_update_u64(&fill->readv_bytes, (u64) tot);
+            netdata_update_u64(&fill->readv_bytes, tot);
 #if NETDATASEL < 2
         }
 #endif
@@ -701,7 +707,7 @@ int netdata_clone(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    u64 arg1 = (u64)PT_REGS_PARM2(ctx);
+    __u64 arg1 = (__u64)PT_REGS_PARM2(ctx);
 
     arg1 &= CLONE_THREAD|CLONE_VM;
     if(!arg1)
