@@ -155,10 +155,10 @@ static void netdata_update_u64(__u64 *res, __u64 value)
     if (!value)
         return;
 
-    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value)
+    __sync_fetch_and_add(res, value);
+    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
         *res = value;
-    else
-        *res += value;
+    }
 }
 
 /*
@@ -166,7 +166,7 @@ static void netdata_update_u64(__u64 *res, __u64 value)
 */
 static void netdata_update_global(__u32 key, __u64 value)
 {
-    u64 *res;
+    __u64 *res;
     res = bpf_map_lookup_elem(&tbl_sock_total_stats, &key);
     if (res) {
         netdata_update_u64(res, value) ;
@@ -310,7 +310,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    size_t sent = (size_t)PT_REGS_PARM3(ctx);
+    __u64 sent = (__u64)PT_REGS_PARM3(ctx);
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     netdata_update_global(NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
@@ -318,10 +318,10 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     family = set_idx_value(&idx, is, pid);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
 
-    netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
-    update_socket_table(tbl, &idx, (__u64) sent, 0, pid_tgid, 6);
+    update_socket_table(tbl, &idx, sent, 0, pid_tgid, 6);
 
-    update_pid_stats(pid, tgid, (__u64) sent, 0);
+    netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
+    update_pid_stats(pid, tgid, sent, 0);
 
 #if NETDATASEL < 2
     if (ret < 0) {
@@ -354,13 +354,14 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
         return 0;
     }
 
+    __u64 received = (__u64) PT_REGS_PARM2(ctx);
+
     family = set_idx_value(&idx, is, pid);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
 
-    netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, (__u64) copied);
-    update_socket_table(tbl, &idx, 0, (__u64) copied, pid_tgid, 6);
-
-    update_pid_stats(pid, tgid, 0, (__u64) copied);
+    netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
+    update_socket_table(tbl, &idx, 0, received, pid_tgid, 6);
+    update_pid_stats(pid, tgid, 0, received);
 
     return 0;
 }
@@ -380,7 +381,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
     __u32 pid = (__u32)(pid_tgid >> 32);
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
-   netdata_update_global(NETDATA_KEY_CALLS_TCP_CLOSE, 1);
+    netdata_update_global(NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
     family =  set_idx_value(&idx, is, pid);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
@@ -448,15 +449,17 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
         return 0;
     }
 
+    __u64 received = (__u64) PT_REGS_RC(ctx);
+
     bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
 
     family =  set_idx_value(&idx, is, pid);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
 
-    netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, (__u64) copied);
-    update_socket_table(tbl, &idx, 0, (__u64) copied, pid_tgid, 17);
+    netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, received);
+    update_socket_table(tbl, &idx, 0, received, pid_tgid, 17);
 
-    update_pid_stats(pid, tgid, 0, (__u64) copied);
+    update_pid_stats(pid, tgid, 0, received);
 
     return 0;
 }
@@ -490,9 +493,9 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
 
     update_socket_table(tbl, &idx, (__u64) sent, 0, pid_tgid, 17);
+    update_pid_stats(pid, tgid, (__u64) sent, 0);
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
-    update_pid_stats(pid, tgid, (__u64) sent, 0);
 
 #if NETDATASEL < 2
     if (ret < 0) {
