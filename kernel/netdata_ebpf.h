@@ -46,6 +46,8 @@ struct netdata_pid_stat_t {
     __u32 fork_err;
     __u32 clone_err;
     __u32 close_err;
+
+    __u8 removeme;
 };
 
 //ebpf_process.c
