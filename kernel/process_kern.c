@@ -161,8 +161,9 @@ SEC("kprobe/vfs_write")
 #endif
 int netdata_sys_write(struct pt_regs* ctx)
 {
+    ssize_t ret;
 #if NETDATASEL < 2
-    ssize_t ret = (ssize_t)PT_REGS_RC(ctx);
+    ret = (ssize_t)PT_REGS_RC(ctx);
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -182,10 +183,9 @@ int netdata_sys_write(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITE, 1);
             netdata_update_u32(&fill->write_err, 1) ;
         } else {
-            tot = log2l(ret);
-#else
-            tot = 0;
 #endif
+            ret = (ssize_t)PT_REGS_PARM3(ctx);
+            tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITE, tot);
             netdata_update_u64(&fill->write_bytes, tot);
 #if NETDATASEL < 2
@@ -200,10 +200,9 @@ int netdata_sys_write(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITE, 1);
             data.write_err = 1;
         } else {
-            tot = log2l(ret);
-#else
-            tot = 0;
 #endif
+            ret = (ssize_t)PT_REGS_PARM3(ctx);
+            tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITE, tot);
             data.write_bytes = tot;
 #if NETDATASEL < 2
@@ -230,8 +229,9 @@ SEC("kprobe/vfs_writev")
 #endif
 int netdata_sys_writev(struct pt_regs* ctx)
 {
+    ssize_t ret;
 #if NETDATASEL < 2
-    ssize_t ret = (ssize_t)PT_REGS_RC(ctx);
+    ret = (ssize_t)PT_REGS_RC(ctx);
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -250,10 +250,9 @@ int netdata_sys_writev(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITEV, 1);
             netdata_update_u32(&fill->writev_err, 1) ;
         } else {
-            tot = log2l(ret);
-#else
-            tot = 0;
 #endif
+            ret = (ssize_t)PT_REGS_PARM3(ctx);
+            tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITEV, tot);
             netdata_update_u64(&fill->writev_bytes, tot);
 #if NETDATASEL < 2
@@ -268,10 +267,9 @@ int netdata_sys_writev(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_WRITEV, 1);
             data.writev_err = 1;
         } else {
-            tot = log2l(ret);
-#else
-            tot = 0;
 #endif
+            ret = (ssize_t)PT_REGS_PARM3(ctx);
+            tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITEV, tot);
             data.writev_bytes = (unsigned long)tot;
 #if NETDATASEL < 2
@@ -298,8 +296,9 @@ SEC("kprobe/vfs_read")
 #endif
 int netdata_sys_read(struct pt_regs* ctx)
 {
+    ssize_t ret;
 #if NETDATASEL < 2
-    ssize_t ret = (ssize_t)PT_REGS_RC(ctx);
+    ret = (ssize_t)PT_REGS_RC(ctx);
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -318,10 +317,9 @@ int netdata_sys_read(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_READ, 1);
             netdata_update_u32(&fill->read_err, 1) ;
         } else {
-            tot = log2l(ret);
-#else
-            tot = 0;
 #endif
+            ret = (ssize_t)PT_REGS_PARM3(ctx);
+            tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_READ, tot);
             netdata_update_u64(&fill->read_bytes, tot);
 #if NETDATASEL < 2
@@ -336,10 +334,9 @@ int netdata_sys_read(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_READ, 1);
             data.read_err = 1;
         } else {
-            tot = log2l(ret);
-#else
-            tot = 0;
 #endif
+            ret = (ssize_t)PT_REGS_PARM3(ctx);
+            tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_READ, tot);
             data.read_bytes = (unsigned long)tot;
 #if NETDATASEL < 2
@@ -366,8 +363,9 @@ SEC("kprobe/vfs_readv")
 #endif
 int netdata_sys_readv(struct pt_regs* ctx)
 {
+    ssize_t ret;
 #if NETDATASEL < 2
-    ssize_t ret = (ssize_t)PT_REGS_RC(ctx);
+    ret = (ssize_t)PT_REGS_RC(ctx);
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
@@ -386,10 +384,9 @@ int netdata_sys_readv(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_READV, 1);
             netdata_update_u32(&fill->readv_err, 1) ;
         } else {
-            tot = log2l(ret);
-#else
-            tot = 0;
 #endif
+            ret = (ssize_t)PT_REGS_PARM3(ctx);
+            tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_READV, tot);
             netdata_update_u64(&fill->readv_bytes, tot);
 #if NETDATASEL < 2
@@ -404,10 +401,9 @@ int netdata_sys_readv(struct pt_regs* ctx)
             netdata_update_global(NETDATA_KEY_ERROR_VFS_READV, 1);
             data.readv_err = 1;
         } else {
-            tot = log2l(ret);
-#else
-            tot = 0;
 #endif
+            ret = (ssize_t)PT_REGS_PARM3(ctx);
+            tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_READV, tot);
             data.readv_bytes = (unsigned long)tot;
 #if NETDATASEL < 2
