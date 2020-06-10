@@ -624,7 +624,7 @@ int netdata_fork(struct pt_regs* ctx)
     if (fill) {
         fill->release_call = 0;
         netdata_update_u32(&fill->fork_call, 1) ;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)) 
         if(threads) {
             netdata_update_u32(&fill->clone_call, 1) ;
         }
@@ -646,12 +646,12 @@ int netdata_fork(struct pt_regs* ctx)
         data.pid_tgid = pid_tgid;  
         data.pid = tgid;  
         data.fork_call = 1;
-#if NETDATASEL < 2
-# if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
         if(threads) {
             data.clone_call = 1;
         }
-# endif
+#endif
+#if NETDATASEL < 2
         if (ret < 0) {
             netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
             data.fork_err = 1;
