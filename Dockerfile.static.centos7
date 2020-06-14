@@ -1,0 +1,44 @@
+FROM alpine:3.11 AS build
+
+ARG ARCH=x86
+ENV ARCH=$ARCH
+
+ARG KERNEL_VERSION=5.4.20
+ENV KERNEL_VERSION=$KERNEL_VERSION
+
+ENV _LIBC=static
+
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
+                          bc elfutils-dev openssl-dev clang clang-dev llvm \
+                          rsync bison flex tar xz bash rpm
+RUN apk add --no-cache -U linux-headers  # Why?
+
+RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+    echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
+    rpm -i http://vault.centos.org/7.7.1908/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
+
+RUN cd ~/rpmbuild/SOURCES && \
+    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+    cp -f kernel-3.10.0-x86_64.config linux-${KERNEL_VERSION}/.config
+
+RUN cd /usr/src && \
+    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+
+COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
+COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
+RUN /patch_kernel.sh
+
+RUN cd /usr/src/linux && \
+    make oldconfig && \
+    make scripts && \
+    make prepare && \
+    make headers_install
+
+WORKDIR /kernel-collector
+
+COPY .dockerfiles/build.sh /build.sh
+COPY . .
+
+CMD ["/build.sh"]
