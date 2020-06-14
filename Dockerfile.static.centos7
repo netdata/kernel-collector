@@ -14,7 +14,8 @@ RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
                           rsync bison flex tar xz bash rpm
 RUN apk add --no-cache -U linux-headers  # Why?
 
-RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+RUN mkdir -p /usr/src && \
+    mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
     wget http://vault.centos.org/7.7.1908/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
 
