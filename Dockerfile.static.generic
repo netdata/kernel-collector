@@ -12,7 +12,7 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositori
     echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
 RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
                           bc elfutils-dev openssl-dev clang clang-dev llvm \
-                          rsync bison flex tar xz bash
+                          rsync bison flex tar xz bash musl-dev
 RUN apk add --no-cache -U linux-headers  # Why?
 
 RUN mkdir -p /usr/src && \
