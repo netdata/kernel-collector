@@ -16,9 +16,10 @@ RUN apk add --no-cache -U linux-headers  # Why?
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i http://vault.centos.org/7.7.1908/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
+    wget http://vault.centos.org/7.7.1908/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
 
-RUN cd ~/rpmbuild/SOURCES && \
+RUN rpm -i kernel-${KERNEL_VERSION}.src.rpm && \
+    cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
     cp -f kernel-3.10.0-x86_64.config linux-${KERNEL_VERSION}/.config
 
