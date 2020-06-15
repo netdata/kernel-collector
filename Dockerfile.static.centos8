@@ -22,7 +22,7 @@ RUN mkdir -p /usr/src && \
 RUN rpm -i kernel-${KERNEL_VERSION}.src.rpm && \
     cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
-    cp -f kernel-3.10.0-x86_64.config linux-${KERNEL_VERSION}/.config
+    mkdir -p /usr/src/kernels
 
 RUN cd /usr/src && \
     ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
@@ -32,7 +32,7 @@ COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
 RUN /patch_kernel.sh
 
 RUN cd /usr/src/linux && \
-    make oldconfig && \
+    make defconfig && \
     make scripts && \
     make prepare && \
     make headers_install
