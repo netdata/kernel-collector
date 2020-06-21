@@ -20,9 +20,9 @@ endif
 SHARED_CFLAGS += -fPIC -fvisibility=hidden -DSHARED
 CFLAGS ?= -g -O2 -Werror -Wall
 ifeq ("$(STATIC)","1")
-    ALL_CFLAGS += $(CFLAGS) -fPIC -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
+	ALL_CFLAGS += $(CFLAGS) -fPIC -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
 else
-    ALL_CFLAGS += $(CFLAGS) -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
+	ALL_CFLAGS += $(CFLAGS) -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
 endif
 ALL_LDFLAGS += $(LDFLAGS)
 ifdef NO_PKG_CONFIG
@@ -87,13 +87,13 @@ $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSIO
 	ln -sf $(^F) $@
 
 $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
-ifeq ($(ON_RC),"NONE")
+ifeq ($(ON_RC),"NONE")	
 	$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
-		      -Wl,-soname,libbpf_kernel-7.so \
+		      -Wl,-soname,libbpf_kernel-8.so \
 		      $^ $(ALL_LDFLAGS) -o $@
 else
 	$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
-		      -Wl,-soname,libbpf_kernel-7s.so \
+		      -Wl,-soname,libbpf_kernel-8s.so \
 		      $^ $(ALL_LDFLAGS) -o $@
 endif
 

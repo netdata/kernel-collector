@@ -26,19 +26,19 @@ ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
 ifeq ("$(STATIC)","1")
     LIBBPF_DEST = ../libbpf/src/root/usr/lib64
 else
-    LIBRARY_VERSION="libbpf.so.0.0.7"
+    LIBRARY_VERSION="libbpf.so.0.0.8"
     LIBBPF_DEST = ../libbpf/src
 endif
 
 ifeq ($(ON_RC),"NONE")
-    LIBRARY_NAME="libbpf_kernel-7.so"
+    LIBRARY_NAME="libbpf_kernel-8.so"
 ifneq ("$(STATIC)","1")
-    LIBS += -lbpf_kernel-7
+    LIBS += -lbpf_kernel-8
 endif
 else
-    LIBRARY_NAME="libbpf_kernel-7s.so"
+    LIBRARY_NAME="libbpf_kernel-8s.so"
 ifneq ("$(STATIC)","1")
-    LIBS += -lbpf_kernel-7s
+    LIBS += -lbpf_kernel-8s
 endif
 endif
 
