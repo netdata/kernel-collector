@@ -21,6 +21,7 @@ VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
 
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
+
 LIBBPF_DIR = ../libbpf/src
 ifeq ("$(STATIC)","1")
     LIBBPF_DEST = ../libbpf/src/root/usr/lib64
@@ -29,17 +30,16 @@ else
     LIBBPF_DEST = ../libbpf/src
 endif
 
-ifeq ($(ON_RC),"NONE")
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
     LIBRARY_NAME="libbpf_kernel-8.so"
-ifneq ("$(STATIC)","1")
     LIBS += -lbpf_kernel-8
-endif
+
 else
+
     LIBRARY_NAME="libbpf_kernel-8s.so"
-ifneq ("$(STATIC)","1")
     LIBS += -lbpf_kernel-8s
 endif
-endif
+
 
 OBJECT_LIBBPF = $(LIBBPF_DIR)/libbpf.a
 
