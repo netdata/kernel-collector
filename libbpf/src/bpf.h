@@ -24,6 +24,7 @@
 #define __LIBBPF_BPF_H
 
 #include <linux/bpf.h>
+#include <linux/version.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -54,18 +55,31 @@ struct bpf_create_map_attr {
 
 LIBBPF_API int
 bpf_create_map_xattr(const struct bpf_create_map_attr *create_attr);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
 LIBBPF_API int bpf_create_map_node(enum bpf_map_type map_type, const char *name,
 				   int key_size, int value_size,
 				   int max_entries, __u32 map_flags, int node);
+#else
+LIBBPF_API int bpf_create_map_node(enum bpf_map_type map_type,
+				   int key_size, int value_size,
+				   int max_entries, __u32 map_flags, int node);
+#endif
 LIBBPF_API int bpf_create_map_name(enum bpf_map_type map_type, const char *name,
 				   int key_size, int value_size,
 				   int max_entries, __u32 map_flags);
 LIBBPF_API int bpf_create_map(enum bpf_map_type map_type, int key_size,
 			      int value_size, int max_entries, __u32 map_flags);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
 LIBBPF_API int bpf_create_map_in_map_node(enum bpf_map_type map_type,
 					  const char *name, int key_size,
 					  int inner_map_fd, int max_entries,
 					  __u32 map_flags, int node);
+#else
+LIBBPF_API int bpf_create_map_in_map_node(enum bpf_map_type map_type,
+					  int key_size,
+					  int inner_map_fd, int max_entries,
+					  __u32 map_flags, int node);
+#endif
 LIBBPF_API int bpf_create_map_in_map(enum bpf_map_type map_type,
 				     const char *name, int key_size,
 				     int inner_map_fd, int max_entries,

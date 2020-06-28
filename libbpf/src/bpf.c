@@ -107,13 +107,21 @@ int bpf_create_map_xattr(const struct bpf_create_map_attr *create_attr)
 	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
 int bpf_create_map_node(enum bpf_map_type map_type, const char *name,
 			int key_size, int value_size, int max_entries,
 			__u32 map_flags, int node)
+#else
+int bpf_create_map_node(enum bpf_map_type map_type,
+			int key_size, int value_size, int max_entries,
+			__u32 map_flags, int node)
+#endif
 {
 	struct bpf_create_map_attr map_attr = {};
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)        
 	map_attr.name = name;
+#endif
 	map_attr.map_type = map_type;
 	map_attr.map_flags = map_flags;
 	map_attr.key_size = key_size;
@@ -157,9 +165,15 @@ int bpf_create_map_name(enum bpf_map_type map_type, const char *name,
 	return bpf_create_map_xattr(&map_attr);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
 int bpf_create_map_in_map_node(enum bpf_map_type map_type, const char *name,
 			       int key_size, int inner_map_fd, int max_entries,
 			       __u32 map_flags, int node)
+#else
+int bpf_create_map_in_map_node(enum bpf_map_type map_type,
+			       int key_size, int inner_map_fd, int max_entries,
+			       __u32 map_flags, int node)
+#endif
 {
 	union bpf_attr attr;
 
@@ -171,9 +185,11 @@ int bpf_create_map_in_map_node(enum bpf_map_type map_type, const char *name,
 	attr.inner_map_fd = inner_map_fd;
 	attr.max_entries = max_entries;
 	attr.map_flags = map_flags;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)        
 	if (name)
 		memcpy(attr.map_name, name,
 		       min(strlen(name), BPF_OBJ_NAME_LEN - 1));
+#endif
 
 	if (node >= 0) {
 		attr.map_flags |= BPF_F_NUMA_NODE;
@@ -187,9 +203,15 @@ int bpf_create_map_in_map(enum bpf_map_type map_type, const char *name,
 			  int key_size, int inner_map_fd, int max_entries,
 			  __u32 map_flags)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)    
 	return bpf_create_map_in_map_node(map_type, name, key_size,
 					  inner_map_fd, max_entries, map_flags,
 					  -1);
+#else
+	return bpf_create_map_in_map_node(map_type, key_size,
+					  inner_map_fd, max_entries, map_flags,
+					  -1);
+#endif
 }
 
 static void *
