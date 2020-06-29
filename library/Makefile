@@ -32,12 +32,17 @@ endif
 
 ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
     LIBRARY_NAME="libbpf_kernel-8.so"
+ifneq ("$(STATIC)","1")    
     LIBS += -lbpf_kernel-8
+endif    
 
 else
 
     LIBRARY_NAME="libbpf_kernel-8s.so"
+ifneq ("$(STATIC)","1")    
     LIBS += -lbpf_kernel-8s
+endif    
+
 endif
 
 
