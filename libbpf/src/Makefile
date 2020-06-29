@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 
-ON_RC="$(shell if [ -f /etc/redhat-release ]; then cat /etc/redhat-release; else echo "NONE" ; fi)"
+KERNEL_VERSION="$(shell if [ -f /usr/src/linux/include/config/kernel.release ]; then cat /usr/src/linux/include/config/kernel.release; else cat /proc/sys/kernel/osrelease; fi)"
+VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
+VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
+VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
+CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
 LIBBPF_VERSION := $(shell \
 	grep -oE '^LIBBPF_([0-9.]+)' libbpf.map | \
@@ -87,7 +91,7 @@ $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSIO
 	ln -sf $(^F) $@
 
 $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
-ifeq ($(ON_RC),"NONE")	
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0	
 	$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
 		      -Wl,-soname,libbpf_kernel-8.so \
 		      $^ $(ALL_LDFLAGS) -o $@

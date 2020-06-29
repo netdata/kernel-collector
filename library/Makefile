@@ -31,6 +31,7 @@ else
 endif
 
 ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
+
     LIBRARY_NAME="libbpf_kernel-8.so"
 ifneq ("$(STATIC)","1")    
     LIBS += -lbpf_kernel-8
@@ -56,11 +57,7 @@ all: $(OBJECT_LIBBPF) $(OBJECT_LIBRARY)
 ifeq ("$(STATIC)","1")
 	cp $(LIBBPF_DEST)/$(LIBRARY_VERSION) $(LIBRARY_VERSION)
 else
-ifeq ("libbpf.so.0.0.3", "libbpf.so.0.0.3")    
-	cp $(LIBBPF_DIR)/$(LIBRARY_VERSION) $(LIBRARY_NAME)
-else    
 	cp $(LIBBPF_DEST)/$(LIBRARY_VERSION) $(LIBRARY_NAME)
-endif	
 endif    
 
 ifeq ("$(STATIC)","1")
