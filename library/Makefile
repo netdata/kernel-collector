@@ -39,9 +39,18 @@ endif
 
 else
 
+ifeq ($(ON_RC),"NONE")
     LIBRARY_NAME="libbpf_kernel-8s.so"
+else
+    LIBRARY_NAME="libbpf_kernel-8sl.so"
+endif
+
 ifneq ("$(STATIC)","1")    
+ifeq ($(ON_RC),"NONE")
     LIBS += -lbpf_kernel-8s
+else
+    LIBS += -lbpf_kernel-8sl
+endif
 endif    
 
 endif

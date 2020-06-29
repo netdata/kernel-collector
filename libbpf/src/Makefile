@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 
+ON_RC="$(shell if [ -f /etc/redhat-release ]; then cat /etc/redhat-release; else echo "NONE" ; fi)"
 KERNEL_VERSION="$(shell if [ -f /usr/src/linux/include/config/kernel.release ]; then cat /usr/src/linux/include/config/kernel.release; else cat /proc/sys/kernel/osrelease; fi)"
 VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
 VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
@@ -96,9 +97,15 @@ ifeq ($(shell test $(CURRENT_KERNEL) -ge 265984; echo $$?),0) # >= 4.15.0
 		      -Wl,-soname,libbpf_kernel-8.so \
 		      $^ $(ALL_LDFLAGS) -o $@
 else
+ifeq ($(ON_RC),"NONE")    
 	$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
 		      -Wl,-soname,libbpf_kernel-8s.so \
 		      $^ $(ALL_LDFLAGS) -o $@
+else	
+	$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
+		      -Wl,-soname,libbpf_kernel-8sl.so \
+		      $^ $(ALL_LDFLAGS) -o $@
+endif
 endif
 
 $(OBJDIR)/libbpf.pc:
