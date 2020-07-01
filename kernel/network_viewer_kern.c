@@ -37,11 +37,12 @@ typedef struct netdata_socket {
     __u64 pid_tgid;
     __u64 first;
     __u64 ct;
-    __u16 retransmit; //It is never used with UDP
     __u64 sent;
     __u64 recv;
+    __u16 retransmit; //It is never used with UDP
     __u8 protocol; //Should this to be in the index?
     __u8 removeme;
+    __u32 reserved;
 } netdata_socket_t;
 
 /**
@@ -156,9 +157,11 @@ static void netdata_update_u64(__u64 *res, __u64 value)
         return;
 
     __sync_fetch_and_add(res, value);
+    /*
     if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
         *res = value;
     }
+    */
 }
 
 /*
