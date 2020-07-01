@@ -220,19 +220,6 @@ static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 receive
 }
 
 /**
- * Reset socket stat when PID is not associated more with previous TGID
- */
-static void reset_socket_stats(netdata_socket_t *val, __u64 sent, __u64 received)
-{
-    val->first = bpf_ktime_get_ns();
-    val->ct = val->first;
-    val->retransmit = 0;
-    val->sent = sent;
-    val->recv = received;
-    val->removeme = 0;
-}
-
-/**
  * Update the table for the index idx
  */
 static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *idx, __u64 sent, __u64 received, __u64 pid_tgid, __u8 protocol)
@@ -242,12 +229,7 @@ static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *i
 
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, idx);
     if (val) {
-        if ( val->pid_tgid != pid_tgid) {
-            val->pid_tgid = pid_tgid;
-            reset_socket_stats(val, sent, received);
-        } else {
-            update_socket_stats(val, sent, received);
-        }
+        update_socket_stats(val, sent, received);
     } else {
         data.pid_tgid = pid_tgid;
         data.first = bpf_ktime_get_ns();
