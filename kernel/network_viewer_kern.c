@@ -34,10 +34,10 @@ union netdata_ip {
  * Structure to store socket information
  */
 typedef struct netdata_socket {
-    __u64 first;
-    __u64 ct;
-    __u64 sent;
     __u64 recv;
+    __u64 sent;
+    __u64 first; //First timestamp
+    __u64 ct;   //Current timestamp
     __u16 retransmit; //It is never used with UDP
     __u8 protocol; //Should this to be in the index?
     __u8 removeme;
@@ -48,10 +48,11 @@ typedef struct netdata_socket {
  * Index used together previous structure
  */
 typedef struct netdata_socket_idx {
-    __u32 pid;
     union netdata_ip saddr;
     union netdata_ip daddr;
+    __u32 pid;
     __u16 dport;
+    __u16 sport;
 } netdata_socket_idx_t;
 
 /**
@@ -85,7 +86,7 @@ struct bpf_map_def SEC("maps") tbl_bandwidth = {
  * IPV4 hash table
  *
  */
-struct bpf_map_def SEC("maps") tbl_conn_ipv4_stats = {
+struct bpf_map_def SEC("maps") tbl_conn_ipv4 = {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))    
     .type = BPF_MAP_TYPE_HASH,
 #else
@@ -100,7 +101,7 @@ struct bpf_map_def SEC("maps") tbl_conn_ipv4_stats = {
  * IPV6 hash table
  *
  */
-struct bpf_map_def SEC("maps") tbl_conn_ipv6_stats = {
+struct bpf_map_def SEC("maps") tbl_conn_ipv6 = {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))    
     .type = BPF_MAP_TYPE_HASH,
 #else
@@ -201,6 +202,7 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is, uint
 
     //Read destination port
     bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
+    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
 
     return family;
 }
@@ -219,7 +221,7 @@ static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 receive
 /**
  * Update the table for the index idx
  */
-static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *idx, __u64 sent, __u64 received, __u8 protocol)
+static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *idx, __u64 sent, __u64 received)
 {
     netdata_socket_t *val;
     netdata_socket_t data = { };
@@ -229,7 +231,7 @@ static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *i
         update_socket_stats(val, sent, received);
     } else {
         data.first = bpf_ktime_get_ns();
-        data.protocol = protocol;
+        //data.protocol = protocol;
         update_socket_stats(&data, sent, received);
 
         bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
@@ -288,18 +290,22 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    __u64 sent = (__u64)PT_REGS_PARM3(ctx);
+    size_t sent;
+#if NETDATASEL < 2
+    sent = (ret > 0)?(size_t)ret:0;
+#else
+    sent = (size_t)PT_REGS_PARM3(ctx);
+#endif
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     netdata_update_global(NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
 
     family = set_idx_value(&idx, is, pid);
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
+    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
-    update_socket_table(tbl, &idx, sent, 0, 6);
-
-    netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
-    update_pid_stats(pid, tgid, sent, 0);
+    netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
+    update_socket_table(tbl, &idx,(__u64) sent, 0);
+    update_pid_stats(pid, tgid, (__u64)sent, 0);
 
 #if NETDATASEL < 2
     if (ret < 0) {
@@ -335,10 +341,10 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
 
     family = set_idx_value(&idx, is, pid);
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
+    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
-    update_socket_table(tbl, &idx, 0, received, 6);
+    update_socket_table(tbl, &idx, 0, received);
     update_pid_stats(pid, tgid, 0, received);
 
     return 0;
@@ -362,7 +368,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
     family =  set_idx_value(&idx, is, pid);
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
+    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         //The socket information needs to be removed after read on user ring
@@ -432,10 +438,10 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
 
     family =  set_idx_value(&idx, is, pid);
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
+    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, received);
-    update_socket_table(tbl, &idx, 0, received, 17);
+    update_socket_table(tbl, &idx, 0, received);
 
     update_pid_stats(pid, tgid, 0, received);
 
@@ -461,16 +467,21 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     struct bpf_map_def *tbl;
 
     __u16 family;
-    size_t sent = (size_t)PT_REGS_PARM3(ctx);
+    size_t sent;
+#if NETDATASEL < 2
+    sent = (ret > 0 )?(size_t)ret:0;
+#else
+    sent = (size_t)PT_REGS_PARM3(ctx);
+#endif
     netdata_socket_idx_t idx = { };
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     netdata_update_global(NETDATA_KEY_CALLS_UDP_SENDMSG, 1);
 
     family =  set_idx_value(&idx, is, pid);
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6_stats:&tbl_conn_ipv4_stats;
+    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
-    update_socket_table(tbl, &idx, (__u64) sent, 0, 17);
+    update_socket_table(tbl, &idx, (__u64) sent, 0);
     update_pid_stats(pid, tgid, (__u64) sent, 0);
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
