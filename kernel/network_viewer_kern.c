@@ -15,6 +15,7 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
+
 /************************************************************************************
  *     
  *                              Hash Table Section
@@ -221,7 +222,7 @@ static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 receive
 /**
  * Update the table for the index idx
  */
-static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *idx, __u64 sent, __u64 received)
+static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *idx, __u64 sent, __u64 received, __u8 protocol)
 {
     netdata_socket_t *val;
     netdata_socket_t data = { };
@@ -231,7 +232,7 @@ static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *i
         update_socket_stats(val, sent, received);
     } else {
         data.first = bpf_ktime_get_ns();
-        //data.protocol = protocol;
+        data.protocol = protocol;
         update_socket_stats(&data, sent, received);
 
         bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
@@ -263,6 +264,29 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
     }
 }
 
+/*
+The motive we are using different fields to read protocol
+https://github.com/iovisor/bcc/pull/1834/files
+*/
+static __u8 read_protocol_from_socket(struct sock *sk)
+{
+    __u8 protocol;
+    long sub;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__    
+    sub = 3;
+#else
+    sub = 1;
+#endif
+
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0))    
+    bpf_probe_read(&protocol, 1, (void *)((long)&sk->sk_wmem_queued) - sub);
+# else
+    bpf_probe_read(&protocol, 1, (void *)((long)&sk->sk_gso_max_segs) - sub);
+# endif
+    
+    return protocol;
+}
+
 
 /************************************************************************************
  *     
@@ -283,6 +307,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
 #endif
+    __u8 protocol;
     __u16 family;
     netdata_socket_idx_t idx = { };
     struct bpf_map_def *tbl;
@@ -304,7 +329,8 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
-    update_socket_table(tbl, &idx,(__u64) sent, 0);
+    protocol = read_protocol_from_socket(&is->sk);
+    update_socket_table(tbl, &idx,(__u64) sent, 0, protocol);
     update_pid_stats(pid, tgid, (__u64)sent, 0);
 
 #if NETDATASEL < 2
@@ -322,6 +348,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 SEC("kprobe/tcp_cleanup_rbuf")
 int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 {
+    __u8 protocol;
     __u16 family;
     netdata_socket_idx_t idx = { };
     struct bpf_map_def *tbl;
@@ -344,7 +371,8 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
-    update_socket_table(tbl, &idx, 0, received);
+    protocol = read_protocol_from_socket(&is->sk);
+    update_socket_table(tbl, &idx, 0, received, protocol);
     update_pid_stats(pid, tgid, 0, received);
 
     return 0;
@@ -411,6 +439,7 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
 SEC("kretprobe/udp_recvmsg")
 int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 {
+    __u8 protocol;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
@@ -441,7 +470,8 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, received);
-    update_socket_table(tbl, &idx, 0, received);
+    protocol = read_protocol_from_socket(&is->sk);
+    update_socket_table(tbl, &idx, 0, received, protocol);
 
     update_pid_stats(pid, tgid, 0, received);
 
@@ -461,6 +491,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
 #endif
+    __u8 protocol;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
@@ -481,7 +512,8 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     family =  set_idx_value(&idx, is, pid);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
-    update_socket_table(tbl, &idx, (__u64) sent, 0);
+    protocol = read_protocol_from_socket(&is->sk);
+    update_socket_table(tbl, &idx, (__u64) sent, 0, protocol);
     update_pid_stats(pid, tgid, (__u64) sent, 0);
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
