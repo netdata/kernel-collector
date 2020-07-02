@@ -227,9 +227,14 @@ static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *i
     netdata_socket_t *val;
     netdata_socket_t data = { };
 
+    if (protocol != 6 && protocol != 17)
+        return;
+
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, idx);
     if (val) {
         update_socket_stats(val, sent, received);
+        if (protocol == 17)
+            val->removeme = 1;
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
