@@ -304,14 +304,21 @@ static __u8 read_protocol_from_socket(struct sock *sk)
  */
 #if NETDATASEL < 2
 SEC("kretprobe/tcp_sendmsg")
-#else
-SEC("kprobe/tcp_sendmsg")
+int netdata_rtcp_sendmsg(struct pt_regs* ctx)
+{
+    int ret = (int)PT_REGS_RC(ctx);
+
+    if (ret < 0) {
+        netdata_update_global(NETDATA_KEY_ERROR_TCP_SENDMSG, 1);
+    }    
+
+    return 0;
+}
 #endif
+
+SEC("kprobe/tcp_sendmsg")
 int netdata_tcp_sendmsg(struct pt_regs* ctx)
 {
-#if NETDATASEL < 2
-    int ret = (int)PT_REGS_RC(ctx);
-#endif
     __u8 protocol;
     __u16 family;
     netdata_socket_idx_t idx = { };
@@ -321,11 +328,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
     size_t sent;
-#if NETDATASEL < 2
-    sent = (ret > 0)?(size_t)ret:0;
-#else
     sent = (size_t)PT_REGS_PARM3(ctx);
-#endif
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     netdata_update_global(NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
@@ -337,12 +340,6 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     protocol = read_protocol_from_socket(&is->sk);
     update_socket_table(tbl, &idx,(__u64) sent, 0, protocol);
     update_pid_stats(pid, tgid, (__u64)sent, 0);
-
-#if NETDATASEL < 2
-    if (ret < 0) {
-        netdata_update_global(NETDATA_KEY_ERROR_TCP_SENDMSG, 1);
-    }    
-#endif
 
     return 0;
 }
