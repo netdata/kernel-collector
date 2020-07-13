@@ -817,4 +817,3 @@ int netdata_enter_try_to_wake_up(struct pt_regs* ctx)
 }
 
 char _license[] SEC("license") = "GPL";
-u32 _version SEC("version") = LINUX_VERSION_CODE;
