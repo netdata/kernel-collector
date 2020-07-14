@@ -35,7 +35,11 @@ struct bpf_map_def SEC("maps") tbl_total_stats = {
 
 #if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
 struct bpf_map_def SEC("maps") tbl_syscall_stats = {
-    .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
+    .type = BPF_MAP_TYPE_HASH,
+#else
+    .type = BPF_MAP_TYPE_PERCPU_HASH,
+#endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u32),
     .max_entries = 1024
@@ -135,16 +139,6 @@ static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
 #if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
 static inline void send_perf_error(struct pt_regs* ctx, int ret, int type, __u32 pid)
 {
-    struct netdata_error_report_t ner;
-
-    bpf_get_current_comm(&ner.comm, sizeof(ner.comm));
-    ner.pid = pid;
-    ner.type = 4;
-    int err = (int)ret;
-    bpf_probe_read(&ner.err,  sizeof(ner.err), &err);
-
-    pid = (__u32)bpf_get_smp_processor_id();
-    bpf_perf_event_output(ctx, &tbl_syscall_stats, pid, &ner, sizeof(ner));
 }
 #endif
 
