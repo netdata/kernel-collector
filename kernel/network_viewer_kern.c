@@ -35,8 +35,10 @@ union netdata_ip {
  * Structure to store socket information
  */
 typedef struct netdata_socket {
-    __u64 recv;
-    __u64 sent;
+    __u64 recv_packets;
+    __u64 sent_packets;
+    __u64 recv_bytes;
+    __u64 sent_bytes;
     __u64 first; //First timestamp
     __u64 ct;   //Current timestamp
     __u16 retransmit; //It is never used with UDP
@@ -213,8 +215,14 @@ static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 receive
 {
     ptr->ct = bpf_ktime_get_ns();
 
-    netdata_update_u64(&ptr->sent, sent);
-    netdata_update_u64(&ptr->recv, received);
+    if (sent)
+        netdata_update_u64(&ptr->sent_packets, 1);
+
+    if (received)
+        netdata_update_u64(&ptr->recv_packets, 1);
+
+    netdata_update_u64(&ptr->sent_bytes, sent);
+    netdata_update_u64(&ptr->recv_bytes, received);
     netdata_update_u64(&ptr->retransmit, retransmitted);
 }
 
