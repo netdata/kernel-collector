@@ -331,6 +331,7 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
     family = set_idx_value(&idx, is);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
+    netdata_update_global(NETDATA_KEY_TCP_RETRANSMIT, 1);
     protocol = read_protocol_from_socket(&is->sk);
     update_socket_table(tbl, &idx, 0, 0, 1, protocol);
 

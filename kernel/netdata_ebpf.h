@@ -89,7 +89,7 @@ struct netdata_pid_stat_t {
 # define NETDATA_KEY_BYTES_VFS_READV 23
 
 //network_viewer.c
-# define NETDATA_SOCKET_COUNTER 13
+# define NETDATA_SOCKET_COUNTER 14
 
 # define NETDATA_KEY_CALLS_TCP_SENDMSG 0
 # define NETDATA_KEY_ERROR_TCP_SENDMSG 1
@@ -108,5 +108,7 @@ struct netdata_pid_stat_t {
 # define NETDATA_KEY_CALLS_UDP_SENDMSG 10
 # define NETDATA_KEY_ERROR_UDP_SENDMSG 11
 # define NETDATA_KEY_BYTES_UDP_SENDMSG 12
+
+# define NETDATA_KEY_TCP_RETRANSMIT 13
 
 #endif
