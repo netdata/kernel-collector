@@ -17,9 +17,9 @@
 
 
 /************************************************************************************
- *     
+ *
  *                              Hash Table Section
- *     
+ *
  ***********************************************************************************/
 
 /**
@@ -72,11 +72,11 @@ typedef struct netdata_bandwidth {
  * Bandwidth hash table
  */
 struct bpf_map_def SEC("maps") tbl_bandwidth = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))    
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
 #else
     .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif    
+#endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(netdata_bandwidth_t),
     .max_entries = 65536
@@ -87,11 +87,11 @@ struct bpf_map_def SEC("maps") tbl_bandwidth = {
  *
  */
 struct bpf_map_def SEC("maps") tbl_conn_ipv4 = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))    
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
 #else
     .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif    
+#endif
     .key_size = sizeof(netdata_socket_idx_t),
     .value_size = sizeof(netdata_socket_t),
     .max_entries = 65536
@@ -102,11 +102,11 @@ struct bpf_map_def SEC("maps") tbl_conn_ipv4 = {
  *
  */
 struct bpf_map_def SEC("maps") tbl_conn_ipv6 = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))    
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
 #else
     .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif    
+#endif
     .key_size = sizeof(netdata_socket_idx_t),
     .value_size = sizeof(netdata_socket_t),
     .max_entries = 65536
@@ -114,15 +114,15 @@ struct bpf_map_def SEC("maps") tbl_conn_ipv6 = {
 
 
 /**
- * UDP hash table, this table is necessry to collect the 
+ * UDP hash table, this table is necessry to collect the
  * correct size. More details inside  UDP section.
  */
 struct bpf_map_def SEC("maps") tbl_nv_udp_conn_stats = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))    
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
 #else
     .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif    
+#endif
     .key_size = sizeof(__u64),
     .value_size = sizeof(void *),
     .max_entries = 8192
@@ -143,9 +143,9 @@ struct bpf_map_def SEC("maps") tbl_sock_total_stats = {
 };
 
 /************************************************************************************
- *     
+ *
  *                                 Common Section
- *     
+ *
  ***********************************************************************************/
 
 /**
@@ -209,31 +209,37 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
 /**
  * Update time and bytes sent and received
  */
-static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received)
+static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
 {
     ptr->ct = bpf_ktime_get_ns();
 
     netdata_update_u64(&ptr->sent, sent);
     netdata_update_u64(&ptr->recv, received);
+    netdata_update_u64(&ptr->retransmit, retransmitted);
 }
 
 /**
  * Update the table for the index idx
  */
-static void update_socket_table(struct bpf_map_def *tbl, netdata_socket_idx_t *idx, __u64 sent, __u64 received, __u8 protocol)
+static void update_socket_table(struct bpf_map_def *tbl,
+                                netdata_socket_idx_t *idx,
+                                __u64 sent,
+                                __u64 received,
+                                __u16 retransmitted,
+                                __u8 protocol)
 {
     netdata_socket_t *val;
     netdata_socket_t data = { };
 
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, idx);
     if (val) {
-        update_socket_stats(val, sent, received);
+        update_socket_stats(val, sent, received, retransmitted);
         if (protocol == IPPROTO_UDP)
             val->removeme = 1;
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
-        update_socket_stats(&data, sent, received);
+        update_socket_stats(&data, sent, received, retransmitted);
 
         bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
     }
@@ -265,9 +271,9 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
 }
 
 /************************************************************************************
- *     
+ *
  *                                 TCP Section
- *     
+ *
  ***********************************************************************************/
 
 /**
@@ -281,7 +287,7 @@ int netdata_rtcp_sendmsg(struct pt_regs* ctx)
 
     if (ret < 0) {
         netdata_update_global(NETDATA_KEY_ERROR_TCP_SENDMSG, 1);
-    }    
+    }
 
     return 0;
 }
@@ -307,8 +313,26 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
-    update_socket_table(tbl, &idx,(__u64) sent, 0, IPPROTO_TCP);
+    update_socket_table(tbl, &idx,(__u64) sent, 0, 0, IPPROTO_TCP);
     update_pid_stats(pid, tgid, (__u64)sent, 0);
+
+    return 0;
+}
+
+SEC("kprobe/tcp_retransmit_skb")
+int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
+{
+    __u8 protocol;
+    __u16 family;
+    netdata_socket_idx_t idx = { };
+    struct bpf_map_def *tbl;
+
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+    family = set_idx_value(&idx, is);
+    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
+
+    protocol = read_protocol_from_socket(&is->sk);
+    update_socket_table(tbl, &idx, 0, 0, 1, protocol);
 
     return 0;
 }
@@ -341,7 +365,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
-    update_socket_table(tbl, &idx, 0, received, IPPROTO_TCP);
+    update_socket_table(tbl, &idx, 0, received, 0, IPPROTO_TCP);
     update_pid_stats(pid, tgid, 0, received);
 
     return 0;
@@ -376,16 +400,16 @@ int netdata_tcp_close(struct pt_regs* ctx)
 }
 
 /************************************************************************************
- *     
+ *
  *                                 UDP Section
- *     
+ *
  ***********************************************************************************/
 
 /* We can only get the accurate number of copied bytes from the return value, so we pass our
  * sock* pointer from the kprobe to the kretprobe via a map (udp_recv_sock) to get all required info
  *
  * The same issue exists for TCP, but we can conveniently use the downstream function tcp_cleanup_rbuf
-*/ 
+*/
 
 /**
  * https://elixir.bootlin.com/linux/v5.6.14/source/net/ipv4/udp.c#L1726
@@ -438,7 +462,7 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, received);
-    update_socket_table(tbl, &idx, 0, received, IPPROTO_UDP);
+    update_socket_table(tbl, &idx, 0, received, 0, IPPROTO_UDP);
 
     update_pid_stats(pid, tgid, 0, received);
 
@@ -478,7 +502,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     family =  set_idx_value(&idx, is);
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
-    update_socket_table(tbl, &idx, (__u64) sent, 0, IPPROTO_UDP);
+    update_socket_table(tbl, &idx, (__u64) sent, 0, 0, IPPROTO_UDP);
     update_pid_stats(pid, tgid, (__u64) sent, 0);
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
@@ -493,9 +517,9 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 }
 
 /************************************************************************************
- *     
+ *
  *                                 Process Section
- *     
+ *
  ***********************************************************************************/
 
 /**
