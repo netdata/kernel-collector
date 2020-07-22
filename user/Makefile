@@ -19,7 +19,6 @@ EXTRA_CFLAGS += -fno-stack-protector
 all: $(KERNEL_PROGRAM)
 	cp $(KERNEL_DIR)rprocess_kern.o rnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	cp $(KERNEL_DIR)pprocess_kern.o pnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
-	cp $(KERNEL_DIR)dlatency_process_kern.o dlatency_process_kern.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	cp $(KERNEL_DIR)rnetwork_viewer_kern.o rnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	cp $(KERNEL_DIR)pnetwork_viewer_kern.o pnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).$(VER_PATCH).o
 	$(CC) $(EXTRA_CFLAGS) -L. -I../includes/ -o process_monitor process_user.c $(LIBS)
