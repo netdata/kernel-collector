@@ -127,8 +127,8 @@ rnetdata_ebpf_socket.<kernel version>.o
 `p*.o`: eBPF programs used with entry mode, this is the default mode.
 `r*.o`: eBPF programs used with return mode.
 
-These files have to be copied to `/usr/libexec/netdata/plugins.d` for the collector to be able to access them.
-After this you can start the new collector `ebpf_program.plugin`.
+These files have to be copied to your plugins directory, which is usually at `/usr/libexec/netdata/plugins.d/`,
+for the collector to be able to access them. After this you can start the new collector `ebpf_program.plugin`.
 
 ## Releasing
 
