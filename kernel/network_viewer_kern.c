@@ -328,6 +328,9 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
 
     family = set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
@@ -346,6 +349,9 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
     family = set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_TCP_RETRANSMIT, 1);
@@ -379,6 +385,9 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
 
     family = set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
@@ -406,6 +415,9 @@ int netdata_tcp_close(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
     family =  set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
@@ -476,6 +488,9 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
 
     family =  set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, received);
@@ -517,6 +532,9 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_CALLS_UDP_SENDMSG, 1);
 
     family =  set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     update_socket_table(tbl, &idx, (__u64) sent, 0, 0, IPPROTO_UDP);
