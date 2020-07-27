@@ -15,17 +15,12 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
+
 /************************************************************************************
  *
  *                              Hash Table Section
  *
  ***********************************************************************************/
-
-enum network_viewer_flags {
-    NETWORK_VIEWER_CLOSE = 1,
-    NETWORK_VIEWER_SEND = 2,
-    NETWORK_VIEWER_RECEIVER = 4
-};
 
 /**
  * Union used to store ip addresses
@@ -49,7 +44,7 @@ typedef struct netdata_socket {
     __u64 ct;   //Current timestamp
     __u16 retransmit; //It is never used with UDP
     __u8 protocol; 
-    __u8 flags;
+    __u8 removeme;
     __u32 reserved;
 } netdata_socket_t;
 
@@ -150,6 +145,13 @@ struct bpf_map_def SEC("maps") tbl_sock_total_stats = {
     .max_entries =  NETDATA_SOCKET_COUNTER
 };
 
+struct bpf_map_def SEC("maps") tbl_used_ports = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(__u16),
+    .value_size = sizeof(__u8),
+    .max_entries =  65536
+};
+
 /************************************************************************************
  *
  *                                 Common Section
@@ -239,7 +241,9 @@ static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 receive
 
     netdata_update_u64(&ptr->sent_bytes, sent);
     netdata_update_u64(&ptr->recv_bytes, received);
-    netdata_update_u64(&ptr->retransmit, retransmitted);
+    // We can use update_u64, it was overwritten
+    // the values
+    ptr->retransmit += retransmitted;
 }
 
 /**
@@ -259,14 +263,10 @@ static void update_socket_table(struct bpf_map_def *tbl,
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
         if (protocol == IPPROTO_UDP)
-            val->flags |= NETWORK_VIEWER_CLOSE;
+            val->removeme = 1;
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
-        if (protocol == IPPROTO_UDP)  
-            data.flags |= (!sent)?NETWORK_VIEWER_RECEIVER:NETWORK_VIEWER_SEND;
-
-
         update_socket_stats(&data, sent, received, retransmitted);
 
         bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
@@ -296,6 +296,26 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
 
         bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
     }
+}
+
+SEC("kretprobe/inet_csk_accept")
+int netdata_inet_csk_accept(struct pt_regs* ctx)
+{
+    struct sock *sk = (struct sock*)PT_REGS_RC(ctx);
+    if (!sk)
+        return 0;
+
+
+    __u16 dport;
+    bpf_probe_read(&dport, sizeof(u16), &sk->__sk_common.skc_num);
+
+    __u8 *value = (__u8 *)bpf_map_lookup_elem(&tbl_used_ports, &dport);
+    if (!value) {
+        __u8 value = 1;
+        bpf_map_update_elem(&tbl_used_ports, &dport, &value, BPF_ANY);
+    }
+
+    return 0;
 }
 
 /************************************************************************************
@@ -432,7 +452,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         //The socket information needs to be removed after read on user ring
-        val->flags |= NETWORK_VIEWER_CLOSE;
+        val->removeme = 1;
     }
 
     return 0;
