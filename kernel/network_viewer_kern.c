@@ -29,6 +29,7 @@ union netdata_ip {
     __u8 addr8[16];
     __u16 addr16[8];
     __u32 addr32[4];
+    __u32 addr64[2];
 };
 
 /**
@@ -42,7 +43,7 @@ typedef struct netdata_socket {
     __u64 first; //First timestamp
     __u64 ct;   //Current timestamp
     __u16 retransmit; //It is never used with UDP
-    __u8 protocol; //Should this to be in the index?
+    __u8 protocol; 
     __u8 removeme;
     __u32 reserved;
 } netdata_socket_t;
@@ -189,6 +190,9 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
     if ( family == AF_INET ) { //AF_INET
         bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_saddr);
         bpf_probe_read(&nsi->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
+
+        if (!nsi->saddr.addr32[0] || !nsi->daddr.addr32[0])
+            return AF_UNSPEC;
     }
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
 #if IS_ENABLED(CONFIG_IPV6)
@@ -198,8 +202,14 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
 
         addr6 = &is->sk.sk_v6_daddr;
         bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+
+        if ( ((!nsi->saddr.addr64[0]) && (!nsi->saddr.addr64[1])) || ((!nsi->daddr.addr64[0]) && (!nsi->daddr.addr64[1])))
+            return AF_UNSPEC;
     }
 #endif
+    else {
+        return AF_UNSPEC;
+    }
 
     //Read destination port
     bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
