@@ -15,12 +15,17 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
-
 /************************************************************************************
  *
  *                              Hash Table Section
  *
  ***********************************************************************************/
+
+enum network_viewer_flags {
+    NETWORK_VIEWER_CLOSE = 1,
+    NETWORK_VIEWER_SEND = 2,
+    NETWORK_VIEWER_RECEIVER = 4
+};
 
 /**
  * Union used to store ip addresses
@@ -44,7 +49,7 @@ typedef struct netdata_socket {
     __u64 ct;   //Current timestamp
     __u16 retransmit; //It is never used with UDP
     __u8 protocol; 
-    __u8 removeme;
+    __u8 flags;
     __u32 reserved;
 } netdata_socket_t;
 
@@ -254,10 +259,14 @@ static void update_socket_table(struct bpf_map_def *tbl,
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
         if (protocol == IPPROTO_UDP)
-            val->removeme = 1;
+            val->flags |= NETWORK_VIEWER_CLOSE;
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
+        if (protocol == IPPROTO_UDP)  
+            data.flags |= (!sent)?NETWORK_VIEWER_RECEIVER:NETWORK_VIEWER_SEND;
+
+
         update_socket_stats(&data, sent, received, retransmitted);
 
         bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
@@ -423,7 +432,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         //The socket information needs to be removed after read on user ring
-        val->removeme = 1;
+        val->flags |= NETWORK_VIEWER_CLOSE;
     }
 
     return 0;
