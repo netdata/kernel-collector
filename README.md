@@ -9,22 +9,17 @@ Linux Kernel eBPF Collectors
 
 The respository has the following directory structure:
 
--   `artifacts`: Directory that will have the eBPF programs and shared libraries when the compilation process ends.
+-   `artifacts`: Directory that will have the eBPF programs when the compilation process ends.
 -   `includes`: Common headers
 -   `kernel`: The eBPF programs source code
--   `lib`: The libelf static used to create the shared library.
--   `library`: Codes from Linux kernel-source changed to create the shared library.
--   `libbpf_0_0_1`: An inexistent version of the libbpf library, we changed it to support old Linux kernels.
--   `libbpf`: The latest libbpf version from kernel.
--   `tools`: scripts used to verify system status before to install or test any eBPF code.
--   `user`: Software to tests the eBPF program
+-   `tools`: scripts used to verify system status before installing eBPF code.
 
 ## Necessary packages
 
-To compile the shared libraries and the eBPF programs, it will be necessary to have the following packages:
+To compile the eBPF programs, it will be necessary to have the following packages:
 
 -   Libelf headers
--   llvm/clang , because GCC cannot compile eBPF codes.
+-   llvm/clang, because GCC prior to 10.0 cannot compile eBPF code.
 -   Kernel headers
 
 The last group of files can be extracted direct from kernel source doing the following steps:
@@ -37,7 +32,7 @@ make prepare
 make headers_install
 ```
 
-Case you are using the kernel `5.4` or newer, it is necessary to comment the following line inside the file 
+In case you are using the kernel `5.4` or newer, it is necessary to comment the following line inside the file 
  `generated/autoconf.h`:
 
 ```
@@ -46,13 +41,13 @@ Case you are using the kernel `5.4` or newer, it is necessary to comment the fol
 
 ## Necessary changes
 
-Before to compile this repository, it is necessary to change the Makefiles according your environment. The original
+Before compilation of this repository, it is necessary to change the Makefiles according your environment. The original
 files were adjusted to compile on Slackware Linux Current. 
 
 
 ### `kernel/Makefile`
 
-Inside this file probably it will be neecssary to change the following variable:
+Inside this file probably it will be necessary to change the following variable:
 
 -   `KERNELSOURCE`: Where is your kernel-source? This variable was set initially to work on Slackware, Fedora and Ubuntu
 -   `KERNELBUILD`: Directory where the headers are expected to be stored.
@@ -112,46 +107,28 @@ This sets `EXTRA_CFLAGS=-g` up before building.
 
 ## Compilation (manually)
 
-After to do the necessaries changes inside the file `kernel/Makefille`, to compile the libraries
- and the eBPF programs, you only need to do the following steps:
+After the necessary changes have been done inside the `kernel/Makefille` file, you need to run the following
+command to compile the eBPF programs:
 
 ```bash
-#  cd user
 # make
 ``` 
 
-When the compilation finishes, you will have inside `artificats` directory a file with the following
+When the compilation finishes, you will have a file inside `artifacts` directory with the following
 content:
 
 ```
-usr/lib64/libbpf_kernel.so
-libnetdata_ebpf.so
-dnetdata_ebpf_process.o
-pnetdata_ebpf_process.o
-rnetdata_ebpf_process.o
+pnetdata_ebpf_process.<kernel version>.o
+pnetdata_ebpf_socket.<kernel version>.o
+rnetdata_ebpf_process.<kernel version>.o
+rnetdata_ebpf_socket.<kernel version>.o
 ```
 
-We can group these files as:
+`p*.o`: eBPF programs used with entry mode, this is the default mode.
+`r*.o`: eBPF programs used with return mode.
 
--   `libbpf_kernel.so`: This is the libbpf shared library that must be moved to a directory listed inside 
- `/etc/ld.so.conf`, when you move it for one of the directory, it will be necessary to create a symbolic link, 
- for example, let us assume that the distribution uses `/usr/lib64/` to store shared libraries, the following 
-commands are necessaries:
-
-```bash
-cp usr/lib64/libbpf_kernel.so /usr/lib64/
-ln -s /usr/lib64/libbpf_kernel.so /usr/lib64/libbpf_kernel.so.0
-```
-
--   `Collector files`: the collector works with all files created during the compilation, but the next 4 files
-need to be copied to `/usr/libexec/netdata/plugins.d` for the collector to have condition to access them:
-    -   `libnetdata_ebpf.so`: Shared library used to load the eBPF programs.
-    -   `dnetdata_ebpf_process.o`: eBPF program used with developer mode.
-    -   `pnetdata_ebpf_process.o`: eBPF program used with entry mode, this is the default mode.
-    -   `rnetdata_ebpf_process.o`: eBPF program used with return mode.
-
-
-After this you can start the new collector `ebpf_program.plugin`.
+These files have to be copied to your plugins directory, which is usually at `/usr/libexec/netdata/plugins.d/`,
+for the collector to be able to access them. After this you can start the new collector `ebpf_program.plugin`.
 
 ## Releasing
 

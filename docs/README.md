@@ -1,3 +1,3 @@
 # Docs
 
-The following directory contains general documentation related to this repository.
+This directory contains general documentation related to this repository.
