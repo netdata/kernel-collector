@@ -220,7 +220,8 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
 
     //Read destination port
     bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
-    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_sport);
+    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
+    nsi->sport = ntohs(nsi->sport);
 
     return family;
 }
