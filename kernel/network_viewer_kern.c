@@ -29,7 +29,7 @@ union netdata_ip {
     __u8 addr8[16];
     __u16 addr16[8];
     __u32 addr32[4];
-    __u32 addr64[2];
+    __u64 addr64[2];
 };
 
 /**
@@ -53,9 +53,9 @@ typedef struct netdata_socket {
  */
 typedef struct netdata_socket_idx {
     union netdata_ip saddr;
+    __u16 sport;
     union netdata_ip daddr;
     __u16 dport;
-    __u16 sport;
 } netdata_socket_idx_t;
 
 /**
@@ -195,7 +195,6 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
     bpf_probe_read(&family, sizeof(u16), &is->sk.__sk_common.skc_family);
     // Read source and destination IPs
     if ( family == AF_INET ) { //AF_INET
-        //bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_saddr);
         bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr);
         bpf_probe_read(&nsi->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
 
@@ -221,7 +220,7 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
 
     //Read destination port
     bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
-    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
+    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_sport);
 
     return family;
 }
