@@ -29,6 +29,7 @@ union netdata_ip {
     __u8 addr8[16];
     __u16 addr16[8];
     __u32 addr32[4];
+    __u64 addr64[2];
 };
 
 /**
@@ -42,7 +43,7 @@ typedef struct netdata_socket {
     __u64 first; //First timestamp
     __u64 ct;   //Current timestamp
     __u16 retransmit; //It is never used with UDP
-    __u8 protocol; //Should this to be in the index?
+    __u8 protocol; 
     __u8 removeme;
     __u32 reserved;
 } netdata_socket_t;
@@ -52,9 +53,9 @@ typedef struct netdata_socket {
  */
 typedef struct netdata_socket_idx {
     union netdata_ip saddr;
+    __u16 sport;
     union netdata_ip daddr;
     __u16 dport;
-    __u16 sport;
 } netdata_socket_idx_t;
 
 /**
@@ -144,6 +145,13 @@ struct bpf_map_def SEC("maps") tbl_sock_total_stats = {
     .max_entries =  NETDATA_SOCKET_COUNTER
 };
 
+struct bpf_map_def SEC("maps") tbl_used_ports = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(__u16),
+    .value_size = sizeof(__u8),
+    .max_entries =  65536
+};
+
 /************************************************************************************
  *
  *                                 Common Section
@@ -183,27 +191,36 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
 {
     __u16 family;
 
-    //Read Family
+    // Read Family
     bpf_probe_read(&family, sizeof(u16), &is->sk.__sk_common.skc_family);
-    //Read source and destination IPs
+    // Read source and destination IPs
     if ( family == AF_INET ) { //AF_INET
-        bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_saddr);
+        bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr);
         bpf_probe_read(&nsi->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
+
+        if (!nsi->saddr.addr32[0] || !nsi->daddr.addr32[0])
+            return AF_UNSPEC;
     }
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
 #if IS_ENABLED(CONFIG_IPV6)
-    else if ( family == AF_INET6 ){
+    else if ( family == AF_INET6 ) {
         struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr;
         bpf_probe_read(&nsi->saddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
         addr6 = &is->sk.sk_v6_daddr;
         bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+
+        if ( ((!nsi->saddr.addr64[0]) && (!nsi->saddr.addr64[1])) || ((!nsi->daddr.addr64[0]) && (!nsi->daddr.addr64[1])))
+            return AF_UNSPEC;
     }
 #endif
+    else {
+        return AF_UNSPEC;
+    }
 
     //Read destination port
     bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
-    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
+    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_sport);
 
     return family;
 }
@@ -223,7 +240,9 @@ static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 receive
 
     netdata_update_u64(&ptr->sent_bytes, sent);
     netdata_update_u64(&ptr->recv_bytes, received);
-    netdata_update_u64(&ptr->retransmit, retransmitted);
+    // We can use update_u64, it was overwritten
+    // the values
+    ptr->retransmit += retransmitted;
 }
 
 /**
@@ -278,6 +297,26 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
     }
 }
 
+SEC("kretprobe/inet_csk_accept")
+int netdata_inet_csk_accept(struct pt_regs* ctx)
+{
+    struct sock *sk = (struct sock*)PT_REGS_RC(ctx);
+    if (!sk)
+        return 0;
+
+
+    __u16 dport;
+    bpf_probe_read(&dport, sizeof(u16), &sk->__sk_common.skc_num);
+
+    __u8 *value = (__u8 *)bpf_map_lookup_elem(&tbl_used_ports, &dport);
+    if (!value) {
+        __u8 value = 1;
+        bpf_map_update_elem(&tbl_used_ports, &dport, &value, BPF_ANY);
+    }
+
+    return 0;
+}
+
 /************************************************************************************
  *
  *                                 TCP Section
@@ -318,6 +357,9 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
 
     family = set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
@@ -336,6 +378,9 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
     family = set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_TCP_RETRANSMIT, 1);
@@ -369,6 +414,9 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
 
     family = set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
@@ -396,6 +444,9 @@ int netdata_tcp_close(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
     family =  set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
@@ -466,6 +517,9 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
 
     family =  set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, received);
@@ -507,6 +561,9 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     netdata_update_global(NETDATA_KEY_CALLS_UDP_SENDMSG, 1);
 
     family =  set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
     tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
 
     update_socket_table(tbl, &idx, (__u64) sent, 0, 0, IPPROTO_UDP);
