@@ -253,18 +253,27 @@ static void update_socket_table(struct pt_regs* ctx, struct netdata_socket *ns)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0)
     netdata_socket_t data = { };
 
+    netdata_socket_idx_t idx = { };
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+    __u16 family =  set_idx_value(&idx, is);
+    if (family == AF_UNSPEC)
+        return;
+
+    struct bpf_map_def *tbl;
+    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
+
     netdata_socket_t *val;
-    val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, idx);
+    val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         update_socket_stats(val, ns->sent_bytes, ns->recv_bytes, ns->retransmit);
-        if (protocol == IPPROTO_UDP)
+        if (ns->protocol == IPPROTO_UDP)
             val->removeme = 1;
     } else {
         data.first = bpf_ktime_get_ns();
-        data.protocol = protocol;
+        data.protocol = ns->protocol;
         update_socket_stats(&data, ns->sent_bytes, ns->recv_bytes, ns->retransmit);
 
-        bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
+        bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
     }
 #endif
 }
