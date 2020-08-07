@@ -223,7 +223,7 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
     return family;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
 /**
  * Update time and bytes sent and received
  */
@@ -250,7 +250,7 @@ static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 receive
  */
 static void update_socket_table(struct pt_regs* ctx, struct netdata_socket *ns)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
     netdata_socket_t data = { };
 
     netdata_socket_idx_t idx = { };
