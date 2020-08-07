@@ -256,13 +256,13 @@ static void update_socket_table(struct pt_regs* ctx, struct netdata_socket *ns)
     netdata_socket_t *val;
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, idx);
     if (val) {
-        update_socket_stats(val, ns->bytes_sent, ns->bytes_recv, ns->retransmit);
+        update_socket_stats(val, ns->sent_bytes, ns->recv_bytes, ns->retransmit);
         if (protocol == IPPROTO_UDP)
             val->removeme = 1;
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
-        update_socket_stats(&data, ns->bytes_sent, ns->bytes_recv, ns->retransmit);
+        update_socket_stats(&data, ns->sent_bytes, ns->recv_bytes, ns->retransmit);
 
         bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
     }
