@@ -226,6 +226,7 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
     return family;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
 /**
  * Update time and bytes sent and received
  */
@@ -249,17 +250,26 @@ static void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 receive
 /**
  * Update the table for the index idx
  */
-static void update_socket_table(struct bpf_map_def *tbl,
-                                netdata_socket_idx_t *idx,
+static void update_socket_table(struct inet_sock *is,
                                 __u64 sent,
                                 __u64 received,
                                 __u16 retransmitted,
                                 __u8 protocol)
 {
+    __u16 family;
+    netdata_socket_idx_t idx = { };
+    struct bpf_map_def *tbl;
+
+    family = set_idx_value(&idx, is);
+    if (!family)
+        return;
+
+    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
+
     netdata_socket_t *val;
     netdata_socket_t data = { };
 
-    val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, idx);
+    val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
         if (protocol == IPPROTO_UDP)
@@ -269,9 +279,10 @@ static void update_socket_table(struct bpf_map_def *tbl,
         data.protocol = protocol;
         update_socket_stats(&data, sent, received, retransmitted);
 
-        bpf_map_update_elem(tbl, idx, &data, BPF_ANY);
+        bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
     }
 }
+#endif
 
 
 /**
@@ -298,6 +309,7 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
     }
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
 SEC("kretprobe/inet_csk_accept")
 int netdata_inet_csk_accept(struct pt_regs* ctx)
 {
@@ -317,6 +329,7 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
 
     return 0;
 }
+#endif
 
 /************************************************************************************
  *
@@ -344,27 +357,20 @@ int netdata_rtcp_sendmsg(struct pt_regs* ctx)
 SEC("kprobe/tcp_sendmsg")
 int netdata_tcp_sendmsg(struct pt_regs* ctx)
 {
-    __u16 family;
-    netdata_socket_idx_t idx = { };
-    struct bpf_map_def *tbl;
-
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
     size_t sent;
     sent = (size_t)PT_REGS_PARM3(ctx);
-    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     netdata_update_global(NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
 
-    family = set_idx_value(&idx, is);
-    if (!family)
-        return 0;
-
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+    update_socket_table(is,(__u64) sent, 0, 0, IPPROTO_TCP);
+#endif
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
-    update_socket_table(tbl, &idx,(__u64) sent, 0, 0, IPPROTO_TCP);
     update_pid_stats(pid, tgid, (__u64)sent, 0);
 
     return 0;
@@ -373,19 +379,12 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 SEC("kprobe/tcp_retransmit_skb")
 int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
-    __u16 family;
-    netdata_socket_idx_t idx = { };
-    struct bpf_map_def *tbl;
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
-    family = set_idx_value(&idx, is);
-    if (!family)
-        return 0;
-
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
+    update_socket_table(is, 0, 0, 1, IPPROTO_TCP);
+#endif
 
     netdata_update_global(NETDATA_KEY_TCP_RETRANSMIT, 1);
-    update_socket_table(tbl, &idx, 0, 0, 1, IPPROTO_TCP);
 
     return 0;
 }
@@ -396,15 +395,10 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 SEC("kprobe/tcp_cleanup_rbuf")
 int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 {
-    __u16 family;
-    netdata_socket_idx_t idx = { };
-    struct bpf_map_def *tbl;
-
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
     int copied = (int)PT_REGS_PARM2(ctx);
-    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     netdata_update_global(NETDATA_KEY_CALLS_TCP_CLEANUP_RBUF, 1);
     if (copied < 0) {
@@ -414,14 +408,12 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
 
-    family = set_idx_value(&idx, is);
-    if (!family)
-        return 0;
-
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+    update_socket_table(is, 0, received, 0, IPPROTO_TCP);
+#endif
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
-    update_socket_table(tbl, &idx, 0, received, 0, IPPROTO_TCP);
     update_pid_stats(pid, tgid, 0, received);
 
     return 0;
@@ -494,17 +486,12 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    struct bpf_map_def *tbl;
-
-    __u16 family;
-    netdata_socket_idx_t idx = { };
 
     struct sock **skpp = bpf_map_lookup_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
     if (skpp == 0) {
         return 0;
     }
 
-    struct inet_sock *is = inet_sk((struct sock *)*skpp);
     int copied = (int)PT_REGS_RC(ctx);
 
     if (copied < 0) {
@@ -517,16 +504,13 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 
     bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
 
-    family =  set_idx_value(&idx, is);
-    if (!family)
-        return 0;
-
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
-
     netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, received);
-    update_socket_table(tbl, &idx, 0, received, 0, IPPROTO_UDP);
-
     update_pid_stats(pid, tgid, 0, received);
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+    struct inet_sock *is = inet_sk((struct sock *)*skpp);
+    update_socket_table(is, 0, received, 0, IPPROTO_UDP);
+#endif
 
     return 0;
 }
@@ -547,27 +531,21 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    struct bpf_map_def *tbl;
 
-    __u16 family;
     size_t sent;
 #if NETDATASEL < 2
     sent = (ret > 0 )?(size_t)ret:0;
 #else
     sent = (size_t)PT_REGS_PARM3(ctx);
 #endif
-    netdata_socket_idx_t idx = { };
-    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     netdata_update_global(NETDATA_KEY_CALLS_UDP_SENDMSG, 1);
 
-    family =  set_idx_value(&idx, is);
-    if (!family)
-        return 0;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+    update_socket_table(is, (__u64) sent, 0, 0, IPPROTO_UDP);
+#endif
 
-    tbl = (family == AF_INET6)?&tbl_conn_ipv6:&tbl_conn_ipv4;
-
-    update_socket_table(tbl, &idx, (__u64) sent, 0, 0, IPPROTO_UDP);
     update_pid_stats(pid, tgid, (__u64) sent, 0);
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
@@ -585,6 +563,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
  *
  *                                 Process Section
  *
+ *      REMOVE THIS SECTION BEFORE TO CREATE A NEW RELEASE
  ***********************************************************************************/
 
 /**
