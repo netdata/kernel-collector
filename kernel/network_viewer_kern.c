@@ -68,7 +68,6 @@ typedef struct netdata_bandwidth {
     __u64 ct;
     __u64 sent;
     __u64 received;
-    __u8 removed;
 } netdata_bandwidth_t;
 
 /**
@@ -559,35 +558,5 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     return 0;
 }
 
-/************************************************************************************
- *
- *                                 Process Section
- *
- *      REMOVE THIS SECTION BEFORE TO CREATE A NEW RELEASE
- ***********************************************************************************/
-
-/**
- * https://elixir.bootlin.com/linux/latest/source/kernel/exit.c#L711
- */
-SEC("kprobe/do_exit")
-int netdata_sys_exit(struct pt_regs* ctx)
-{
-    netdata_bandwidth_t *b;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-
-    //Am I the child?
-    if ( pid != tgid )
-        return 0;
-
-    //Remove PID from table
-    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &tgid);
-    if (b) {
-        b->removed = 1;
-    }
-
-    return 0;
-}
-
 char _license[] SEC("license") = "GPL";
+
