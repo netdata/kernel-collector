@@ -68,11 +68,11 @@ typedef struct netdata_bandwidth {
     __u64 ct;
     __u64 bytes_sent;
     __u64 bytes_received;
-    __u32 call_tcp_sent;
-    __u32 call_tcp_received;
-    __u32 retransmit;
-    __u32 call_udp_sent;
-    __u32 call_udp_received;
+    __u64 call_tcp_sent;
+    __u64 call_tcp_received;
+    __u64 retransmit;
+    __u64 call_udp_sent;
+    __u64 call_udp_received;
 } netdata_bandwidth_t;
 
 /**
@@ -292,7 +292,7 @@ static void update_socket_table(struct inet_sock *is,
 /**
  * Update the table for the specified PID
  */
-static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
+static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received, __u8 protocol)
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
@@ -302,12 +302,22 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
         b->ct = bpf_ktime_get_ns();
         netdata_update_u64(&b->bytes_sent, sent);
         netdata_update_u64(&b->bytes_received, received);
+        if (protocol == IPPROTO_TCP) {
+            netdata_update_u64(&b->call_tcp_sent, 1);
+        } else {
+            netdata_update_u64(&b->call_udp_sent, 1);
+        }
     } else {
         data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         data.bytes_sent = sent;
         data.bytes_received = received;
+        if (protocol == IPPROTO_TCP) {
+            data.call_tcp_sent = 1;
+        } else {
+            data.call_udp_sent = 1;
+        }
 
         bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
     }
@@ -375,7 +385,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 #endif
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
-    update_pid_stats(pid, tgid, (__u64)sent, 0);
+    update_pid_stats(pid, tgid, (__u64)sent, 0, IPPROTO_TCP);
 
     return 0;
 }
@@ -418,7 +428,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 #endif
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
-    update_pid_stats(pid, tgid, 0, received);
+    update_pid_stats(pid, tgid, 0, received, IPPROTO_TCP);
 
     return 0;
 }
@@ -509,7 +519,7 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     bpf_map_delete_elem(&tbl_nv_udp_conn_stats, &pid_tgid);
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_RECVMSG, received);
-    update_pid_stats(pid, tgid, 0, received);
+    update_pid_stats(pid, tgid, 0, received, IPPROTO_UDP);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
     struct inet_sock *is = inet_sk((struct sock *)*skpp);
@@ -550,7 +560,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     update_socket_table(is, (__u64) sent, 0, 0, IPPROTO_UDP);
 #endif
 
-    update_pid_stats(pid, tgid, (__u64) sent, 0);
+    update_pid_stats(pid, tgid, (__u64) sent, 0, IPPROTO_UDP);
 
     netdata_update_global(NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
 
