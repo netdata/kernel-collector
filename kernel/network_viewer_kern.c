@@ -66,8 +66,13 @@ typedef struct netdata_bandwidth {
 
     __u64 first;
     __u64 ct;
-    __u64 sent;
-    __u64 received;
+    __u64 bytes_sent;
+    __u64 bytes_received;
+    __u32 call_tcp_sent;
+    __u32 call_tcp_received;
+    __u32 retransmit;
+    __u32 call_udp_sent;
+    __u32 call_udp_received;
 } netdata_bandwidth_t;
 
 /**
@@ -295,14 +300,14 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received)
     b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
     if (b) {
         b->ct = bpf_ktime_get_ns();
-        netdata_update_u64(&b->sent, sent);
-        netdata_update_u64(&b->received, received);
+        netdata_update_u64(&b->bytes_sent, sent);
+        netdata_update_u64(&b->bytes_received, received);
     } else {
         data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
-        data.sent = sent;
-        data.received = received;
+        data.bytes_sent = sent;
+        data.bytes_received = received;
 
         bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
     }
