@@ -71,7 +71,7 @@ jobs:
     steps:
       - name: Set release_tag
         run: |
-          echo "::set-env name=RELEASE_TAG::${GITHUB_REF##*/}"
+          echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -112,10 +112,10 @@ jobs:
           name: upload_url
       - name: Set upload_url
         run: |
-          echo "::set-env name=UPLOAD_URL::$(cat upload_url/upload_url.txt)"
+          echo "UPLOAD_URL=$(cat upload_url/upload_url.txt)" >> $GITHUB_ENV
       - name: Set release_tag
         run: |
-          echo "::set-env name=RELEASE_TAG::${GITHUB_REF##*/}"
+          echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Download all Artifacts
         uses: actions/download-artifact@v2
         with:
