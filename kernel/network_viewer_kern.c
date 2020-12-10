@@ -303,9 +303,19 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received, 
         netdata_update_u64(&b->bytes_sent, sent);
         netdata_update_u64(&b->bytes_received, received);
         if (protocol == IPPROTO_TCP) {
-            netdata_update_u64(&b->call_tcp_sent, 1);
+            if (sent) {
+                netdata_update_u64(&b->call_tcp_sent, 1);
+            } else if (received) {
+                netdata_update_u64(&b->call_tcp_received, 1);
+            } else {
+                netdata_update_u64(&b->retransmit, 1);
+            }
         } else {
-            netdata_update_u64(&b->call_udp_sent, 1);
+            if (sent) {
+                netdata_update_u64(&b->call_udp_sent, 1);
+            } else {
+                netdata_update_u64(&b->call_udp_received, 1);
+            }
         }
     } else {
         data.pid = tgid;
@@ -314,9 +324,19 @@ static void update_pid_stats(__u32 pid, __u32 tgid, __u64 sent, __u64 received, 
         data.bytes_sent = sent;
         data.bytes_received = received;
         if (protocol == IPPROTO_TCP) {
-            data.call_tcp_sent = 1;
+            if (sent) {
+                data.call_tcp_sent = 1;
+            } else if (received) {
+                data.call_tcp_received = 1;
+            } else {
+                data.retransmit = 1;
+            }
         } else {
-            data.call_udp_sent = 1;
+            if (sent) {
+                data.call_udp_sent = 1;
+            } else {
+                data.call_udp_received = 1;
+            }
         }
 
         bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
@@ -393,12 +413,18 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 SEC("kprobe/tcp_retransmit_skb")
 int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
     update_socket_table(is, 0, 0, 1, IPPROTO_TCP);
 #endif
 
     netdata_update_global(NETDATA_KEY_TCP_RETRANSMIT, 1);
+
+    update_pid_stats(pid, tgid, 0, 0, IPPROTO_TCP);
 
     return 0;
 }
