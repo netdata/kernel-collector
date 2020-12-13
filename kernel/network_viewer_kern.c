@@ -164,6 +164,9 @@ struct bpf_map_def SEC("maps") tbl_used_ports = {
 
 /**
  * Function used to update 64 bit values and avoid overflow
+ *
+ * To keep compatibility with kernels older than 4.18, function with pointers need
+ * to be inline.
  */
 static inline void netdata_update_u64(__u64 *res, __u64 value)
 {
@@ -232,6 +235,9 @@ static __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
 
 /**
  * Update time and bytes sent and received
+ *
+ * To keep compatibility with kernels older than 4.18, function with pointers need
+ * to be inline.
  */
 static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
 {
@@ -252,6 +258,9 @@ static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 
 
 /**
  * Update the table for the index idx
+ *
+ * To keep compatibility with kernels older than 4.18, function with pointers need
+ * to be inline.
  */
 static inline void update_socket_table(struct inet_sock *is,
                                 __u64 sent,
