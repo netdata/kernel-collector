@@ -21,10 +21,10 @@ all: $(KERNEL_PROGRAM)
 	cp $(KERNEL_DIR)pprocess_kern.o pnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).o
 	cp $(KERNEL_DIR)rnetwork_viewer_kern.o rnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).o
 	cp $(KERNEL_DIR)pnetwork_viewer_kern.o pnetdata_ebpf_socket.$(VER_MAJOR).$(VER_MINOR).o
-	if [ -f pnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).o ]; then tar -cf artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar [pr]netdata_ebpf_*.$(VER_MAJOR).$(VER_MINOR).o; else echo "ERROR: Cannot find BPF programs"; exit 1; fi
-	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar tools/check-kernel-config.sh; fi
-	xz artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar
-	( cd artifacts; sha256sum netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz > netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(NETDATA_KERNEL_VERSION)-$(_LIBC).tar.xz.sha256sum )
+	if [ -f pnetdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).o ]; then tar -cf artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)-$(_LIBC).tar [pr]netdata_ebpf_*.$(VER_MAJOR).$(VER_MINOR).o; else echo "ERROR: Cannot find BPF programs"; exit 1; fi
+	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)-$(_LIBC).tar tools/check-kernel-config.sh; fi
+	xz artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)-$(_LIBC).tar
+	( cd artifacts; sha256sum netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)-$(_LIBC).tar.xz > netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)-$(_LIBC).tar.xz.sha256sum )
 
 $(KERNEL_PROGRAM):
 	cd $(KERNEL_DIR) && $(MAKE) all;
