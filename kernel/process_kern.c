@@ -744,6 +744,7 @@ int netdata_clone(struct pt_regs* ctx)
 #else // End kernel <= 5.9.16
 
 #if NETDATASEL < 2
+// https://lore.kernel.org/patchwork/patch/1290639/
 SEC("kretprobe/kernel_clone")
 #else
 SEC("kprobe/kernel_clone")
