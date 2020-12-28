@@ -417,10 +417,18 @@ int netdata_sys_readv(struct pt_regs* ctx)
     return 0;
 }
 
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE <= KERNEL_VERSION(5,5,19))
 #if NETDATASEL < 2
 SEC("kretprobe/do_sys_open")
 #else
 SEC("kprobe/do_sys_open")
+#endif
+#else
+#if NETDATASEL < 2
+SEC("kretprobe/do_sys_openat2")
+#else
+SEC("kprobe/do_sys_openat2")
+#endif
 #endif
 int netdata_sys_open(struct pt_regs* ctx)
 {
