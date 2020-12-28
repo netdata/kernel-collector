@@ -9,7 +9,7 @@ jobs:
       fail-fast: false
       matrix:
         kernel_version:
-          - '5.10.0'
+          - '5.10.3'
           - '5.4.20'
           - '4.16.18'
           - '4.18.0'
