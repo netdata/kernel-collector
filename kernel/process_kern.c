@@ -769,7 +769,7 @@ int netdata_sys_clone(struct pt_regs *ctx)
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
 
     int threads = 0;
-    struct kernel_clone_args *args = PT_REGS_PARM1(ctx); 
+    struct kernel_clone_args *args = (struct kernel_clone_args *)PT_REGS_PARM1(ctx); 
     __u64 clone_flags;
     bpf_probe_read(&clone_flags, sizeof(clone_flags), (void *)&clone_flags);
     if (clone_flags & CLONE_VM) {
