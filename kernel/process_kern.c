@@ -684,6 +684,80 @@ int netdata_fork(struct pt_regs* ctx)
     return 0;
 }
 
+#else // End kernel <= 5.9.16
+
+#if NETDATASEL < 2
+// https://lore.kernel.org/patchwork/patch/1290639/
+SEC("kretprobe/kernel_clone")
+#else
+SEC("kprobe/kernel_clone")
+#endif
+int netdata_sys_clone(struct pt_regs *ctx)
+{
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+#endif
+    struct netdata_pid_stat_t data = { };
+    struct netdata_pid_stat_t *fill;
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+
+    int threads = 0;
+    struct kernel_clone_args *args = (struct kernel_clone_args *)PT_REGS_PARM1(ctx); 
+    int exit_signal;
+    bpf_probe_read(&exit_signal, sizeof(int), (void *)&args->exit_signal);
+    // SIGCHLD is used by vfork/fork
+    if (exit_signal != SIGCHLD) {
+        threads = 1;
+        netdata_update_global(NETDATA_KEY_CALLS_SYS_CLONE, 1);
+    }
+
+    netdata_update_global(NETDATA_KEY_CALLS_DO_FORK, 1);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    if (fill) {
+        fill->release_call = 0;
+        netdata_update_u32(&fill->fork_call, 1) ;
+
+        if(threads) {
+            netdata_update_u32(&fill->clone_call, 1) ;
+        }
+
+#if NETDATASEL < 2
+        if (ret < 0) {
+            netdata_update_u32(&fill->fork_err, 1) ;
+            netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
+            if(threads) {
+                netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
+                netdata_update_u32(&fill->clone_err, 1) ;
+            }
+        } 
+#endif
+    } else {
+        data.pid_tgid = pid_tgid;
+        data.pid = tgid;
+        data.fork_call = 1;
+        if(threads) {
+            data.clone_call = 1;
+        }
+#if NETDATASEL < 2
+        if (ret < 0) {
+            netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
+            data.fork_err = 1;
+            if (threads) {
+                netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
+                data.clone_err = 1;
+            }
+        }
+#endif
+
+        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+    }
+    return 0;
+}
+
+#endif
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
 # if defined(CONFIG_X86_64) 
 #  if NETDATASEL < 2
@@ -749,78 +823,6 @@ int netdata_clone(struct pt_regs* ctx)
 }
 #endif
 
-#else // End kernel <= 5.9.16
-
-#if NETDATASEL < 2
-// https://lore.kernel.org/patchwork/patch/1290639/
-SEC("kretprobe/kernel_clone")
-#else
-SEC("kprobe/kernel_clone")
-#endif
-int netdata_sys_clone(struct pt_regs *ctx)
-{
-#if NETDATASEL < 2
-    int ret = (int)PT_REGS_RC(ctx);
-#endif
-    struct netdata_pid_stat_t data = { };
-    struct netdata_pid_stat_t *fill;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-
-    int threads = 0;
-    struct kernel_clone_args *args = (struct kernel_clone_args *)PT_REGS_PARM1(ctx); 
-    __u64 clone_flags;
-    bpf_probe_read(&clone_flags, sizeof(clone_flags), (void *)&clone_flags);
-    if (clone_flags & CLONE_VM) {
-        threads = 1;
-        netdata_update_global(NETDATA_KEY_CALLS_SYS_CLONE, 1);
-    }
-
-    netdata_update_global(NETDATA_KEY_CALLS_DO_FORK, 1);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
-    if (fill) {
-        fill->release_call = 0;
-        netdata_update_u32(&fill->fork_call, 1) ;
-
-        if(threads) {
-            netdata_update_u32(&fill->clone_call, 1) ;
-        }
-
-#if NETDATASEL < 2
-        if (ret < 0) {
-            netdata_update_u32(&fill->fork_err, 1) ;
-            netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
-            if(threads) {
-                netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
-                netdata_update_u32(&fill->clone_err, 1) ;
-            }
-        } 
-#endif
-    } else {
-        data.pid_tgid = pid_tgid;
-        data.pid = tgid;
-        data.fork_call = 1;
-        if(threads) {
-            data.clone_call = 1;
-        }
-#if NETDATASEL < 2
-        if (ret < 0) {
-            netdata_update_global(NETDATA_KEY_ERROR_DO_FORK, 1);
-            data.fork_err = 1;
-            if (threads) {
-                netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
-                data.clone_err = 1;
-            }
-        }
-#endif
-
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
-    }
-    return 0;
-}
-
-#endif
 
 #if NETDATASEL < 2
 SEC("kretprobe/__close_fd")
