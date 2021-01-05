@@ -684,6 +684,73 @@ int netdata_fork(struct pt_regs* ctx)
     return 0;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
+# if defined(CONFIG_X86_64) 
+#  if NETDATASEL < 2
+SEC("kretprobe/__x64_sys_clone")
+#  else
+SEC("kprobe/__x64_sys_clone")
+#  endif
+# else
+#  if NETDATASEL < 2
+SEC("kretprobe/sys_clone")
+#  else
+SEC("kprobe/sys_clone")
+#  endif
+# endif
+int netdata_clone(struct pt_regs* ctx)
+{
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+#endif
+    struct netdata_pid_stat_t *fill;
+    struct netdata_pid_stat_t data = { };
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u64 arg1 = (__u64)PT_REGS_PARM2(ctx);
+
+    arg1 &= CLONE_THREAD|CLONE_VM;
+    if(!arg1)
+        return 0;
+
+    netdata_update_global(NETDATA_KEY_CALLS_SYS_CLONE, 1);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    if (fill) {
+        netdata_update_u32(&fill->clone_call, 1) ;
+
+#if NETDATASEL < 2
+        if (ret < 0) {
+            netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
+            netdata_update_u32(&fill->clone_err, 1) ;
+        } 
+#endif
+    } else {
+        data.pid_tgid = pid_tgid;  
+        data.pid = tgid;  
+        data.clone_call = 1;
+#if NETDATASEL < 2
+        if (ret < 0) {
+            netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
+            data.clone_err = 1;
+        } 
+#endif
+
+        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+    }
+
+#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
+    if (ret < 0) {
+        send_perf_error(ctx,(int)ret, 8, pid);
+    }
+#endif
+
+    return 0;
+}
+#endif
+
+
+
 #else // End kernel <= 5.9.16
 
 #if NETDATASEL < 2
@@ -757,72 +824,6 @@ int netdata_sys_clone(struct pt_regs *ctx)
 }
 
 #endif
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
-# if defined(CONFIG_X86_64) 
-#  if NETDATASEL < 2
-SEC("kretprobe/__x64_sys_clone")
-#  else
-SEC("kprobe/__x64_sys_clone")
-#  endif
-# else
-#  if NETDATASEL < 2
-SEC("kretprobe/sys_clone")
-#  else
-SEC("kprobe/sys_clone")
-#  endif
-# endif
-int netdata_clone(struct pt_regs* ctx)
-{
-#if NETDATASEL < 2
-    int ret = (int)PT_REGS_RC(ctx);
-#endif
-    struct netdata_pid_stat_t *fill;
-    struct netdata_pid_stat_t data = { };
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    __u64 arg1 = (__u64)PT_REGS_PARM2(ctx);
-
-    arg1 &= CLONE_THREAD|CLONE_VM;
-    if(!arg1)
-        return 0;
-
-    netdata_update_global(NETDATA_KEY_CALLS_SYS_CLONE, 1);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
-    if (fill) {
-        netdata_update_u32(&fill->clone_call, 1) ;
-
-#if NETDATASEL < 2
-        if (ret < 0) {
-            netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
-            netdata_update_u32(&fill->clone_err, 1) ;
-        } 
-#endif
-    } else {
-        data.pid_tgid = pid_tgid;  
-        data.pid = tgid;  
-        data.clone_call = 1;
-#if NETDATASEL < 2
-        if (ret < 0) {
-            netdata_update_global(NETDATA_KEY_ERROR_SYS_CLONE, 1);
-            data.clone_err = 1;
-        } 
-#endif
-
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
-    }
-
-#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
-    if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 8, pid);
-    }
-#endif
-
-    return 0;
-}
-#endif
-
 
 #if NETDATASEL < 2
 SEC("kretprobe/__close_fd")
