@@ -380,6 +380,8 @@ int netdata_rtcp_sendmsg(struct pt_regs* ctx)
         netdata_update_global(NETDATA_KEY_ERROR_TCP_SENDMSG, 1);
     }
 
+    update_socket_table(ctx, (__u64)ret, 0, 0, IPPROTO_TCP);
+
     return 0;
 }
 #endif
@@ -393,9 +395,11 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     size_t sent;
     sent = (size_t)PT_REGS_PARM3(ctx);
 
-    netdata_update_global(NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
+#if NETDATASEL == 2
+    update_socket_table(ctx, (__u64)sent, 0, 0, IPPROTO_TCP);
+#endif
 
-    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP);
+    netdata_update_global(NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
     update_pid_stats(pid, tgid, (__u64)sent, 0, IPPROTO_TCP);
@@ -438,7 +442,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
 
-    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP);
+    update_socket_table(ctx, 0, (__u64)copied, 1, IPPROTO_TCP);
 
     netdata_update_global(NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
     update_pid_stats(pid, tgid, 0, received, IPPROTO_TCP);
