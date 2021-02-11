@@ -37,7 +37,6 @@ git clean -d -f -x
 docker build \
   -f Dockerfile."${LIBC}"."${OS}" \
   -t "${TAG}" \
-  --security-opt seccomp=seccomp.json \
   --build-arg KERNEL_VERSION="${KERNEL_VERSION}" \
   ./ | tee prepare.log
 

@@ -38,12 +38,6 @@ COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
 RUN /patch_kernel.sh
 
-RUN cd /usr/src/linux && \
-    make oldconfig && \
-    make prepare && \
-    make scripts && \
-    make headers_install
-
 WORKDIR /kernel-collector
 
 COPY .dockerfiles/build.sh /build.sh

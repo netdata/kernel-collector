@@ -3,6 +3,13 @@
 set -e
 
 build() {
+  echo "[XXX]: Preparing kernel headers for ${KERNEL_VERSION}..."
+  (
+    make defconfig -C /usr/src/linux
+    make scripts -C /usr/src/linux
+    make prepare -C /usr/src/linux
+    make headers_install -C /usr/src/linux
+  ) || return 1
   echo "[XXX]: Building against Kernel ${KERNEL_VERSION} for libc ${_LIBC} ..."
   (
     if [ "${DEBUG:-0}" -eq 1 ]; then

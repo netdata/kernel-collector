@@ -21,12 +21,6 @@ RUN mkdir -p /usr/src && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
     ln -s linux-${KERNEL_VERSION} linux
 
-RUN cd /usr/src/linux && \
-    make defconfig && \
-    make scripts && \
-    make prepare && \
-    make headers_install
-
 WORKDIR /kernel-collector
 
 COPY .dockerfiles/build.sh /build.sh
