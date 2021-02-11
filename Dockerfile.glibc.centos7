@@ -3,7 +3,7 @@ FROM centos:7.7.1908 AS build
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=3.10.0-1062.18.1.el7
+ENV KERNEL_VERSION=3.10.0-1160.2.1.el7
 
 ENV _LIBC=glibc
 
@@ -25,7 +25,7 @@ RUN yum install -y centos-release-scl && \
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i http://vault.centos.org/7.7.1908/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
+    rpm -i http://vault.centos.org/7.9.2009/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
 
 RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
