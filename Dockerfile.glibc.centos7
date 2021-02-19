@@ -32,7 +32,7 @@ RUN cd ~/rpmbuild/SOURCES && \
     cp -f kernel-3.10.0-x86_64.config linux-${KERNEL_VERSION}/.config
 
 RUN cd /usr/src && \
-    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+    ln -s kernels/3*.x86_64.debug linux
 
 COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
