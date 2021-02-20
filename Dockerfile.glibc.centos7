@@ -38,8 +38,6 @@ COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
 RUN /patch_kernel.sh
 
-RUN rm /usr/src/linux && ln -s /usr/src/kernels/3*.x86_64.debug /usr/src/linux
-
 WORKDIR /kernel-collector
 
 COPY .dockerfiles/build.sh /build.sh

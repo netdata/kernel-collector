@@ -5,7 +5,11 @@ set -e
 build() {
   echo "[XXX]: Preparing kernel headers for ${KERNEL_VERSION}..."
   (
-    make defconfig -C /usr/src/linux
+    if [ "${KERNEL_VERSION}" != "3.10.0-1160.2.1.el7" ]; then
+       make defconfig -C /usr/src/linux
+    else
+       make oldconfig -C /usr/src/linux
+    fi   
     make scripts -C /usr/src/linux
     make prepare -C /usr/src/linux
     make headers_install -C /usr/src/linux
