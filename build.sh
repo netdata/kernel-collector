@@ -45,6 +45,7 @@ if [ -t 1 ]; then
     -i -t --rm \
     -v "$PWD":/kernel-collector \
     -w /kernel-collector \
+    --security-opt seccomp=unconfined \
     -e DEBUG \
     -e STATIC \
     "${TAG}" | tee build.log
@@ -53,6 +54,7 @@ else
     --rm \
     -v "$PWD":/kernel-collector \
     -w /kernel-collector \
+    --security-opt seccomp=unconfined \
     -e DEBUG \
     -e STATIC \
     "${TAG}" | tee build.log

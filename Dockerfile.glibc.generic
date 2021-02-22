@@ -24,12 +24,6 @@ COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
 RUN /patch_kernel.sh
 
-RUN cd /usr/src/linux && \
-    make defconfig && \
-    make scripts && \
-    make prepare && \
-    make headers_install
-
 ENV PATH=/usr/lib/llvm-9/bin:$PATH
 
 WORKDIR /kernel-collector
