@@ -17,4 +17,21 @@ struct netdata_error_report_t {
     int err;
 };
 
+// Copied from linux/samples/bpf/tracex1_kern.c
+#define _(P)                                                                   \
+        ({                                                                     \
+                typeof(P) val = 0;                                             \
+                bpf_probe_read(&val, sizeof(val), &(P));                \
+                val;                                                           \
+        })
+
+// Copied from linux/samples/bpf/trace_common.h
+#ifdef __x86_64__
+#define NETDATA_SYSCALL(SYS) "__x64_sys_" __stringify(SYS)
+#elif defined(__s390x__)
+#define NETDATA_SYSCALL(SYS) "__s390x_" __stringify(SYS)
+#else
+#define NETDATA_SYSCALL(SYS) "sys_" __stringify(SYS)
+#endif
+
 #endif /* _NETDATA_EBPF_PROCESS_ */
