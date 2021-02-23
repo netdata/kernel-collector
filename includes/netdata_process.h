@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#ifndef _NETDATA_EBPF_PROCESS_
-#define _NETDATA_EBPF_PROCESS_ 1
+#ifndef _NETDATA_EBPF_PROCESS_H_
+#define _NETDATA_EBPF_PROCESS_H_ 1
 
 #include <linux/sched.h>
-
-struct netdata_error_report_t {
-    char comm[TASK_COMM_LEN];
-    __u32 pid;
-
-    int type;
-    int err;
-};
 
 struct netdata_pid_stat_t {
     __u64 pid_tgid;                     //Unique identifier
@@ -90,46 +82,4 @@ enum process_counters {
     NETDATA_GLOBAL_COUNTER
 };
 
-// network_viewer.c
-enum socket_counters {
-    NETDATA_KEY_CALLS_TCP_SENDMSG,
-    NETDATA_KEY_ERROR_TCP_SENDMSG,
-    NETDATA_KEY_BYTES_TCP_SENDMSG,
-
-    NETDATA_KEY_CALLS_TCP_CLEANUP_RBUF,
-    NETDATA_KEY_ERROR_TCP_CLEANUP_RBUF,
-    NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF,
-
-    NETDATA_KEY_CALLS_TCP_CLOSE,
-
-    NETDATA_KEY_CALLS_UDP_RECVMSG,
-    NETDATA_KEY_ERROR_UDP_RECVMSG,
-    NETDATA_KEY_BYTES_UDP_RECVMSG,
-
-    NETDATA_KEY_CALLS_UDP_SENDMSG,
-    NETDATA_KEY_ERROR_UDP_SENDMSG,
-    NETDATA_KEY_BYTES_UDP_SENDMSG,
-
-    NETDATA_KEY_TCP_RETRANSMIT,
-
-    NETDATA_SOCKET_COUNTER
-};
-
-// cachestat.c
-typedef struct netdata_cachestat {
-    __u64 add_to_page_cache_lru;
-    __u64 mark_page_accessed;
-    __u64 account_page_dirtied;
-    __u64 mark_buffer_dirty;
-} netdata_cachestat_t;
-
-enum cachestat_counters {
-    NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU,
-    NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED,
-    NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED,
-    NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY,
-
-    NETDATA_CACHESTAT_END
-};
-
-#endif /* _NETDATA_EBPF_PROCESS_ */
+#endif
