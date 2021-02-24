@@ -685,19 +685,11 @@ int netdata_fork(struct pt_regs* ctx)
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
-# if defined(CONFIG_X86_64) 
-#  if NETDATASEL < 2
-SEC("kretprobe/__x64_sys_clone")
-#  else
-SEC("kprobe/__x64_sys_clone")
-#  endif
-# else
-#  if NETDATASEL < 2
-SEC("kretprobe/sys_clone")
-#  else
-SEC("kprobe/sys_clone")
-#  endif
-# endif
+#if NETDATASEL < 2
+SEC("kretprobe/" NETDATA_SYSCALL(clone))
+#else
+SEC("kprobe/" NETDATA_SYSCALL(clone))
+#endif
 int netdata_clone(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
