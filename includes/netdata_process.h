@@ -42,7 +42,6 @@ struct netdata_pid_stat_t {
     __u8 removeme;
 };
 
-// ebpf_process.c
 enum process_counters {
     NETDATA_KEY_CALLS_DO_SYS_OPEN,
     NETDATA_KEY_ERROR_DO_SYS_OPEN,
@@ -82,4 +81,4 @@ enum process_counters {
     NETDATA_GLOBAL_COUNTER
 };
 
-#endif
+#endif /* _NETDATA_EBPF_PROCESS_H_ */

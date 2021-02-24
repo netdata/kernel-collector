@@ -21,5 +21,4 @@ enum cachestat_counters {
     NETDATA_CACHESTAT_END
 };
 
-
-#endif
+#endif /* _NETDATA_CACHE_H_ */

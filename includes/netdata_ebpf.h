@@ -21,7 +21,7 @@ struct netdata_error_report_t {
 #define _(P)                                                                   \
         ({                                                                     \
                 typeof(P) val = 0;                                             \
-                bpf_probe_read(&val, sizeof(val), &(P));                \
+                bpf_probe_read(&val, sizeof(val), &(P));                       \
                 val;                                                           \
         })
 
@@ -34,4 +34,4 @@ struct netdata_error_report_t {
 #define NETDATA_SYSCALL(SYS) "sys_" __stringify(SYS)
 #endif
 
-#endif /* _NETDATA_EBPF_PROCESS_ */
+#endif /* _NETDATA_EBPF_ */

@@ -5,7 +5,6 @@
 
 #include <linux/sched.h>
 
-
 enum socket_counters {
     NETDATA_KEY_CALLS_TCP_SENDMSG,
     NETDATA_KEY_ERROR_TCP_SENDMSG,
@@ -30,4 +29,4 @@ enum socket_counters {
     NETDATA_SOCKET_COUNTER
 };
 
-#endif
+#endif /* _NETDATA_NETWORK_H_ */
