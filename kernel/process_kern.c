@@ -688,7 +688,7 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL < 2
 SEC("kretprobe/" NETDATA_SYSCALL(clone))
 #else
-SEC("kprobe/" NETDATA_SYSCALL(sync))
+SEC("kprobe/" NETDATA_SYSCALL(clone))
 #endif
 int netdata_clone(struct pt_regs* ctx)
 {
