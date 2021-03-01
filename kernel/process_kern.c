@@ -817,10 +817,18 @@ int netdata_sys_clone(struct pt_regs *ctx)
 
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)) 
+#if NETDATASEL < 2
+SEC("kretprobe/close_fd")
+#else
+SEC("kprobe/close_fd")
+#endif
+#else
 #if NETDATASEL < 2
 SEC("kretprobe/__close_fd")
 #else
 SEC("kprobe/__close_fd")
+#endif
 #endif
 int netdata_close(struct pt_regs* ctx)
 {
