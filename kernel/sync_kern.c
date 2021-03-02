@@ -2,6 +2,7 @@
 #include <linux/bpf.h>
 #include <linux/ptrace.h>
 
+#include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -20,6 +21,33 @@ struct bpf_map_def SEC("maps") tbl_sync = {
     .value_size = sizeof(__u64),
     .max_entries = NETDATA_SYNC_END
 };
+
+/************************************************************************************
+ *     
+ *                                 GLOBAL
+ *     
+ ***********************************************************************************/
+
+static void netdata_update_u64(__u64 *res, __u64 value) 
+{
+    if (!value)
+        return;
+
+    __sync_fetch_and_add(res, value);
+    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
+        *res = value;
+    }
+}
+
+static void netdata_update_global(__u32 key, __u64 value)
+{
+    __u64 *res;
+    res = bpf_map_lookup_elem(&tbl_sync, &key);
+    if (res) {
+        netdata_update_u64(res, value) ;
+    } else
+        bpf_map_update_elem(&tbl_sync, &key, &value, BPF_NOEXIST);
+}
 
 
 /************************************************************************************
