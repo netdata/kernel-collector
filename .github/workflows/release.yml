@@ -11,6 +11,7 @@ jobs:
     strategy:
       matrix:
         kernel_version:
+          - '5.11.2'
           - '5.10.3'
           - '5.4.85'
           - '4.16.18'
