@@ -18,6 +18,7 @@ enum cachestat_counters {
     NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED,
     NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY,
 
+    // Keep this as last and don't skip numbers as it is used as element counter
     NETDATA_CACHESTAT_END
 };
 
