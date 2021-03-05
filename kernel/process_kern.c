@@ -87,17 +87,6 @@ static void netdata_update_u32(u32 *res, u32 value)
     }
 }
 
-static void netdata_update_u64(__u64 *res, __u64 value) 
-{
-    if (!value)
-        return;
-
-    __sync_fetch_and_add(res, value);
-    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
-        *res = value;
-    }
-}
-
 static void netdata_update_global(__u32 key, __u64 value)
 {
     __u64 *res;
