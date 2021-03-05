@@ -162,6 +162,17 @@ struct bpf_map_def SEC("maps") tbl_used_ports = {
  *
  ***********************************************************************************/
 
+/**
+ * Function used to update 64 bit values and avoid overflow
+ */
+static inline void netdata_update_u64(__u64 *res, __u64 value)
+{
+    if (!value)
+        return;
+
+    __sync_fetch_and_add(res, value);
+}
+
 /*
  * Update hash table tbl_sock_total_stats
 */
