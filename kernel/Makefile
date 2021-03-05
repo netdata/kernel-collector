@@ -48,7 +48,7 @@ all: process_kern.o network_viewer_kern.o cachestat_kern.o sync_kern.o
 	    	-Wno-tautological-compare \
 		-DNETDATASEL=0 \
 		-D__BPF_TRACING__ \
-		-include netdata_asm_goto.h \
+		-include ../includes/netdata_asm_goto.h \
 		-O2 -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o r$@ $(<:.c=.ll)
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
@@ -58,7 +58,7 @@ all: process_kern.o network_viewer_kern.o cachestat_kern.o sync_kern.o
 	    	-Wno-tautological-compare \
 		-DNETDATASEL=1 \
 		-D__BPF_TRACING__ \
-		-include netdata_asm_goto.h \
+		-include ../includes/netdata_asm_goto.h \
 		-O2 -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o d$@ $(<:.c=.ll)
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
@@ -68,7 +68,7 @@ all: process_kern.o network_viewer_kern.o cachestat_kern.o sync_kern.o
 	    	-Wno-tautological-compare \
 		-DNETDATASEL=2 \
 		-D__BPF_TRACING__ \
-		-include netdata_asm_goto.h \
+		-include ../includes/netdata_asm_goto.h \
 		-O2 -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o p$@ $(<:.c=.ll)
 
