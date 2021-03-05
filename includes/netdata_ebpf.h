@@ -29,7 +29,6 @@ inline void netdata_update_u64(__u64 *res, __u64 value)
     }
 }
 
-
 // Copied from linux/samples/bpf/tracex1_kern.c
 #define _(P)                                                                   \
         ({                                                                     \
