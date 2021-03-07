@@ -33,7 +33,9 @@ struct bpf_map_def SEC("maps") cstat_pid = {
  *
  ***********************************************************************************/
 
-static inline void netdata_update_u64(__u64 *res, __u64 value)
+// Use __always_inline instead inline to keep compatiblity with old kernels
+// https://docs.cilium.io/en/v1.8/bpf/
+static __always_inline void netdata_update_u64(__u64 *res, __u64 value)
 {
     __sync_fetch_and_add(res, value);
     if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
@@ -41,7 +43,7 @@ static inline void netdata_update_u64(__u64 *res, __u64 value)
     }
 }
 
-static inline void netdata_update_global(__u32 key, __u64 value)
+static __always_inline void netdata_update_global(__u32 key, __u64 value)
 {
     __u64 *res;
     res = bpf_map_lookup_elem(&cstat_global, &key);

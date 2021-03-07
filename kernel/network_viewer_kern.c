@@ -165,7 +165,7 @@ struct bpf_map_def SEC("maps") tbl_used_ports = {
 /**
  * Function used to update 64 bit values and avoid overflow
  */
-static inline void netdata_update_u64(__u64 *res, __u64 value)
+static __always_inline void netdata_update_u64(__u64 *res, __u64 value)
 {
     if (!value)
         return;
@@ -191,7 +191,7 @@ static void netdata_update_global(__u32 key, __u64 value)
  *
  * Read information from socket to update the index.
 */
-static inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
+static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
 {
     __u16 family;
 
@@ -233,7 +233,7 @@ static inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *i
 /**
  * Update time and bytes sent and received
  */
-static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
+static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
 {
     ptr->ct = bpf_ktime_get_ns();
 
