@@ -35,7 +35,13 @@ struct bpf_map_def SEC("maps") cstat_pid = {
 
 // Use __always_inline instead inline to keep compatiblity with old kernels
 // https://docs.cilium.io/en/v1.8/bpf/
+// The condition to test kernel was added, because __always_inline broke the epbf.plugin
+// on CentOS 7 and Ubuntu 18.04 (kernel 4.18)
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
 static __always_inline void netdata_update_u64(__u64 *res, __u64 value)
+#else
+static inline void netdata_update_u64(__u64 *res, __u64 value)
+#endif
 {
     __sync_fetch_and_add(res, value);
     if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
@@ -43,7 +49,11 @@ static __always_inline void netdata_update_u64(__u64 *res, __u64 value)
     }
 }
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
 static __always_inline void netdata_update_global(__u32 key, __u64 value)
+#else
+static inline void netdata_update_global(__u32 key, __u64 value)
+#endif
 {
     __u64 *res;
     res = bpf_map_lookup_elem(&cstat_global, &key);
