@@ -175,6 +175,9 @@ static inline void netdata_update_u64(__u64 *res, __u64 value)
         return;
 
     __sync_fetch_and_add(res, value);
+    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
+        *res = value;
+    }
 }
 
 /*
