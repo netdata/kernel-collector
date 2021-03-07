@@ -18,6 +18,22 @@ struct netdata_error_report_t {
     int err;
 };
 
+// Use __always_inline instead inline to keep compatiblity with old kernels
+// https://docs.cilium.io/en/v1.8/bpf/
+// The condition to test kernel was added, because __always_inline broke the epbf.plugin
+// on CentOS 7 and Ubuntu 18.04 (kernel 4.18)
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
+static __always_inline void libnetdata_update_u64(__u64 *res, __u64 value)
+#else
+static inline void libnetdata_update_u64(__u64 *res, __u64 value)
+#endif
+{
+    __sync_fetch_and_add(res, value);
+    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
+        *res = value;
+    }
+}
+
 // Copied from linux/samples/bpf/tracex1_kern.c
 #define _(P)                                                                   \
         ({                                                                     \

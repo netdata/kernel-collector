@@ -33,22 +33,6 @@ struct bpf_map_def SEC("maps") cstat_pid = {
  *
  ***********************************************************************************/
 
-// Use __always_inline instead inline to keep compatiblity with old kernels
-// https://docs.cilium.io/en/v1.8/bpf/
-// The condition to test kernel was added, because __always_inline broke the epbf.plugin
-// on CentOS 7 and Ubuntu 18.04 (kernel 4.18)
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
-static __always_inline void netdata_update_u64(__u64 *res, __u64 value)
-#else
-static inline void netdata_update_u64(__u64 *res, __u64 value)
-#endif
-{
-    __sync_fetch_and_add(res, value);
-    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
-        *res = value;
-    }
-}
-
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
 static __always_inline void netdata_update_global(__u32 key, __u64 value)
 #else
@@ -58,7 +42,7 @@ static inline void netdata_update_global(__u32 key, __u64 value)
     __u64 *res;
     res = bpf_map_lookup_elem(&cstat_global, &key);
     if (res)
-        netdata_update_u64(res, value) ;
+        libnetdata_update_u64(res, value) ;
     else
         bpf_map_update_elem(&cstat_global, &key, &value, BPF_NOEXIST);
 }
@@ -79,7 +63,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
     __u32 pid = (__u32)(pid_tgid >> 32);
     fill = bpf_map_lookup_elem(&cstat_pid ,&pid);
     if (fill) {
-        netdata_update_u64(&fill->add_to_page_cache_lru, 1);
+        libnetdata_update_u64(&fill->add_to_page_cache_lru, 1);
     } else {
         data.add_to_page_cache_lru = 1;
         bpf_map_update_elem(&cstat_pid, &pid, &data, BPF_ANY);
@@ -98,7 +82,7 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
     __u32 pid = (__u32)(pid_tgid >> 32);
     fill = bpf_map_lookup_elem(&cstat_pid ,&pid);
     if (fill) {
-        netdata_update_u64(&fill->mark_page_accessed, 1);
+        libnetdata_update_u64(&fill->mark_page_accessed, 1);
     } else {
         data.mark_page_accessed = 1;
         bpf_map_update_elem(&cstat_pid, &pid, &data, BPF_ANY);
@@ -117,7 +101,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
     __u32 pid = (__u32)(pid_tgid >> 32);
     fill = bpf_map_lookup_elem(&cstat_pid ,&pid);
     if (fill) {
-        netdata_update_u64(&fill->account_page_dirtied, 1);
+        libnetdata_update_u64(&fill->account_page_dirtied, 1);
     } else {
         data.account_page_dirtied = 1;
         bpf_map_update_elem(&cstat_pid, &pid, &data, BPF_ANY);
@@ -136,7 +120,7 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
     __u32 pid = (__u32)(pid_tgid >> 32);
     fill = bpf_map_lookup_elem(&cstat_pid ,&pid);
     if (fill) {
-        netdata_update_u64(&fill->mark_buffer_dirty, 1);
+        libnetdata_update_u64(&fill->mark_buffer_dirty, 1);
     } else {
         data.mark_buffer_dirty = 1;
         bpf_map_update_elem(&cstat_pid, &pid, &data, BPF_ANY);

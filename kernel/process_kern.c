@@ -87,20 +87,22 @@ static void netdata_update_u32(u32 *res, u32 value)
     }
 }
 
-static __always_inline void netdata_update_u64(__u64 *res, __u64 value)
+/*
+static void netdata_update_u64(__u64 *res, __u64 value)
 {
     __sync_fetch_and_add(res, value);
     if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
         *res = value;
     }
 }
+*/
 
 static void netdata_update_global(__u32 key, __u64 value)
 {
     __u64 *res;
     res = bpf_map_lookup_elem(&tbl_total_stats, &key);
     if (res) {
-        netdata_update_u64(res, value) ;
+        libnetdata_update_u64(res, value) ;
     } else
         bpf_map_update_elem(&tbl_total_stats, &key, &value, BPF_NOEXIST);
 }
@@ -178,7 +180,7 @@ int netdata_sys_write(struct pt_regs* ctx)
             ret = (ssize_t)PT_REGS_PARM3(ctx);
             tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITE, tot);
-            netdata_update_u64(&fill->write_bytes, tot);
+            libnetdata_update_u64(&fill->write_bytes, tot);
 #if NETDATASEL < 2
         }
 #endif
@@ -245,7 +247,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
             ret = (ssize_t)PT_REGS_PARM3(ctx);
             tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_WRITEV, tot);
-            netdata_update_u64(&fill->writev_bytes, tot);
+            libnetdata_update_u64(&fill->writev_bytes, tot);
 #if NETDATASEL < 2
         }
 #endif
@@ -312,7 +314,7 @@ int netdata_sys_read(struct pt_regs* ctx)
             ret = (ssize_t)PT_REGS_PARM3(ctx);
             tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_READ, tot);
-            netdata_update_u64(&fill->read_bytes, tot);
+            libnetdata_update_u64(&fill->read_bytes, tot);
 #if NETDATASEL < 2
         }
 #endif
@@ -379,7 +381,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
             ret = (ssize_t)PT_REGS_PARM3(ctx);
             tot = log2l(ret);
             netdata_update_global(NETDATA_KEY_BYTES_VFS_READV, tot);
-            netdata_update_u64(&fill->readv_bytes, tot);
+            libnetdata_update_u64(&fill->readv_bytes, tot);
 #if NETDATASEL < 2
         }
 #endif
