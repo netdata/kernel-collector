@@ -19,23 +19,6 @@ struct bpf_map_def SEC("maps") tbl_sync = {
 };
 
 /************************************************************************************
- *     
- *                                 GLOBAL
- *     
-
-static void netdata_update_global(__u32 key, __u64 value)
-{
-    __u64 *res;
-    res = bpf_map_lookup_elem(&tbl_sync, &key);
-    if (res) {
-        libnetdata_update_u64(res, value) ;
-    } else
-        bpf_map_update_elem(&tbl_sync, &key, &value, BPF_NOEXIST);
-}
- ***********************************************************************************/
-
-
-/************************************************************************************
  *
  *                               SYNC SECTION
  *

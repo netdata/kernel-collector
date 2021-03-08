@@ -87,46 +87,6 @@ static void netdata_update_u32(u32 *res, u32 value)
     }
 }
 
-/*
-static void netdata_update_global(__u32 key, __u64 value)
-{
-    __u64 *res;
-    res = bpf_map_lookup_elem(&tbl_total_stats, &key);
-    if (res) {
-        libnetdata_update_u64(res, value) ;
-    } else
-        bpf_map_update_elem(&tbl_total_stats, &key, &value, BPF_NOEXIST);
-}
-*/
-
-/*
-static void netdata_reset_stat(struct netdata_pid_stat_t *ptr)
-{
-    ptr->open_call = 0;
-    ptr->write_call = 0;
-    ptr->writev_call = 0;
-    ptr->read_call = 0;
-    ptr->readv_call = 0;
-    ptr->unlink_call = 0;
-    ptr->exit_call = 0;
-    ptr->fork_call = 0;
-    ptr->close_call = 0;
-
-    ptr->write_bytes = 0;
-    ptr->writev_bytes = 0;
-    ptr->read_bytes = 0;
-    ptr->readv_bytes = 0;
-
-    ptr->open_err = 0;
-    ptr->write_err = 0;
-    ptr->writev_err = 0;
-    ptr->read_err = 0;
-    ptr->readv_err = 0;
-    ptr->unlink_err = 0;
-    ptr->fork_err = 0;
-}
-**/
-
 #if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
 static inline void send_perf_error(struct pt_regs* ctx, int ret, int type, __u32 pid)
 {
