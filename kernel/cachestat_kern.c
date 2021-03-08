@@ -29,26 +29,6 @@ struct bpf_map_def SEC("maps") cstat_pid = {
 
 /************************************************************************************
  *
- *                                 COMMON Section
- *
- ***********************************************************************************/
-
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
-static __always_inline void netdata_update_global(__u32 key, __u64 value)
-#else
-static inline void netdata_update_global(__u32 key, __u64 value)
-#endif
-{
-    __u64 *res;
-    res = bpf_map_lookup_elem(&cstat_global, &key);
-    if (res)
-        libnetdata_update_u64(res, value) ;
-    else
-        bpf_map_update_elem(&cstat_global, &key, &value, BPF_NOEXIST);
-}
-
-/************************************************************************************
- *
  *                                   Probe Section
  *
  ***********************************************************************************/
@@ -57,7 +37,7 @@ SEC("kprobe/add_to_page_cache_lru")
 int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    netdata_update_global(NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, 1);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
@@ -76,7 +56,7 @@ SEC("kprobe/mark_page_accessed")
 int netdata_mark_page_accessed(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    netdata_update_global(NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, 1);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
@@ -95,7 +75,7 @@ SEC("kprobe/account_page_dirtied")
 int netdata_account_page_dirtied(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    netdata_update_global(NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
@@ -114,7 +94,7 @@ SEC("kprobe/mark_buffer_dirty")
 int netdata_mark_buffer_dirty(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    netdata_update_global(NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, 1);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);

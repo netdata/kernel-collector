@@ -22,7 +22,6 @@ struct bpf_map_def SEC("maps") tbl_sync = {
  *     
  *                                 GLOBAL
  *     
- ***********************************************************************************/
 
 static void netdata_update_global(__u32 key, __u64 value)
 {
@@ -33,6 +32,7 @@ static void netdata_update_global(__u32 key, __u64 value)
     } else
         bpf_map_update_elem(&tbl_sync, &key, &value, BPF_NOEXIST);
 }
+ ***********************************************************************************/
 
 
 /************************************************************************************
@@ -48,11 +48,11 @@ SEC("kprobe/" NETDATA_SYSCALL(sync))
 #endif
 int netdata_syscall_sync(struct pt_regs* ctx)
 {
-    netdata_update_global(NETDATA_KEY_SYNC_CALL, 1);
+    libnetdata_update_global(&tbl_sync, NETDATA_KEY_SYNC_CALL, 1);
 #if NETDATASEL < 2
     int ret = (ssize_t)PT_REGS_RC(ctx);
     if (ret < 0)
-        netdata_update_global(NETDATA_KEY_SYNC_ERROR, 1);
+        libnetdata_update_global(&tbl_sync, NETDATA_KEY_SYNC_ERROR, 1);
 #endif
 
     return 0;

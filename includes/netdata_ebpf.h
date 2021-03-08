@@ -34,6 +34,21 @@ static inline void libnetdata_update_u64(__u64 *res, __u64 value)
     }
 }
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
+static __always_inline void libnetdata_update_global(struct bpf_map_def *tbl,__u32 key, __u64 value)
+#else
+static inline void libnetdata_update_global(struct bpf_map_def *tbl,__u32 key, __u64 value)
+#endif
+{
+    __u64 *res;
+    res = bpf_map_lookup_elem(tbl, &key);
+    if (res)
+        libnetdata_update_u64(res, value) ;
+    else
+        bpf_map_update_elem(tbl, &key, &value, BPF_NOEXIST);
+}
+
+
 // Copied from linux/samples/bpf/tracex1_kern.c
 #define _(P)                                                                   \
         ({                                                                     \
