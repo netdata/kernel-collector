@@ -24,19 +24,10 @@ struct bpf_map_def SEC("maps") tbl_sync = {
  *
  ***********************************************************************************/
 
-#if NETDATASEL < 2
-SEC("kretprobe/" NETDATA_SYSCALL(sync))
-#else
 SEC("kprobe/" NETDATA_SYSCALL(sync))
-#endif
 int netdata_syscall_sync(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_sync, NETDATA_KEY_SYNC_CALL, 1);
-#if NETDATASEL < 2
-    int ret = (ssize_t)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_sync, NETDATA_KEY_SYNC_ERROR, 1);
-#endif
 
     return 0;
 }
