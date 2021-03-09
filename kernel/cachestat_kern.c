@@ -29,30 +29,6 @@ struct bpf_map_def SEC("maps") cstat_pid = {
 
 /************************************************************************************
  *
- *                                 COMMON Section
- *
- ***********************************************************************************/
-
-static inline void netdata_update_u64(__u64 *res, __u64 value)
-{
-    __sync_fetch_and_add(res, value);
-    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
-        *res = value;
-    }
-}
-
-static inline void netdata_update_global(__u32 key, __u64 value)
-{
-    __u64 *res;
-    res = bpf_map_lookup_elem(&cstat_global, &key);
-    if (res)
-        netdata_update_u64(res, value) ;
-    else
-        bpf_map_update_elem(&cstat_global, &key, &value, BPF_NOEXIST);
-}
-
-/************************************************************************************
- *
  *                                   Probe Section
  *
  ***********************************************************************************/
@@ -61,13 +37,13 @@ SEC("kprobe/add_to_page_cache_lru")
 int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    netdata_update_global(NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, 1);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     fill = bpf_map_lookup_elem(&cstat_pid ,&pid);
     if (fill) {
-        netdata_update_u64(&fill->add_to_page_cache_lru, 1);
+        libnetdata_update_u64(&fill->add_to_page_cache_lru, 1);
     } else {
         data.add_to_page_cache_lru = 1;
         bpf_map_update_elem(&cstat_pid, &pid, &data, BPF_ANY);
@@ -80,13 +56,13 @@ SEC("kprobe/mark_page_accessed")
 int netdata_mark_page_accessed(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    netdata_update_global(NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, 1);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     fill = bpf_map_lookup_elem(&cstat_pid ,&pid);
     if (fill) {
-        netdata_update_u64(&fill->mark_page_accessed, 1);
+        libnetdata_update_u64(&fill->mark_page_accessed, 1);
     } else {
         data.mark_page_accessed = 1;
         bpf_map_update_elem(&cstat_pid, &pid, &data, BPF_ANY);
@@ -99,13 +75,13 @@ SEC("kprobe/account_page_dirtied")
 int netdata_account_page_dirtied(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    netdata_update_global(NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     fill = bpf_map_lookup_elem(&cstat_pid ,&pid);
     if (fill) {
-        netdata_update_u64(&fill->account_page_dirtied, 1);
+        libnetdata_update_u64(&fill->account_page_dirtied, 1);
     } else {
         data.account_page_dirtied = 1;
         bpf_map_update_elem(&cstat_pid, &pid, &data, BPF_ANY);
@@ -118,13 +94,13 @@ SEC("kprobe/mark_buffer_dirty")
 int netdata_mark_buffer_dirty(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    netdata_update_global(NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, 1);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
     fill = bpf_map_lookup_elem(&cstat_pid ,&pid);
     if (fill) {
-        netdata_update_u64(&fill->mark_buffer_dirty, 1);
+        libnetdata_update_u64(&fill->mark_buffer_dirty, 1);
     } else {
         data.mark_buffer_dirty = 1;
         bpf_map_update_elem(&cstat_pid, &pid, &data, BPF_ANY);

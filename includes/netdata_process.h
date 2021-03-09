@@ -78,6 +78,7 @@ enum process_counters {
     NETDATA_KEY_ERROR_VFS_READV,
     NETDATA_KEY_BYTES_VFS_READV,
 
+    // Keep this as last and don't skip numbers as it is used as element counter
     NETDATA_GLOBAL_COUNTER
 };
 

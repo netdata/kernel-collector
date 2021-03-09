@@ -26,6 +26,7 @@ enum socket_counters {
 
     NETDATA_KEY_TCP_RETRANSMIT,
 
+    // Keep this as last and don't skip numbers as it is used as element counter
     NETDATA_SOCKET_COUNTER
 };
 

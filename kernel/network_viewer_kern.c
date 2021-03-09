@@ -165,12 +165,19 @@ struct bpf_map_def SEC("maps") tbl_used_ports = {
 /**
  * Function used to update 64 bit values and avoid overflow
  */
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
+static __always_inline void netdata_update_u64(__u64 *res, __u64 value)
+#else
 static inline void netdata_update_u64(__u64 *res, __u64 value)
+#endif
 {
     if (!value)
         return;
 
     __sync_fetch_and_add(res, value);
+    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
+        *res = value;
+    }
 }
 
 /*
@@ -191,7 +198,11 @@ static void netdata_update_global(__u32 key, __u64 value)
  *
  * Read information from socket to update the index.
 */
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
+static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
+#else
 static inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
+#endif
 {
     __u16 family;
 
@@ -233,7 +244,11 @@ static inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *i
 /**
  * Update time and bytes sent and received
  */
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
+static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
+#else
 static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
+#endif
 {
     ptr->ct = bpf_ktime_get_ns();
 
