@@ -4,6 +4,7 @@
 #define _NETDATA_EBPF_ 1
 
 #include <linux/sched.h>
+#include <linux/version.h>
 
 #include "netdata_cache.h"
 #include "netdata_network.h"
@@ -58,10 +59,16 @@ static inline void libnetdata_update_global(struct bpf_map_def *tbl,__u32 key, _
         })
 
 // Copied from linux/samples/bpf/trace_common.h
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+
 #ifdef __x86_64__
 #define NETDATA_SYSCALL(SYS) "__x64_sys_" __stringify(SYS)
 #elif defined(__s390x__)
 #define NETDATA_SYSCALL(SYS) "__s390x_" __stringify(SYS)
+#else
+#define NETDATA_SYSCALL(SYS) "sys_" __stringify(SYS)
+#endif
+
 #else
 #define NETDATA_SYSCALL(SYS) "sys_" __stringify(SYS)
 #endif
