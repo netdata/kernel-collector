@@ -12,6 +12,8 @@ VER_MINOR="$2"
 
 cp "${KERNEL_DIR}rcachestat_kern.o" "rnetdata_ebpf_cachestat.${VER_MAJOR}.${VER_MINOR}.o"
 cp "${KERNEL_DIR}pcachestat_kern.o" "pnetdata_ebpf_cachestat.${VER_MAJOR}.${VER_MINOR}.o"
+cp "${KERNEL_DIR}rfdatasync_kern.o" "rnetdata_ebpf_fdatasync.${VER_MAJOR}.${VER_MINOR}.o"
+cp "${KERNEL_DIR}pfdatasync_kern.o" "pnetdata_ebpf_fdatasync.${VER_MAJOR}.${VER_MINOR}.o"
 cp "${KERNEL_DIR}rfsync_kern.o" "rnetdata_ebpf_fsync.${VER_MAJOR}.${VER_MINOR}.o"
 cp "${KERNEL_DIR}pfsync_kern.o" "pnetdata_ebpf_fsync.${VER_MAJOR}.${VER_MINOR}.o"
 cp "${KERNEL_DIR}rmsync_kern.o" "rnetdata_ebpf_msync.${VER_MAJOR}.${VER_MINOR}.o"
