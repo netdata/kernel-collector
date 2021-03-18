@@ -36,8 +36,9 @@ process_kern.o: process_kern.c
 network_viewer_kern.o: network_viewer_kern.c
 cachestat_kern.o: cachestat_kern.c
 sync_kern.o: sync_kern.c
+syncfs_kern.o: syncfs_kern.c
 
-all: process_kern.o network_viewer_kern.o cachestat_kern.o sync_kern.o
+all: process_kern.o network_viewer_kern.o cachestat_kern.o sync_kern.o syncfs_kern.o
 
 %.o: %.c
 	if [ -w /usr/src/linux/include/generated/autoconf.h ]; then  if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' /usr/src/linux/include/generated/autoconf.h; fi ; fi

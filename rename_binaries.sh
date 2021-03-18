@@ -18,3 +18,5 @@ cp "${KERNEL_DIR}rcachestat_kern.o" "rnetdata_ebpf_cachestat.${VER_MAJOR}.${VER_
 cp "${KERNEL_DIR}pcachestat_kern.o" "pnetdata_ebpf_cachestat.${VER_MAJOR}.${VER_MINOR}.o"
 cp "${KERNEL_DIR}rsync_kern.o" "rnetdata_ebpf_sync.${VER_MAJOR}.${VER_MINOR}.o"
 cp "${KERNEL_DIR}psync_kern.o" "pnetdata_ebpf_sync.${VER_MAJOR}.${VER_MINOR}.o"
+cp "${KERNEL_DIR}rsyncfs_kern.o" "rnetdata_ebpf_syncfs.${VER_MAJOR}.${VER_MINOR}.o"
+cp "${KERNEL_DIR}psyncfs_kern.o" "pnetdata_ebpf_syncfs.${VER_MAJOR}.${VER_MINOR}.o"
