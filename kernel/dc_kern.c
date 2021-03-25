@@ -1,13 +1,15 @@
-#define KBUILD_MODNAME "process_kern"
+#define KBUILD_MODNAME "dc_kern"
 #include <linux/bpf.h>
-#include <linux/version.h>
 #include <linux/ptrace.h>
-
-#include <linux/threads.h>
-#include <linux/version.h>
 
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
+
+/************************************************************************************
+ *
+ *                                   Maps Section
+ *
+ ***********************************************************************************/
 
 struct bpf_map_def SEC("maps") dcstat_global = {
     .type = BPF_MAP_TYPE_HASH,
@@ -34,7 +36,7 @@ struct bpf_map_def SEC("maps") dcstat_pid = {
  ***********************************************************************************/
 
 SEC("kprobe/lookup_fast")
-int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
+int netdata_lookup_fast(struct pt_regs* ctx)
 {
     netdata_dc_stat_t *fill, data = {};
     libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_REFERENCE, 1);
@@ -53,7 +55,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
 }
 
 SEC("kretprobe/d_lookup")
-int netdata_mark_page_accessed(struct pt_regs* ctx)
+int netdata_d_lookup(struct pt_regs* ctx)
 {
     netdata_dc_stat_t *fill, data = {};
     libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_SLOW, 1);
