@@ -21,3 +21,4 @@ enum directory_cache_counters {
 };
 
 #endif /* _NETDATA_DIRECTORY_CACHE_H_ */
+
