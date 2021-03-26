@@ -33,6 +33,7 @@ VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
 cachestat_kern.o: cachestat_kern.c
+dc_kern.o: dc_kern.c
 fdatasync_kern.o: fdatasync_kern.c
 fsync_kern.o: fsync_kern.c
 msync_kern.o: msync_kern.c
@@ -42,7 +43,7 @@ sync_kern.o: sync_kern.c
 sync_file_range_kern.o: sync_file_range_kern.c
 syncfs_kern.o: syncfs_kern.c
 
-all: process_kern.o network_viewer_kern.o cachestat_kern.o sync_kern.o syncfs_kern.o msync_kern.o fdatasync_kern.o fsync_kern.o sync_file_range_kern.o
+all: process_kern.o network_viewer_kern.o cachestat_kern.o sync_kern.o syncfs_kern.o msync_kern.o fdatasync_kern.o fsync_kern.o sync_file_range_kern.o dc_kern.o
 
 %.o: %.c
 	if [ -w /usr/src/linux/include/generated/autoconf.h ]; then  if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' /usr/src/linux/include/generated/autoconf.h; fi ; fi
