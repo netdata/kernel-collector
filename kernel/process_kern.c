@@ -18,7 +18,7 @@ struct bpf_map_def SEC("maps") tbl_pid_stats = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(__u32),
     .value_size = sizeof(struct netdata_pid_stat_t),
-    .max_entries = 100000
+    .max_entries = PID_MAX_DEFAULT
 };
 
 struct bpf_map_def SEC("maps") tbl_total_stats = {

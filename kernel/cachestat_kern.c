@@ -24,7 +24,7 @@ struct bpf_map_def SEC("maps") cstat_pid = {
 #endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(netdata_cachestat_t),
-    .max_entries = 100000
+    .max_entries = PID_MAX_DEFAULT
 };
 
 /************************************************************************************
