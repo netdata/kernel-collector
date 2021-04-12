@@ -1,6 +1,7 @@
 #define KBUILD_MODNAME "dc_kern"
 #include <linux/bpf.h>
 #include <linux/ptrace.h>
+#include <linux/threads.h>
 
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
@@ -26,7 +27,7 @@ struct bpf_map_def SEC("maps") dcstat_pid = {
 #endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(netdata_dc_stat_t),
-    .max_entries = 100000
+    .max_entries = PID_MAX_DEFAULT
 };
 
 /************************************************************************************
