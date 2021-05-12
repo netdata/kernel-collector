@@ -30,3 +30,5 @@ cp "${KERNEL_DIR}rsync_file_range_kern.o" "rnetdata_ebpf_sync_file_range.${VER_M
 cp "${KERNEL_DIR}psync_file_range_kern.o" "pnetdata_ebpf_sync_file_range.${VER_MAJOR}.${VER_MINOR}.o"
 cp "${KERNEL_DIR}rsyncfs_kern.o" "rnetdata_ebpf_syncfs.${VER_MAJOR}.${VER_MINOR}.o"
 cp "${KERNEL_DIR}psyncfs_kern.o" "pnetdata_ebpf_syncfs.${VER_MAJOR}.${VER_MINOR}.o"
+cp "${KERNEL_DIR}rswap_kern.o" "rnetdata_ebpf_swap.${VER_MAJOR}.${VER_MINOR}.o"
+cp "${KERNEL_DIR}pswap_kern.o" "pnetdata_ebpf_swap.${VER_MAJOR}.${VER_MINOR}.o"
