@@ -39,24 +39,6 @@ struct bpf_map_def SEC("maps") tbl_vfs_stats = {
 
 /************************************************************************************
  *     
- *                                 REMOVE Section
- *     
- ***********************************************************************************/
-
-
-static void netdata_update_u32(u32 *res, u32 value) 
-{
-    if (!value)
-        return;
-
-    __sync_fetch_and_add(res, value);
-    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
-        *res = value;
-    }
-}
-
-/************************************************************************************
- *     
  *                                   FILE Section
  *     
  ***********************************************************************************/
@@ -83,12 +65,12 @@ int netdata_sys_write(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_WRITE, 1);
     fill = bpf_map_lookup_elem(&tbl_vfs_pid ,&pid);
     if (fill) {
-        netdata_update_u32(&fill->write_call, 1) ;
+        libnetdata_update_u32(&fill->write_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITE, 1);
-            netdata_update_u32(&fill->write_err, 1) ;
+            libnetdata_update_u32(&fill->write_err, 1) ;
         } else {
 #endif
             ret = (ssize_t)PT_REGS_PARM3(ctx);
@@ -144,12 +126,12 @@ int netdata_sys_writev(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_WRITEV, 1);
     fill = bpf_map_lookup_elem(&tbl_vfs_pid ,&pid);
     if (fill) {
-        netdata_update_u32(&fill->writev_call, 1) ;
+        libnetdata_update_u32(&fill->writev_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITEV, 1);
-            netdata_update_u32(&fill->writev_err, 1) ;
+            libnetdata_update_u32(&fill->writev_err, 1) ;
         } else {
 #endif
             ret = (ssize_t)PT_REGS_PARM3(ctx);
@@ -205,12 +187,12 @@ int netdata_sys_read(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_READ, 1);
     fill = bpf_map_lookup_elem(&tbl_vfs_pid ,&pid);
     if (fill) {
-        netdata_update_u32(&fill->read_call, 1) ;
+        libnetdata_update_u32(&fill->read_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READ, 1);
-            netdata_update_u32(&fill->read_err, 1) ;
+            libnetdata_update_u32(&fill->read_err, 1) ;
         } else {
 #endif
             ret = (ssize_t)PT_REGS_PARM3(ctx);
@@ -266,12 +248,12 @@ int netdata_sys_readv(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_READV, 1);
     fill = bpf_map_lookup_elem(&tbl_vfs_pid ,&pid);
     if (fill) {
-        netdata_update_u32(&fill->readv_call, 1) ;
+        libnetdata_update_u32(&fill->readv_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READV, 1);
-            netdata_update_u32(&fill->readv_err, 1) ;
+            libnetdata_update_u32(&fill->readv_err, 1) ;
         } else {
 #endif
             ret = (ssize_t)PT_REGS_PARM3(ctx);
@@ -325,12 +307,12 @@ int netdata_sys_unlink(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_UNLINK, 1);
     fill = bpf_map_lookup_elem(&tbl_vfs_pid ,&pid);
     if (fill) {
-        netdata_update_u32(&fill->unlink_call, 1) ;
+        libnetdata_update_u32(&fill->unlink_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_UNLINK, 1);
-            netdata_update_u32(&fill->unlink_err, 1) ;
+            libnetdata_update_u32(&fill->unlink_err, 1) ;
         } 
 #endif
     } else {
@@ -374,12 +356,12 @@ int netdata_vfs_fsync(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_FSYNC, 1);
     fill = bpf_map_lookup_elem(&tbl_vfs_pid ,&pid);
     if (fill) {
-        netdata_update_u32(&fill->fsync_call, 1) ;
+        libnetdata_update_u32(&fill->fsync_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_FSYNC, 1);
-            netdata_update_u32(&fill->fsync_err, 1) ;
+            libnetdata_update_u32(&fill->fsync_err, 1) ;
         } 
 #endif
     } else {
@@ -423,12 +405,12 @@ int netdata_vfs_open(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_OPEN, 1);
     fill = bpf_map_lookup_elem(&tbl_vfs_pid ,&pid);
     if (fill) {
-        netdata_update_u32(&fill->open_call, 1) ;
+        libnetdata_update_u32(&fill->open_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_OPEN, 1);
-            netdata_update_u32(&fill->open_err, 1) ;
+            libnetdata_update_u32(&fill->open_err, 1) ;
         } 
 #endif
     } else {
@@ -472,12 +454,12 @@ int netdata_vfs_create(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_CREATE, 1);
     fill = bpf_map_lookup_elem(&tbl_vfs_pid ,&pid);
     if (fill) {
-        netdata_update_u32(&fill->create_call, 1) ;
+        libnetdata_update_u32(&fill->create_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_CREATE, 1);
-            netdata_update_u32(&fill->create_err, 1) ;
+            libnetdata_update_u32(&fill->create_err, 1) ;
         } 
 #endif
     } else {
