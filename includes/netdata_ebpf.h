@@ -12,6 +12,7 @@
 #include "netdata_process.h"
 #include "netdata_sync.h"
 #include "netdata_swap.h"
+#include "netdata_vfs.h"
 
 struct netdata_error_report_t {
     char comm[TASK_COMM_LEN];
