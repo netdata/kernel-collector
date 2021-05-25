@@ -22,4 +22,4 @@ This directory has two headers:
 Right now we have two `eBPF` program collections:
 
 -  `process_kern.c`: eBPF program that provides process, file and VFS stats.
--  `network_viewer_kern.c`: eBPF program that provides network stats;
+-  `socket_kern.c` : eBPF program that provides network stats;
