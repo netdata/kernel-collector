@@ -1,4 +1,4 @@
-#define KBUILD_MODNAME "network_viewer"
+#define KBUILD_MODNAME "socket"
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
 #include <linux/in.h>
