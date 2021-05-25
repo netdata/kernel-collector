@@ -21,5 +21,14 @@ This directory has two headers:
 
 Right now we have two `eBPF` program collections:
 
--  `process_kern.c`: eBPF program that provides process, file and VFS stats.
--  `socket_kern.c` : eBPF program that provides network stats;
+-  `cachestat_kern.c`      : eBPF program that provides Linux page cache monitoring.
+-  `dc_kern.c`             : eBPF program that provides Linux directory cache monitoring.
+-  `fdatasync_kern.c`      : eBPF program that monitor calls for syscall `fdatasync`.
+-  `fsync_kern.c`          : eBPF program that monitor calls for syscall `fsync`.
+-  `msync_kern.c`          : eBPF program that monitor calls for syscall `msync`.
+-  `process_kern.c`        : eBPF program that provides process, file and VFS stats.
+-  `socket_kern.c`         : eBPF program that provides network stats;
+-  `swap_kern.c`           : eBPF program that provides swap stats;
+-  `sync_file_range_kern.c`: eBPF program that monitor calls for syscall `sync_file_range`.
+-  `sync_kern.c`           : eBPF program that monitor calls for syscall `sync`.
+-  `syncfs_kern.c`         : eBPF program that monitor calls for syscall `syncfs`.
