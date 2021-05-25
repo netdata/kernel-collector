@@ -37,7 +37,7 @@ NETDATA_APPS= cachestat \
 	      fdatasync \
 	      fsync \
 	      msync \
-	      network_viewer \
+	      socket \
 	      process \
 	      sync \
 	      sync_file_range \
