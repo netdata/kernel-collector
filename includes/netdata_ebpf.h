@@ -12,6 +12,7 @@
 #include "netdata_process.h"
 #include "netdata_sync.h"
 #include "netdata_swap.h"
+#include "netdata_vfs.h"
 
 struct netdata_error_report_t {
     char comm[TASK_COMM_LEN];
@@ -51,6 +52,55 @@ static inline void libnetdata_update_global(struct bpf_map_def *tbl,__u32 key, _
         bpf_map_update_elem(tbl, &key, &value, BPF_NOEXIST);
 }
 
+/**
+ * The motive we are using log2 to plot instead the raw value is well explained
+ * inside this paper https://www.fsl.cs.stonybrook.edu/docs/osprof-osdi2006/osprof.pdf
+ */
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
+static __always_inline unsigned int libnetdata_log2(unsigned int v)
+#else
+static inline unsigned int libnetdata_log2(unsigned int v)
+#endif
+{
+    unsigned int r;
+    unsigned int shift;
+
+    r = (v > 0xFFFF) << 4; v >>= r;
+    shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
+    shift = (v > 0xF) << 2; v >>= shift; r |= shift;
+    shift = (v > 0x3) << 1; v >>= shift; r |= shift;
+    r |= (v >> 1);
+
+    return r;
+}
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
+static __always_inline unsigned int libnetdata_log2l(__u64 v)
+#else
+static inline unsigned int libnetdata_log2l(__u64 v)
+#endif
+{
+    unsigned int hi = v >> 32;
+    if (hi)
+        return libnetdata_log2(hi) + 32;
+    else
+        return libnetdata_log2(v);
+}
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
+static __always_inline void libnetdata_update_u32(u32 *res, u32 value) 
+#else
+static inline void libnetdata_update_u32(u32 *res, u32 value) 
+#endif
+{
+    if (!value)
+        return;
+
+    __sync_fetch_and_add(res, value);
+    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
+        *res = value;
+    }
+}
 
 // Copied from linux/samples/bpf/tracex1_kern.c
 #define _(P)                                                                   \
