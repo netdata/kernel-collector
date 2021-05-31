@@ -111,17 +111,17 @@ static inline void libnetdata_update_u32(u32 *res, u32 value)
  *  http://www.brendangregg.com/blog/2015-05-15/ebpf-one-small-step.html
  */
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline __u32 libnetdata_select_idx(__u64 val)
+static __always_inline __u32 libnetdata_select_idx(__u64 val, __u32 end)
 #else
-static inline __u32 libnetdata_select_idx(__u64 val)
+static inline __u32 libnetdata_select_idx(__u64 val, __u32 end)
 #endif
 {
     __u32 rlog;
 
     rlog = libnetdata_log2l(val);
 
-    if (rlog > NETDATA_FS_MAX_BINS_POS)
-        rlog = NETDATA_FS_MAX_BINS_POS;
+    if (rlog > end)
+        rlog = end;
 
     return rlog;
 }

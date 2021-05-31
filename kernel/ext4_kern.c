@@ -103,7 +103,7 @@ static int netdata_ext4_end(struct pt_regs *ctx, __u32 selection)
     data /= 1000;
 
     blk.hist_id = selection;
-    blk.bin = libnetdata_select_idx(data);
+    blk.bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
 
     fill = bpf_map_lookup_elem(&tbl_ext4 ,&blk);
     if (fill) {
