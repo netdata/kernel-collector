@@ -40,7 +40,13 @@ struct bpf_map_def SEC("maps") tmp_ext4 = {
  *     
  ***********************************************************************************/
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,0,0))
 static int netdata_ext4_entry(struct pt_regs *ctx)
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
+static __always_inline int netdata_ext4_entry(struct pt_regs *ctx)
+#else
+static inline int netdata_ext4_entry(struct pt_regs *ctx)
+#endif
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
@@ -81,7 +87,13 @@ int netdata_ext4_sync_file(struct pt_regs *ctx)
  *     
  ***********************************************************************************/
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,0,0))
 static int netdata_ext4_end(struct pt_regs *ctx, __u32 selection)
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
+static __always_inline int netdata_ext4_end(struct pt_regs *ctx, __u32 selection)
+#else
+static inline int netdata_ext4_end(struct pt_regs *ctx, __u32 selection)
+#endif
 {
     __u64 *fill, data;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
