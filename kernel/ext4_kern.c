@@ -33,11 +33,11 @@ struct bpf_map_def SEC("maps") tmp_ext4 = {
  ***********************************************************************************/
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,0,0))
-static int netdata_ext4_entry(struct pt_regs *ctx)
+static int netdata_ext4_entry()
 #elif (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
-static __always_inline int netdata_ext4_entry(struct pt_regs *ctx)
+static __always_inline int netdata_ext4_entry()
 #else
-static inline int netdata_ext4_entry(struct pt_regs *ctx)
+static inline int netdata_ext4_entry()
 #endif
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
@@ -52,25 +52,25 @@ static inline int netdata_ext4_entry(struct pt_regs *ctx)
 SEC("kprobe/ext4_file_read_iter")
 int netdata_ext4_file_read_iter(struct pt_regs *ctx) 
 {
-    return netdata_ext4_entry(ctx);
+    return netdata_ext4_entry();
 }
 
 SEC("kprobe/ext4_file_write_iter")
 int netdata_ext4_file_write_iter(struct pt_regs *ctx) 
 {
-    return netdata_ext4_entry(ctx);
+    return netdata_ext4_entry();
 }
 
 SEC("kprobe/ext4_file_open")
 int netdata_ext4_file_open(struct pt_regs *ctx) 
 {
-    return netdata_ext4_entry(ctx);
+    return netdata_ext4_entry();
 }
 
 SEC("kprobe/ext4_sync_file")
 int netdata_ext4_sync_file(struct pt_regs *ctx) 
 {
-    return netdata_ext4_entry(ctx);
+    return netdata_ext4_entry();
 }
 
 /************************************************************************************
