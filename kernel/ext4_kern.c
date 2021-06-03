@@ -82,11 +82,11 @@ int netdata_ext4_sync_file(struct pt_regs *ctx)
 static void netdata_ext4_store_bin(__u32 bin, __u32 selection)
 {
     __u64 *fill, data;
-    __u32 idx = selection*NETDATA_FS_MAX_BINS + bin;
+    __u32 idx = selection * NETDATA_FS_MAX_BINS + bin;
     if (idx >= NETDATA_FS_MAX_ELEMENTS)
         return;
 
-    fill = bpf_map_lookup_elem(&tbl_ext4 ,&idx);
+    fill = bpf_map_lookup_elem(&tbl_ext4, &idx);
     if (fill) {
         libnetdata_update_u64(fill, 1);
 		return;
@@ -103,7 +103,7 @@ int netdata_ret_ext4_ext4_file_read_iter(struct pt_regs *ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 bin, pid = (__u32)(pid_tgid >> 32);
 
-    fill = bpf_map_lookup_elem(&tmp_ext4 ,&pid);
+    fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
     if (!fill)
         return 0;
 
@@ -119,7 +119,7 @@ int netdata_ret_ext4_ext4_file_read_iter(struct pt_regs *ctx)
     bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_ext4_store_bin(bin, NETDATA_KEY_CALLS_READ);
 
-	return 0;
+    return 0;
 }
 
 SEC("kretprobe/ext4_file_write_iter")
@@ -129,7 +129,7 @@ int netdata_ret_ext4_file_write_iter(struct pt_regs *ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 bin, pid = (__u32)(pid_tgid >> 32);
 
-    fill = bpf_map_lookup_elem(&tmp_ext4 ,&pid);
+    fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
     if (!fill)
         return 0;
 
@@ -145,7 +145,7 @@ int netdata_ret_ext4_file_write_iter(struct pt_regs *ctx)
     bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_ext4_store_bin(bin, NETDATA_KEY_CALLS_WRITE);
 
-	return 0;
+    return 0;
 }
 
 SEC("kretprobe/ext4_file_open")
@@ -155,7 +155,7 @@ int netdata_ret_ext4_file_open(struct pt_regs *ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 bin, pid = (__u32)(pid_tgid >> 32);
 
-    fill = bpf_map_lookup_elem(&tmp_ext4 ,&pid);
+    fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
     if (!fill)
         return 0;
 
@@ -171,7 +171,7 @@ int netdata_ret_ext4_file_open(struct pt_regs *ctx)
     bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_ext4_store_bin(bin, NETDATA_KEY_CALLS_OPEN);
 
-	return 0;
+    return 0;
 }
 
 SEC("kretprobe/ext4_sync_file")
@@ -181,7 +181,7 @@ int netdata_ret_ext4_sync_file(struct pt_regs *ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 bin, pid = (__u32)(pid_tgid >> 32);
 
-    fill = bpf_map_lookup_elem(&tmp_ext4 ,&pid);
+    fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
     if (!fill)
         return 0;
 
@@ -197,7 +197,7 @@ int netdata_ret_ext4_sync_file(struct pt_regs *ctx)
     bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_ext4_store_bin(bin, NETDATA_KEY_CALLS_SYNC);
 
-	return 0;
+    return 0;
 }
 
 char _license[] SEC("license") = "GPL";
