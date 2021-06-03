@@ -8,6 +8,7 @@
 
 #include "netdata_cache.h"
 #include "netdata_dc.h"
+#include "netdata_fs.h"
 #include "netdata_network.h"
 #include "netdata_process.h"
 #include "netdata_sync.h"
@@ -100,6 +101,22 @@ static inline void libnetdata_update_u32(u32 *res, u32 value)
     if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
         *res = value;
     }
+}
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
+static __always_inline __u32 libnetdata_select_idx(__u64 val, __u32 end)
+#else
+static inline __u32 libnetdata_select_idx(__u64 val, __u32 end)
+#endif
+{
+    __u32 rlog;
+
+    rlog = libnetdata_log2l(val);
+
+    if (rlog > end)
+        rlog = end;
+
+    return rlog;
 }
 
 // Copied from linux/samples/bpf/tracex1_kern.c
