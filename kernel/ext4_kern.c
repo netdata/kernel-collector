@@ -20,7 +20,11 @@ struct bpf_map_def SEC("maps") tbl_ext4 = {
 };
 
 struct bpf_map_def SEC("maps") tmp_ext4 = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
+    .type = BPF_MAP_TYPE_HASH,
+#else
+    .type = BPF_MAP_TYPE_PERCPU_HASH,
+#endif    
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries = 4192

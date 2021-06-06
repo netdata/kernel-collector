@@ -15,7 +15,7 @@ enum fs_counters {
 // We are using 24 as hard limit to avoid intervals bigger than
 // 8 seconds and to keep memory aligment.
 #define NETDATA_FS_MAX_BINS 24UL
-#define NETDATA_FS_MAX_TABLES 5UL
+#define NETDATA_FS_MAX_TABLES 4UL
 #define NETDATA_FS_MAX_ELEMENTS (NETDATA_FS_MAX_BINS * NETDATA_FS_MAX_TABLES)
 #define NETDATA_FS_MAX_BINS_POS (NETDATA_FS_MAX_BINS - 1)
 #define NETDATA_FS_HISTOGRAM_LENGTH  (NETDATA_FS_MAX_BINS * NETDATA_FS_MAX_BINS)
