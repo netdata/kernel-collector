@@ -27,11 +27,7 @@ struct bpf_map_def SEC("maps") tbl_pid_stats = {
 };
 
 struct bpf_map_def SEC("maps") tbl_total_stats = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
-    .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
+    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries =  NETDATA_GLOBAL_COUNTER
