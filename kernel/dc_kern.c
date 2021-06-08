@@ -13,7 +13,7 @@
  ***********************************************************************************/
 
 struct bpf_map_def SEC("maps") dcstat_global = {
-    .type = BPF_MAP_TYPE_HASH,
+    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries = NETDATA_DIRECTORY_CACHE_END
