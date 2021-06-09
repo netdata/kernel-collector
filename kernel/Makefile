@@ -45,6 +45,7 @@ NETDATA_APPS= cachestat \
 	      syncfs \
 	      swap \
 	      vfs \
+	      xfs \
 	      #
 
 all: $(NETDATA_APPS)
