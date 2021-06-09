@@ -1,4 +1,4 @@
-FROM centos:8.1.1911 AS build
+FROM centos:8.3.2011 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
