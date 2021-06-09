@@ -27,11 +27,7 @@ struct bpf_map_def SEC("maps") tbl_vfs_pid = {
 };
 
 struct bpf_map_def SEC("maps") tbl_vfs_stats = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
-    .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
+    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries =  NETDATA_VFS_COUNTER
