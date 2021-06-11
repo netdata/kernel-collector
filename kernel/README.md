@@ -23,6 +23,7 @@ Right now we have two `eBPF` program collections:
 
 -  `cachestat_kern.c`      : eBPF program that provides Linux page cache monitoring.
 -  `dc_kern.c`             : eBPF program that provides Linux directory cache monitoring.
+-  `ext4_kern.c`           : eBPF program that provides ext4 monitoring.
 -  `fdatasync_kern.c`      : eBPF program that monitor calls for syscall `fdatasync`.
 -  `fsync_kern.c`          : eBPF program that monitor calls for syscall `fsync`.
 -  `msync_kern.c`          : eBPF program that monitor calls for syscall `msync`.
@@ -32,3 +33,5 @@ Right now we have two `eBPF` program collections:
 -  `sync_file_range_kern.c`: eBPF program that monitor calls for syscall `sync_file_range`.
 -  `sync_kern.c`           : eBPF program that monitor calls for syscall `sync`.
 -  `syncfs_kern.c`         : eBPF program that monitor calls for syscall `syncfs`.
+-  `vfs_kern.c`            : eBPF program that monitor Virtual Filesystem functions.
+-  `xfs_kern.c`            : eBPF program that provides XFS monitoring.
