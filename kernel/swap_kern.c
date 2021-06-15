@@ -31,6 +31,13 @@ struct bpf_map_def SEC("maps") tbl_pid_swap = {
     .max_entries = PID_MAX_DEFAULT
 };
 
+struct bpf_map_def SEC("maps") swap_ctrl = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
+    .max_entries = NETDATA_CONTROLLER_END
+};
+
 /************************************************************************************
  *
  *                               SYNC SECTION
@@ -41,11 +48,17 @@ SEC("kprobe/swap_readpage")
 int netdata_swap_readpage(struct pt_regs* ctx)
 {
     netdata_swap_access_t data = {};
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
 
     libnetdata_update_global(&tbl_swap, NETDATA_KEY_SWAP_READPAGE_CALL, 1);
 
+    __u32 pid = 0;
+    __u32 *apps = bpf_map_lookup_elem(&swap_ctrl ,&pid);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    pid = (__u32)(pid_tgid >> 32);
     netdata_swap_access_t *fill = bpf_map_lookup_elem(&tbl_pid_swap ,&pid);
     if (fill) {
         libnetdata_update_u64(&fill->read, 1);
@@ -61,11 +74,17 @@ SEC("kprobe/swap_writepage")
 int netdata_swap_writepage(struct pt_regs* ctx)
 {
     netdata_swap_access_t data = {};
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
 
     libnetdata_update_global(&tbl_swap, NETDATA_KEY_SWAP_WRITEPAGE_CALL, 1);
 
+    __u32 pid = 0;
+    __u32 *apps = bpf_map_lookup_elem(&swap_ctrl ,&pid);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    pid = (__u32)(pid_tgid >> 32);
     netdata_swap_access_t *fill = bpf_map_lookup_elem(&tbl_pid_swap ,&pid);
     if (fill) {
         libnetdata_update_u64(&fill->write, 1);
