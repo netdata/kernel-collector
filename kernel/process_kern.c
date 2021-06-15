@@ -329,7 +329,7 @@ int netdata_clone(struct pt_regs* ctx)
         libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
     } 
 #endif
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&NETDATA_CONTROLLER_APPS_ENABLEDid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
