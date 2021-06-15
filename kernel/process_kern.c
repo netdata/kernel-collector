@@ -95,9 +95,7 @@ int netdata_sys_open(struct pt_regs* ctx)
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_SYS_OPEN, 1);
 #if NETDATASEL < 2
@@ -106,7 +104,16 @@ int netdata_sys_open(struct pt_regs* ctx)
     } 
 #endif
 
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->open_call, 1) ;
 
@@ -130,7 +137,7 @@ int netdata_sys_open(struct pt_regs* ctx)
 #endif
         data.open_call = 1;
 
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
 
     return 0;
@@ -147,18 +154,18 @@ SEC("kprobe/do_exit")
 int netdata_sys_exit(struct pt_regs* ctx)
 {
     struct netdata_pid_stat_t *fill;
-    __u32 pid = 0;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_EXIT, 1);
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
+    key = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->exit_call, 1) ;
     } 
@@ -170,18 +177,18 @@ SEC("kprobe/release_task")
 int netdata_release_task(struct pt_regs* ctx)
 {
     struct netdata_pid_stat_t *fill;
-    __u32 pid = 0;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_RELEASE_TASK, 1);
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
+    key = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->release_call, 1) ;
         fill->removeme = 1;
@@ -210,7 +217,7 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
 #endif
-    __u32 pid = 0;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
 
@@ -243,15 +250,15 @@ int netdata_fork(struct pt_regs* ctx)
     } 
 #endif
 
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
+    key = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->fork_call, 1) ;
@@ -290,7 +297,7 @@ int netdata_fork(struct pt_regs* ctx)
 # endif
         } 
 #endif
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
 
     return 0;
@@ -309,7 +316,7 @@ int netdata_clone(struct pt_regs* ctx)
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
-    __u32 pid = 0;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u64 arg1 = (__u64)PT_REGS_PARM2(ctx);
 
     arg1 &= CLONE_THREAD|CLONE_VM;
@@ -322,15 +329,15 @@ int netdata_clone(struct pt_regs* ctx)
         libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
     } 
 #endif
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&NETDATA_CONTROLLER_APPS_ENABLEDid);
     if (apps)
         if (*apps == 0)
             return 0;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
+    key = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->clone_call, 1) ;
 
@@ -349,7 +356,7 @@ int netdata_clone(struct pt_regs* ctx)
         } 
 #endif
 
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
 
     return 0;
@@ -373,7 +380,7 @@ int netdata_sys_clone(struct pt_regs *ctx)
 #endif
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
-    __u32 pid = 0;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     int threads = 0;
     struct kernel_clone_args *args = (struct kernel_clone_args *)PT_REGS_PARM1(ctx); 
@@ -395,15 +402,15 @@ int netdata_sys_clone(struct pt_regs *ctx)
     } 
 #endif
 
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
+    key = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->fork_call, 1) ;
@@ -436,7 +443,7 @@ int netdata_sys_clone(struct pt_regs *ctx)
         }
 #endif
 
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
     return 0;
 }
@@ -461,7 +468,7 @@ int netdata_close(struct pt_regs* ctx)
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
 #endif
-    __u32 pid = 0;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
 
@@ -472,15 +479,15 @@ int netdata_close(struct pt_regs* ctx)
     } 
 #endif
 
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
+    key = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->close_call, 1) ;
 
@@ -499,7 +506,7 @@ int netdata_close(struct pt_regs* ctx)
         } 
 #endif
 
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
 
     return 0;
