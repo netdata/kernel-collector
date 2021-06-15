@@ -51,20 +51,20 @@ int netdata_swap_readpage(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_swap, NETDATA_KEY_SWAP_READPAGE_CALL, 1);
 
-    __u32 pid = 0;
-    __u32 *apps = bpf_map_lookup_elem(&swap_ctrl ,&pid);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&swap_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
-    netdata_swap_access_t *fill = bpf_map_lookup_elem(&tbl_pid_swap ,&pid);
+    key = (__u32)(pid_tgid >> 32);
+    netdata_swap_access_t *fill = bpf_map_lookup_elem(&tbl_pid_swap ,&key);
     if (fill) {
         libnetdata_update_u64(&fill->read, 1);
     } else {
         data.read = 1;
-        bpf_map_update_elem(&tbl_pid_swap, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_swap, &key, &data, BPF_ANY);
     }
 
     return 0;
@@ -77,20 +77,20 @@ int netdata_swap_writepage(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_swap, NETDATA_KEY_SWAP_WRITEPAGE_CALL, 1);
 
-    __u32 pid = 0;
-    __u32 *apps = bpf_map_lookup_elem(&swap_ctrl ,&pid);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&swap_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
-    netdata_swap_access_t *fill = bpf_map_lookup_elem(&tbl_pid_swap ,&pid);
+    key = (__u32)(pid_tgid >> 32);
+    netdata_swap_access_t *fill = bpf_map_lookup_elem(&tbl_pid_swap ,&key);
     if (fill) {
         libnetdata_update_u64(&fill->write, 1);
     } else {
         data.write = 1;
-        bpf_map_update_elem(&tbl_pid_swap, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_swap, &key, &data, BPF_ANY);
     }
 
     return 0;
