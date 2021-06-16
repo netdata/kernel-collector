@@ -33,20 +33,12 @@ struct bpf_map_def SEC("maps") tbl_total_stats = {
     .max_entries =  NETDATA_GLOBAL_COUNTER
 };
 
-
-#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
-struct bpf_map_def SEC("maps") tbl_syscall_stats = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
-    .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
+struct bpf_map_def SEC("maps") process_ctrl = {
+    .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u32),
-    .max_entries = 1024
+    .max_entries = NETDATA_CONTROLLER_END
 };
-#endif
-
 
 /************************************************************************************
  *     
@@ -77,12 +69,6 @@ static unsigned int log2l(unsigned long v)
         return log2(v);
 }
 
-#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
-static inline void send_perf_error(struct pt_regs* ctx, int ret, int type, __u32 pid)
-{
-}
-#endif
-
 /************************************************************************************
  *     
  *                                   FILE Section
@@ -109,18 +95,30 @@ int netdata_sys_open(struct pt_regs* ctx)
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_SYS_OPEN, 1);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+#if NETDATASEL < 2
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_SYS_OPEN, 1);
+    } 
+#endif
+
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->open_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_SYS_OPEN, 1);
             libnetdata_update_u32(&fill->open_err, 1) ;
         } 
 #endif
@@ -131,7 +129,6 @@ int netdata_sys_open(struct pt_regs* ctx)
 #if NETDATASEL < 2
         if (ret < 0) {
             data.open_err = 1;
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_SYS_OPEN, 1);
         } else {
 #endif
             data.open_err = 0;
@@ -140,14 +137,8 @@ int netdata_sys_open(struct pt_regs* ctx)
 #endif
         data.open_call = 1;
 
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
-
-#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
-    if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 0, pid);
-    }
-#endif
 
     return 0;
 }
@@ -163,12 +154,18 @@ SEC("kprobe/do_exit")
 int netdata_sys_exit(struct pt_regs* ctx)
 {
     struct netdata_pid_stat_t *fill;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_EXIT, 1);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->exit_call, 1) ;
     } 
@@ -180,18 +177,21 @@ SEC("kprobe/release_task")
 int netdata_release_task(struct pt_regs* ctx)
 {
     struct netdata_pid_stat_t *fill;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_RELEASE_TASK, 1);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->release_call, 1) ;
         fill->removeme = 1;
-        //netdata_reset_stat(fill);
-
-        //bpf_map_delete_elem(&tbl_pid_stats, &pid);
     }
 
     return 0;
@@ -217,11 +217,9 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
 #endif
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
     int threads = 0;
@@ -241,7 +239,26 @@ int netdata_fork(struct pt_regs* ctx)
         libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_SYS_CLONE, 1);
     }
 #endif
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+#if NETDATASEL < 2
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_FORK, 1);
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
+        if(threads) {
+            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
+        }
+# endif
+    } 
+#endif
+
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->fork_call, 1) ;
@@ -254,10 +271,8 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_u32(&fill->fork_err, 1) ;
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_FORK, 1);
 # if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
             if(threads) {
-                libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
                 libnetdata_update_u32(&fill->clone_err, 1) ;
             }
 # endif
@@ -274,29 +289,16 @@ int netdata_fork(struct pt_regs* ctx)
 #endif
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_FORK, 1);
             data.fork_err = 1;
 # if (LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)) 
             if (threads) {
-                libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
                 data.clone_err = 1;
             }
 # endif
         } 
 #endif
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
-
-#if NETDATASEL == 1
-    if (ret < 0) {
-# if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)) 
-        send_perf_error(ctx,(int)ret, 7, pid);
-# elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
-        int sel = (threads)?8:7 ;
-        send_perf_error(ctx,(int)ret, sel, pid);
-# endif
-    }
-#endif
 
     return 0;
 }
@@ -314,9 +316,7 @@ int netdata_clone(struct pt_regs* ctx)
 #endif
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u64 arg1 = (__u64)PT_REGS_PARM2(ctx);
 
     arg1 &= CLONE_THREAD|CLONE_VM;
@@ -324,13 +324,25 @@ int netdata_clone(struct pt_regs* ctx)
         return 0;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_SYS_CLONE, 1);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+#if NETDATASEL < 2
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
+    } 
+#endif
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->clone_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
             libnetdata_update_u32(&fill->clone_err, 1) ;
         } 
 #endif
@@ -340,19 +352,12 @@ int netdata_clone(struct pt_regs* ctx)
         data.clone_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
             data.clone_err = 1;
         } 
 #endif
 
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
-
-#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
-    if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 8, pid);
-    }
-#endif
 
     return 0;
 }
@@ -375,9 +380,7 @@ int netdata_sys_clone(struct pt_regs *ctx)
 #endif
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     int threads = 0;
     struct kernel_clone_args *args = (struct kernel_clone_args *)PT_REGS_PARM1(ctx); 
@@ -390,7 +393,24 @@ int netdata_sys_clone(struct pt_regs *ctx)
     }
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_FORK, 1);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+#if NETDATASEL < 2
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_FORK, 1);
+        if(threads) {
+            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
+        }
+    } 
+#endif
+
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->fork_call, 1) ;
@@ -402,9 +422,7 @@ int netdata_sys_clone(struct pt_regs *ctx)
 #if NETDATASEL < 2
         if (ret < 0) {
             libnetdata_update_u32(&fill->fork_err, 1) ;
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_FORK, 1);
             if(threads) {
-                libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
                 libnetdata_update_u32(&fill->clone_err, 1) ;
             }
         } 
@@ -418,16 +436,14 @@ int netdata_sys_clone(struct pt_regs *ctx)
         }
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_FORK, 1);
             data.fork_err = 1;
             if (threads) {
-                libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_SYS_CLONE, 1);
                 data.clone_err = 1;
             }
         }
 #endif
 
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
     return 0;
 }
@@ -452,20 +468,31 @@ int netdata_close(struct pt_regs* ctx)
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
 #endif
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_CLOSE_FD, 1);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
+#if NETDATASEL < 2
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_CLOSE_FD, 1);
+    } 
+#endif
+
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         libnetdata_update_u32(&fill->close_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_CLOSE_FD, 1);
             libnetdata_update_u32(&fill->close_err, 1) ;
         } 
 #endif
@@ -475,19 +502,12 @@ int netdata_close(struct pt_regs* ctx)
         data.close_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_CLOSE_FD, 1);
             data.close_err = 1;
         } 
 #endif
 
-        bpf_map_update_elem(&tbl_pid_stats, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
-
-#if NETDATASEL == 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
-    if (ret < 0) {
-        send_perf_error(ctx,(int)ret, 1, pid);
-    }
-#endif
 
     return 0;
 }
@@ -497,7 +517,7 @@ int netdata_enter_try_to_wake_up(struct pt_regs* ctx)
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u32 tgid = (__u32)(0x00000000FFFFFFFF & pid_tgid);
     struct netdata_pid_stat_t *fill;
     struct netdata_pid_stat_t data = { };
 

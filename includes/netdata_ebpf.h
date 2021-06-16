@@ -23,6 +23,12 @@ struct netdata_error_report_t {
     int err;
 };
 
+enum netdata_controller {
+    NETDATA_CONTROLLER_APPS_ENABLED,
+
+    NETDATA_CONTROLLER_END
+};
+
 // Use __always_inline instead inline to keep compatiblity with old kernels
 // https://docs.cilium.io/en/v1.8/bpf/
 // The condition to test kernel was added, because __always_inline broke the epbf.plugin

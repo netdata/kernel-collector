@@ -30,6 +30,13 @@ struct bpf_map_def SEC("maps") dcstat_pid = {
     .max_entries = PID_MAX_DEFAULT
 };
 
+struct bpf_map_def SEC("maps") dcstat_ctrl = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
+    .max_entries = NETDATA_CONTROLLER_END
+};
+
 /************************************************************************************
  *
  *                                   Probe Section
@@ -42,14 +49,20 @@ int netdata_lookup_fast(struct pt_regs* ctx)
     netdata_dc_stat_t *fill, data = {};
     libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_REFERENCE, 1);
 
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&dcstat_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    fill = bpf_map_lookup_elem(&dcstat_pid ,&pid);
+    key = (__u32)(pid_tgid >> 32);
+    fill = bpf_map_lookup_elem(&dcstat_pid ,&key);
     if (fill) {
         libnetdata_update_u64(&fill->references, 1);
     } else {
         data.references = 1;
-        bpf_map_update_elem(&dcstat_pid, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
     }
 
     return 0;
@@ -63,25 +76,34 @@ int netdata_d_lookup(struct pt_regs* ctx)
 
     int ret = PT_REGS_RC(ctx);
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    fill = bpf_map_lookup_elem(&dcstat_pid ,&pid);
-    if (fill) {
-        libnetdata_update_u64(&fill->slow, 1);
-    } else {
-        data.slow = 1;
-        bpf_map_update_elem(&dcstat_pid, &pid, &data, BPF_ANY);
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&dcstat_ctrl ,&key);
+    if (!apps)
+        return 0;
+
+    if (*apps == 1) {
+        __u64 pid_tgid = bpf_get_current_pid_tgid();
+        key = (__u32)(pid_tgid >> 32);
+        fill = bpf_map_lookup_elem(&dcstat_pid ,&key);
+        if (fill) {
+            libnetdata_update_u64(&fill->slow, 1);
+        } else {
+            data.slow = 1;
+            bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
+        }
     }
 
     // file not found
     if (ret == 0) {
         libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_MISS, 1);
-        fill = bpf_map_lookup_elem(&dcstat_pid ,&pid);
-        if (fill) {
-            libnetdata_update_u64(&fill->missed, 1);
-        } else {
-            data.missed = 1;
-            bpf_map_update_elem(&dcstat_pid, &pid, &data, BPF_ANY);
+        if (*apps == 1) {
+            fill = bpf_map_lookup_elem(&dcstat_pid ,&key);
+            if (fill) {
+                libnetdata_update_u64(&fill->missed, 1);
+            } else {
+                data.missed = 1;
+                bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
+            }
         }
     }
 
