@@ -34,6 +34,7 @@ CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATC
 
 NETDATA_APPS= cachestat \
 	      dc \
+	      disk \
 	      ext4 \
 	      fdatasync \
 	      fsync \
