@@ -29,7 +29,8 @@ struct netdata_block_rq_complete {
     unsigned int nr_sector;     // offset:24;      size:4; signed:0;
     int error;                  // offset:28;      size:4; signed:1;
     char rwbs[8];               // offset:32;      size:8; signed:1;
-    int data_loc_name;          // offset:40;      size:4; signed:1; ()https://lists.linuxfoundation.org/pipermail/iovisor-dev/2017-February/000627.html
+    int data_loc_name;          // offset:40;      size:4; signed:1; 
+                                //(https://lists.linuxfoundation.org/pipermail/iovisor-dev/2017-February/000627.html)
 };
 
 typedef struct netdata_disk_key {
