@@ -38,14 +38,6 @@ typedef struct netdata_disk_key {
     sector_t sector;
 } netdata_disk_key_t;
 
-typedef struct netdata_bootsector {
-    u64 start_sector;
-    u64 end_sector;
-    u64 timestamp;
-    u64 changed_sector;
-    u64 size;
-} netdata_bootsector_t;
-
 typedef struct block_key {
     __u32 bin;
     u32 dev;
