@@ -13,18 +13,7 @@
  ***********************************************************************************/
 
 //Hardware
-struct bpf_map_def SEC("maps") tbl_disk_rcall = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
-    .key_size = sizeof(block_key_t),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_DISK_HISTOGRAM_LENGTH
-};
-
-struct bpf_map_def SEC("maps") tbl_disk_wcall = {
+struct bpf_map_def SEC("maps") tbl_disk_iocall = {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
 #else
@@ -92,11 +81,6 @@ int netdata_block_rq_complete(struct netdata_block_rq_complete *ptr)
     if (!fill)
         return 0;
 
-    // W - write
-    // S - Sync
-    int selector = ((ptr->rwbs[0] == 'F') || (ptr->rwbs[0] == 'S') || (ptr->rwbs[0] == 'W') ||
-                    (ptr->rwbs[1] == 'F') || (ptr->rwbs[1] == 'S') || (ptr->rwbs[0] == 'W'));
-
     // calculate and convert to microsecond
     u64 curr = bpf_ktime_get_ns();
     __u64 data, *update;
@@ -107,13 +91,12 @@ int netdata_block_rq_complete(struct netdata_block_rq_complete *ptr)
     blk.dev = new_encode_dev(ptr->dev);
 
     // Update IOPS
-    struct bpf_map_def *tbl = (!selector)?&tbl_disk_rcall:&tbl_disk_wcall;
-    update = bpf_map_lookup_elem(tbl ,&blk);
+    update = bpf_map_lookup_elem(&tbl_disk_iocall ,&blk);
     if (update) {
         libnetdata_update_u64(update, 1);
     } else {
         data = 1;
-        bpf_map_update_elem(tbl, &blk, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_disk_iocall, &blk, &data, BPF_ANY);
     }
 
     bpf_map_delete_elem(&tmp_disk_tp_stat, &key);
