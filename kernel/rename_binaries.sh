@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
     echo "Give kernel as parameter: kernel major version, kernel minor version, and function name"
@@ -43,8 +43,6 @@ select_kernel_version() {
     echo "${KSELECTED}"
 }
 
-VER_MAJOR="$1"
-VER_MINOR="$2"
 OBJECTNAME="$3"
 NAME=${OBJECTNAME%_*}
 
