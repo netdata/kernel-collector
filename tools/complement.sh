@@ -12,6 +12,7 @@ first_kernel() {
     kver=$(parse_kernel_version "${1}")
 
     ver5_10_0="005010000"
+    ver5_11_0="005011000"
     ver4_18_0="004018000"
     ver4_17_0="004017000"
     ver4_15_0="004015000"
@@ -22,6 +23,8 @@ first_kernel() {
         kpkg="3.10";
     elif [ "${kver}" -eq "${ver4_18_0}" ]; then
         kpkg="4.18";
+    elif [ "${kver}" -ge "${ver5_11_0}" ]; then
+        kpkg="5.11";
     elif [ "${kver}" -ge "${ver5_10_0}" ]; then
         kpkg="5.10";
     elif [ "${kver}" -ge "${ver4_17_0}" ]; then
