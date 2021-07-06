@@ -39,6 +39,7 @@ NETDATA_APPS= cachestat \
 	      fdatasync \
 	      fsync \
 	      msync \
+	      nfs \
 	      socket \
 	      process \
 	      sync \
