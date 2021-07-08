@@ -37,3 +37,4 @@ Right now we have two `eBPF` program collections:
 -  `syncfs_kern.c`         : eBPF program that monitor calls for syscall `syncfs`.
 -  `vfs_kern.c`            : eBPF program that monitor Virtual Filesystem functions.
 -  `xfs_kern.c`            : eBPF program that provides XFS monitoring.
+-  `zfs_kern.c`            : eBPF program that provides ZFS monitoring.
