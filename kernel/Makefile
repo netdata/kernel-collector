@@ -48,6 +48,7 @@ NETDATA_APPS= cachestat \
 	      swap \
 	      vfs \
 	      xfs \
+	      zfs \
 	      #
 
 all: $(NETDATA_APPS)
