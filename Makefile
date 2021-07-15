@@ -26,9 +26,9 @@ $(KERNEL_PROGRAM):
 	cd $(KERNEL_DIR) && $(MAKE) all;
 
 clean:
-	rm *.o;
+	rm -f *.o;
 	cd $(KERNEL_DIR) && $(MAKE) clean;
-	rm artifacts/*
+	rm -f artifacts/*
 
 install:
 	cp *netdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).o /usr/libexec/netdata/plugins.d/

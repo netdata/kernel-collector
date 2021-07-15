@@ -90,4 +90,4 @@ all: $(NETDATA_APPS)
 $(NETDATA_APPS): %: %_kern.o
 
 clean:
-	rm *.o *.ll
+	rm -f *.o *.ll
