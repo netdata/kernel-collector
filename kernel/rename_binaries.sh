@@ -37,7 +37,7 @@ select_kernel_version() {
     elif [ "${KVER}" -ge "${VER4_15_0}" ]; then
         KSELECTED="4.15";
     elif [ "${KVER}" -ge "${VER4_11_0}" ]; then
-        KSELECTED="4.11";
+        KSELECTED="4.14";
     fi
 
     echo "${KSELECTED}"
