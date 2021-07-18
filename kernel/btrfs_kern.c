@@ -3,7 +3,12 @@
 #include <linux/ptrace.h>
 #include <linux/genhd.h>
 #include <linux/version.h>
+// Condition added because struct kiocb was moved when 4.1.0 was released
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0))
+#include <linux/aio.h>
+#else
 #include <linux/fs.h>
+#endif
 
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
