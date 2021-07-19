@@ -32,7 +32,8 @@ VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
 
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
-NETDATA_APPS= cachestat \
+NETDATA_APPS= btrfs \
+	      cachestat \
 	      dc \
 	      disk \
 	      ext4 \
