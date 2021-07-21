@@ -10,6 +10,7 @@
 #include "netdata_dc.h"
 #include "netdata_disk.h"
 #include "netdata_fs.h"
+#include "netdata_mount.h"
 #include "netdata_network.h"
 #include "netdata_process.h"
 #include "netdata_sync.h"
