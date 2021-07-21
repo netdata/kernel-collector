@@ -27,6 +27,7 @@ Right now we have two `eBPF` program collections:
 -  `ext4_kern.c`           : eBPF program that provides ext4 monitoring.
 -  `fdatasync_kern.c`      : eBPF program that monitor calls for syscall `fdatasync`.
 -  `fsync_kern.c`          : eBPF program that monitor calls for syscall `fsync`.
+-  `mount_kern.c`          : eBPF program that monitor calls for syscalls `mount` and `umount`.
 -  `msync_kern.c`          : eBPF program that monitor calls for syscall `msync`.
 -  `nfs_kern.c`            : eBPF program that provides nfs monitoring.
 -  `process_kern.c`        : eBPF program that provides process, file and VFS stats.
@@ -38,3 +39,4 @@ Right now we have two `eBPF` program collections:
 -  `vfs_kern.c`            : eBPF program that monitor Virtual Filesystem functions.
 -  `xfs_kern.c`            : eBPF program that provides XFS monitoring.
 -  `zfs_kern.c`            : eBPF program that provides ZFS monitoring.
+
