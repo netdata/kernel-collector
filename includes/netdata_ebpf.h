@@ -3,6 +3,12 @@
 #ifndef _NETDATA_EBPF_
 #define _NETDATA_EBPF_ 1
 
+/*
+The main header.
+
+This header has the common definitions for all `.c` files.
+*/
+
 #include <linux/sched.h>
 #include <linux/version.h>
 
