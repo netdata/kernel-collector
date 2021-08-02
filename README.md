@@ -25,6 +25,7 @@ To compile the eBPF programs, it will be necessary to have the following package
 The last group of files can be extracted direct from kernel source doing the following steps:
 
 ```bash
+# go into your official linux kernel source code
 cd /usr/src/linux
 make defconfig
 make scripts
