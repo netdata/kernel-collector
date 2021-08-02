@@ -36,7 +36,7 @@ make headers_install
 In case you are using the kernel `5.4` or newer, it is necessary to comment the following line inside the file 
  `generated/autoconf.h`:
 
-```
+```c
 #define CONFIG_CC_HAS_ASM_INLINE 1
 ```
 
