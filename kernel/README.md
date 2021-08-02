@@ -7,8 +7,9 @@ these files it will be necessary to use at least the `clang 4.0` and `llvm 4.0`.
 
 ### Makefile
 
-The Makefile uses some commands to define variables, but there is a peculiarity. You need to change
-the `KERNEL_SOURCE` variable manually depending of your distribution.
+The Makefile uses some commands to define variables, but there is a
+peculiarity. You need to change the `KERNELSOURCE` variable manually depending
+of your distribution.
 
 ### Source Code
 
