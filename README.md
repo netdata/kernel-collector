@@ -113,8 +113,8 @@ After the necessary changes have been done inside the `kernel/Makefille` file, y
 command to compile the eBPF programs:
 
 ```bash
-# make
-``` 
+$ make
+```
 
 When the compilation finishes, you will have a file inside `artifacts` directory with the following
 content:
