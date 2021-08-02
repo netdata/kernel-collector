@@ -1,6 +1,10 @@
 #ifndef _NETDATA_ASM_GOTO_H_
 # define _NETDATA_ASM_GOTO_H_ 1
 
+/*
+This header allows us to compile our code on RH 7.x family.
+*/
+
 # include <linux/types.h>
 # include <linux/version.h>
 

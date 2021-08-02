@@ -10,13 +10,6 @@ these files it will be necessary to use at least the `clang 4.0` and `llvm 4.0`.
 The Makefile uses some commands to define variables, but there is a peculiarity. You need to change
 the `KERNEL_SOURCE` variable manually depending of your distribution.
 
-### Headers
-
-This directory has two headers:
-
--  `netdata_asm_goto.h`: This is the header that allows to compile our code on RH 7.x family.
--  `netdata_ebpf.h`: The main header, this header has the common definitions for all `.c` files. 
-
 ### Source Code
 
 Right now we have two `eBPF` program collections:
