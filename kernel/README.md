@@ -1,7 +1,8 @@
 # Kernel code
 
-Inside this directory we have the `eBPF programs` source code. Until gcc 10.0 to be released to compile
-these files it will be necessary to use at least the `clang 4.0` and `llvm 4.0`.
+Inside this directory we have the `eBPF` programs source code. Until gcc 10.0
+is released, which will be able to compile these files, it will be necessary to
+use at least the `clang 4.0` and `llvm 4.0`.
 
 ## Files
 
