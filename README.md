@@ -49,11 +49,12 @@ files were adjusted to compile on Slackware Linux Current.
 
 Inside this file probably it will be necessary to change the following variable:
 
--   `KERNELSOURCE`: Where is your kernel-source? This variable was set initially to work on Slackware, Fedora and Ubuntu
--   `KERNELBUILD`: Directory where the headers are expected to be stored.
--   `LINUXINCLUDE +=`: Depending of the Linux distribution, it is necessary to add or remove directories from this variable.
--   `LLVM_INCLUDES`: Depending of the kernel version, it will be necessary to change this path
-
+- `KERNELSOURCE`: Where is your kernel-source? This variable was set initially
+  to work on Slackware, Fedora and Ubuntu
+- `LINUXINCLUDE`: Depending of the Linux distribution, it is necessary to add
+  or remove directories from this variable.
+- `LLVM_INCLUDES`: Depending of the kernel version, it will be necessary to
+  change this path
 
 ## Building (with Docker)
 
