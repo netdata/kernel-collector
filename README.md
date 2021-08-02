@@ -9,20 +9,22 @@ Linux Kernel eBPF Collectors
 
 The respository has the following directory structure:
 
--   `artifacts`: Directory that will have the eBPF programs when the compilation process ends.
--   `includes`: Common headers
--   `kernel`: The eBPF programs source code
--   `tools`: scripts used to verify system status before installing eBPF code.
+- `artifacts`: Directory that will have the eBPF programs when the compilation
+  process ends.
+- `includes`: Common headers
+- `kernel`: The eBPF programs source code
+- `tools`: scripts used to verify system status before installing eBPF code.
 
 ## Necessary packages
 
 To compile the eBPF programs, it will be necessary to have the following packages:
 
--   Libelf headers
--   llvm/clang, because GCC prior to 10.0 cannot compile eBPF code.
--   Kernel headers
+- Libelf headers
+- llvm/clang, because GCC prior to 10.0 cannot compile eBPF code.
+- Kernel headers
 
-The last group of files can be extracted direct from kernel source doing the following steps:
+The last group of files can be extracted directly from kernel source doing the
+following steps:
 
 ```bash
 # go into your official linux kernel source code
@@ -33,8 +35,8 @@ make prepare
 make headers_install
 ```
 
-In case you are using the kernel `5.4` or newer, it is necessary to comment the following line inside the file 
- `generated/autoconf.h`:
+In case you are using the kernel `5.4` or newer, it is necessary to comment out
+the following line inside the file `generated/autoconf.h`:
 
 ```c
 #define CONFIG_CC_HAS_ASM_INLINE 1
@@ -42,9 +44,9 @@ In case you are using the kernel `5.4` or newer, it is necessary to comment the 
 
 ## Necessary changes
 
-Before compilation of this repository, it is necessary to change the Makefiles according your environment. The original
-files were adjusted to compile on Slackware Linux Current. 
-
+Before compilation of this repository, it is necessary to change the Makefiles
+according your environment. The original files were adjusted to compile on
+Slackware Linux Current.
 
 ### `kernel/Makefile`
 
@@ -109,8 +111,8 @@ This sets `EXTRA_CFLAGS=-g` up before building.
 
 ## Compilation (manually)
 
-After the necessary changes have been done inside the `kernel/Makefille` file, you need to run the following
-command to compile the eBPF programs:
+After the necessary changes have been done inside the `kernel/Makefille` file,
+you need to run the following command to compile the eBPF programs:
 
 ```bash
 $ make
@@ -129,8 +131,9 @@ rnetdata_ebpf_socket.<kernel version>.o
 `p*.o`: eBPF programs used with entry mode, this is the default mode.
 `r*.o`: eBPF programs used with return mode.
 
-These files have to be copied to your plugins directory, which is usually at `/usr/libexec/netdata/plugins.d/`,
-for the collector to be able to access them. After this you can start the new collector `ebpf_program.plugin`.
+These files have to be copied to your plugins directory, which is usually at
+`/usr/libexec/netdata/plugins.d/`, for the collector to be able to access them.
+After this you can start the new collector `ebpf_program.plugin`.
 
 ## Releasing
 
@@ -161,8 +164,10 @@ you can give us.
 Case you want do a contribution with an eBPF program, please, be sure that your program
 is according with the following patterns:
 
--   Your program must run on all kernels since at least kernel `4.11`
--   Create an additional code that is responsible to measure the latency of your program.
--   We have the variable NETDATASEL, that selects where the functions will be attached. Be
-    sure that inside your code `0` is associated `kretprobe`, `1` is associated with `kretprobe`
-    and `perf events` and `2` is assoacited with `kprobe`.
+- Your program must run on all kernels since at least kernel `4.11`
+- Create an additional code that is responsible to measure the latency of your
+  program.
+- We have the variable NETDATASEL, that selects where the functions will be
+  attached. Be sure that inside your code `0` is associated `kretprobe`, `1` is
+  associated with `kretprobe` and `perf events` and `2` is assoacited with
+  `kprobe`.
