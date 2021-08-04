@@ -191,4 +191,25 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
 				(void *)(PT_REGS_FP(ctx) + sizeof(ip))); })
 #endif
 
+/*
+the TP_DATA_LOC_READ_* macros are used for reading from a field that's pointed
+to by a __data_loc variable.
+
+FYI, a __data_loc variable is really an int that contains within it the data
+needed to get the location of the actual value. these macros do the
+transformation needed to get that final location and then read from it.
+
+this code is from iovisor/bcc file src/cc/exports/helpers.h and modified by
+Netdata's Agent team for inclusion in Netdata.
+*/
+#define TP_DATA_LOC_READ_CONST(_dst, _arg, _data_loc, _length) do {           \
+    unsigned short __offset = _data_loc & 0xFFFF;                             \
+    bpf_probe_read((void *)_dst, _length, (char *)_arg + __offset);           \
+} while (0)
+#define TP_DATA_LOC_READ(_dst, _arg, _data_loc) do {                          \
+    unsigned short __offset = _data_loc & 0xFFFF;                             \
+    unsigned short __length = _data_loc >> 16;                                \
+    bpf_probe_read((void *)_dst, __length, (char *)_arg + __offset);          \
+} while (0)
+
 #endif

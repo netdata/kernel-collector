@@ -40,6 +40,7 @@ NETDATA_APPS= btrfs \
 	      fd \
 	      fdatasync \
 	      fsync \
+	      hardirq \
 	      mount \
 	      msync \
 	      nfs \
