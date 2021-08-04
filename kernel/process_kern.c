@@ -71,84 +71,9 @@ static unsigned int log2l(unsigned long v)
 
 /************************************************************************************
  *     
- *                                   FILE Section
- *     
- ***********************************************************************************/
-
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5,5,19))
-#if NETDATASEL < 2
-SEC("kretprobe/do_sys_open")
-#else
-SEC("kprobe/do_sys_open")
-#endif
-#else
-#if NETDATASEL < 2
-SEC("kretprobe/do_sys_openat2")
-#else
-SEC("kprobe/do_sys_openat2")
-#endif // Endif NETDATASEL
-#endif //ENDIF KERNEL VERSION
-int netdata_sys_open(struct pt_regs* ctx)
-{
-#if NETDATASEL < 2
-    int ret = (ssize_t)PT_REGS_RC(ctx);
-#endif
-    struct netdata_pid_stat_t *fill;
-    struct netdata_pid_stat_t data = { };
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-
-    libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_SYS_OPEN, 1);
-#if NETDATASEL < 2
-    if (ret < 0) {
-        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_SYS_OPEN, 1);
-    } 
-#endif
-
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
-
-
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
-    if (fill) {
-        libnetdata_update_u32(&fill->open_call, 1) ;
-
-#if NETDATASEL < 2
-        if (ret < 0) {
-            libnetdata_update_u32(&fill->open_err, 1) ;
-        } 
-#endif
-    } else {
-        data.pid_tgid = pid_tgid;  
-        data.pid = tgid;  
-
-#if NETDATASEL < 2
-        if (ret < 0) {
-            data.open_err = 1;
-        } else {
-#endif
-            data.open_err = 0;
-#if NETDATASEL < 2
-        }
-#endif
-        data.open_call = 1;
-
-        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
-    }
-
-    return 0;
-}
-
-/************************************************************************************
- *     
  *                                   PROCESS Section
  *     
  ***********************************************************************************/
-
 
 SEC("kprobe/do_exit")
 int netdata_sys_exit(struct pt_regs* ctx)
@@ -450,68 +375,6 @@ int netdata_sys_clone(struct pt_regs *ctx)
 
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)) 
-#if NETDATASEL < 2
-SEC("kretprobe/close_fd")
-#else
-SEC("kprobe/close_fd")
-#endif
-#else
-#if NETDATASEL < 2
-SEC("kretprobe/__close_fd")
-#else
-SEC("kprobe/__close_fd")
-#endif
-#endif
-int netdata_close(struct pt_regs* ctx)
-{
-#if NETDATASEL < 2
-    int ret = (int)PT_REGS_RC(ctx);
-#endif
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    struct netdata_pid_stat_t data = { };
-    struct netdata_pid_stat_t *fill;
-
-    libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_CLOSE_FD, 1);
-#if NETDATASEL < 2
-    if (ret < 0) {
-        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_CLOSE_FD, 1);
-    } 
-#endif
-
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
-
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
-    if (fill) {
-        libnetdata_update_u32(&fill->close_call, 1) ;
-
-#if NETDATASEL < 2
-        if (ret < 0) {
-            libnetdata_update_u32(&fill->close_err, 1) ;
-        } 
-#endif
-    } else {
-        data.pid_tgid = pid_tgid;  
-        data.pid = tgid;  
-        data.close_call = 1;
-#if NETDATASEL < 2
-        if (ret < 0) {
-            data.close_err = 1;
-        } 
-#endif
-
-        bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
-    }
-
-    return 0;
-}
-
 SEC("kprobe/try_to_wake_up")
 int netdata_enter_try_to_wake_up(struct pt_regs* ctx)
 {
@@ -534,3 +397,4 @@ int netdata_enter_try_to_wake_up(struct pt_regs* ctx)
 }
 
 char _license[] SEC("license") = "GPL";
+

@@ -15,6 +15,7 @@ This header has the common definitions for all `.c` files.
 #include "netdata_cache.h"
 #include "netdata_dc.h"
 #include "netdata_disk.h"
+#include "netdata_fd.h"
 #include "netdata_fs.h"
 #include "netdata_mount.h"
 #include "netdata_network.h"
