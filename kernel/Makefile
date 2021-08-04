@@ -37,6 +37,7 @@ NETDATA_APPS= btrfs \
 	      dc \
 	      disk \
 	      ext4 \
+	      fd \
 	      fdatasync \
 	      fsync \
 	      mount \
