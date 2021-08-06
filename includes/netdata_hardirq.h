@@ -3,7 +3,7 @@
 #ifndef _NETDATA_HARDIRQ_H_
 #define _NETDATA_HARDIRQ_H_ 1
 
-#define NETDATA_HARDIRQ_MAX_IRQS 256L
+#define NETDATA_HARDIRQ_MAX_IRQS 1024L
 #define NETDATA_HARDIRQ_NAME_LEN 32
 
 // /sys/kernel/debug/tracing/events/irq/irq_handler_entry/
