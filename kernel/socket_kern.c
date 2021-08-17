@@ -220,8 +220,13 @@ static inline void update_pid_stats(__u64 sent, __u64 received, __u8 protocol)
     b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
     if (b) {
         b->ct = bpf_ktime_get_ns();
-        libnetdata_update_u64(&b->bytes_sent, sent);
-        libnetdata_update_u64(&b->bytes_received, received);
+
+        if (sent)
+            libnetdata_update_u64(&b->bytes_sent, sent);
+
+        if (received)
+            libnetdata_update_u64(&b->bytes_received, received);
+
         if (protocol == IPPROTO_TCP) {
             if (sent) {
                 libnetdata_update_u64(&b->call_tcp_sent, 1);
