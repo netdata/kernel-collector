@@ -307,22 +307,18 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     size_t sent;
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
-    if (ret) {
+    if (ret < 0) {
         libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_SENDMSG, 1);
-        sent = (size_t)ret;
-    } else
-        sent = (size_t) ret;
+        return 0;
+    }
 
-    update_socket_table(ctx, (__u64)ret, 0, 0, IPPROTO_TCP);
-
-    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)ret);
+    sent = (size_t) ret;
 #elif NETDATASEL == 2 
     sent = (size_t)PT_REGS_PARM3(ctx);
-
-    update_socket_table(ctx, (__u64)sent, 0, 0, IPPROTO_TCP);
-
-    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, (__u64)sent);
 #endif
+
+    update_socket_table(ctx, sent, 0, 0, IPPROTO_TCP);
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
 
