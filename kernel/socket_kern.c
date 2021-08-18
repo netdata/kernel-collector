@@ -313,7 +313,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     }
 
     sent = (size_t) ret;
-#elif NETDATASEL == 2 
+#else 
     sent = (size_t)PT_REGS_PARM3(ctx);
 #endif
 
