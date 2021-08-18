@@ -144,14 +144,15 @@ static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 
 {
     ptr->ct = bpf_ktime_get_ns();
 
-    if (sent)
+    if (sent) {
         libnetdata_update_u64(&ptr->sent_packets, 1);
+        libnetdata_update_u64(&ptr->sent_bytes, sent);
+    }
 
-    if (received)
+    if (received) {
         libnetdata_update_u64(&ptr->recv_packets, 1);
-
-    libnetdata_update_u64(&ptr->sent_bytes, sent);
-    libnetdata_update_u64(&ptr->recv_bytes, received);
+        libnetdata_update_u64(&ptr->recv_bytes, received);
+    }
 
     // We can use update_u64, it was overwritten
     // the values
