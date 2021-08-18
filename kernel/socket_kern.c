@@ -311,7 +311,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
         libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_SENDMSG, 1);
         sent = (size_t)ret;
     } else
-        sent = 0;
+        sent = (size_t) ret;
 
     update_socket_table(ctx, (__u64)ret, 0, 0, IPPROTO_TCP);
 
