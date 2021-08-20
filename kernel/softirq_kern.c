@@ -67,3 +67,5 @@ int netdata_softirq_exit(struct netdata_softirq_exit *ptr)
 
     return 0;
 }
+
+char _license[] SEC("license") = "GPL";
