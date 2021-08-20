@@ -21,6 +21,7 @@ This header has the common definitions for all `.c` files.
 #include "netdata_mount.h"
 #include "netdata_process.h"
 #include "netdata_socket.h"
+#include "netdata_softirq.h"
 #include "netdata_sync.h"
 #include "netdata_swap.h"
 #include "netdata_vfs.h"
