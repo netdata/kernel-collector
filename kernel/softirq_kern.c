@@ -11,12 +11,11 @@
  ***********************************************************************************/
 
 // maps from irq index to latency.
-// there are only 10 software IRQs, all statically defined in the kernel.
 struct bpf_map_def SEC("maps") tbl_softirq = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(softirq_val_t),
-    .max_entries = 10
+    .max_entries = NETDATA_SOFTIRQ_MAX_IRQS
 };
 
 /************************************************************************************
@@ -27,15 +26,21 @@ SEC("tracepoint/irq/softirq_entry")
 int netdata_softirq_entry(struct netdata_softirq_entry *ptr)
 {
     softirq_val_t *valp, val = {};
+    u32 vec = ptr->vec;
 
-    valp = bpf_map_lookup_elem(&tbl_softirq, &ptr->vec);
+    // out-of-range index.
+    if (vec > NETDATA_SOFTIRQ_MAX_IRQS-1) {
+        return 0;
+    }
+
+    valp = bpf_map_lookup_elem(&tbl_softirq, &vec);
     if (!valp) {
         valp = &val;
         val.latency = 0;
     }
 
     valp->ts = bpf_ktime_get_ns();
-    bpf_map_update_elem(&tbl_softirq, &ptr->vec, valp, BPF_ANY);
+    bpf_map_update_elem(&tbl_softirq, &vec, valp, BPF_ANY);
 
     return 0;
 }
@@ -44,8 +49,14 @@ SEC("tracepoint/irq/softirq_exit")
 int netdata_softirq_exit(struct netdata_softirq_exit *ptr)
 {
     softirq_val_t *valp;
+    u32 vec = ptr->vec;
 
-    valp = bpf_map_lookup_elem(&tbl_softirq, &ptr->vec);
+    // out-of-range index.
+    if (vec > NETDATA_SOFTIRQ_MAX_IRQS-1) {
+        return 0;
+    }
+
+    valp = bpf_map_lookup_elem(&tbl_softirq, &vec);
     if (!valp) {
         return 0;
     }

@@ -3,16 +3,18 @@
 #ifndef _NETDATA_SOFTIRQ_H_
 #define _NETDATA_SOFTIRQ_H_ 1
 
+#define NETDATA_SOFTIRQ_MAX_IRQS 10
+
 // /sys/kernel/debug/tracing/events/irq/softirq_entry
 struct netdata_softirq_entry {
     u64 pad;                    // This is not used with eBPF
-    unsigned int vec;           // offset:8;       size:4; signed:0;
+    u32 vec;                    // offset:8;       size:4; signed:0;
 };
 
 // /sys/kernel/debug/tracing/events/irq/softirq_exit
 struct netdata_softirq_exit {
     u64 pad;                    // This is not used with eBPF
-    unsigned int vec;           // offset:8;       size:4; signed:0;
+    u32 vec;                    // offset:8;       size:4; signed:0;
 };
 
 typedef struct softirq_val {
