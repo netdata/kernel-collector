@@ -40,7 +40,10 @@ NETDATA_APPS= btrfs \
 	      cachestat \
 	      dc \
 	      disk \
+<<<<<<< HEAD
 	      ext4 \
+=======
+>>>>>>> ca93e73 (bring_new_libbpf: Update fd_kern.c)
 	      fd \
 	      fdatasync \
 	      fsync \
@@ -64,6 +67,21 @@ NETDATA_APPS= btrfs \
 	      sync_file_range \
 	      #
 
+<<<<<<< HEAD
+=======
+#NETDATA_APPS= btrfs \
+#	      ext4 \
+#	      hardirq \
+#	      mount \
+#	      nfs \
+#	      socket \
+#	      swap \
+#	      vfs \
+#	      xfs \
+#	      zfs \
+	      #
+
+>>>>>>> ca93e73 (bring_new_libbpf: Update fd_kern.c)
 all: $(NETDATA_APPS)
 
 %_kern.o: %_kern.c
