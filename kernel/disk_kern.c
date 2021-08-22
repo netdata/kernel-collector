@@ -1,9 +1,9 @@
 #define KBUILD_MODNAME "disk_netdata"
 #include <linux/bpf.h>
-#include <linux/ptrace.h>
 #include <linux/genhd.h>
 
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -13,28 +13,28 @@
  ***********************************************************************************/
 
 //Hardware
-struct bpf_map_def SEC("maps") tbl_disk_iocall = {
+struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    .type = BPF_MAP_TYPE_HASH,
+        __uint(type, BPF_MAP_TYPE_HASH);
 #else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
+        __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 #endif
-    .key_size = sizeof(block_key_t),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_DISK_HISTOGRAM_LENGTH
-};
+        __type(key, block_key_t);
+        __type(value, __u64);
+        __uint(max_entries, NETDATA_DISK_HISTOGRAM_LENGTH);
+} tbl_disk_iocall SEC(".maps");
 
 // Temporary use only
-struct bpf_map_def SEC("maps") tmp_disk_tp_stat = {
+struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    .type = BPF_MAP_TYPE_HASH,
+        __uint(type, BPF_MAP_TYPE_HASH);
 #else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
+        __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 #endif
-    .key_size = sizeof(netdata_disk_key_t),
-    .value_size = sizeof(__u64),
-    .max_entries = 8192
-};
+        __type(key, netdata_disk_key_t);
+        __type(value, __u64);
+        __uint(max_entries, 8192);
+} tmp_disk_tp_stat SEC(".maps");
 
 /************************************************************************************
  *     
