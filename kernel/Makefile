@@ -55,6 +55,7 @@ NETDATA_APPS= btrfs \
 	      vfs \
 	      xfs \
 	      zfs \
+	      process \
 	      #
 
 all: $(NETDATA_APPS)
