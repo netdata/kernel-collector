@@ -58,9 +58,9 @@ static inline void libnetdata_update_u64(__u64 *res, __u64 value)
 }
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
-static __always_inline void libnetdata_update_global(struct bpf_map_def *tbl,__u32 key, __u64 value)
+static __always_inline void libnetdata_update_global(void *tbl,__u32 key, __u64 value)
 #else
-static inline void libnetdata_update_global(struct bpf_map_def *tbl,__u32 key, __u64 value)
+static inline void libnetdata_update_global(void *tbl,__u32 key, __u64 value)
 #endif
 {
     __u64 *res;
