@@ -8,9 +8,9 @@
 #endif
 
 #include <linux/threads.h>
-#include <linux/version.h>
 
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -19,26 +19,26 @@
  *     
  ***********************************************************************************/
 
-struct bpf_map_def SEC("maps") tbl_vfs_pid = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(struct netdata_vfs_stat_t),
-    .max_entries = PID_MAX_DEFAULT
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32);
+    __type(value, struct netdata_vfs_stat_t);
+    __uint(max_entries, PID_MAX_DEFAULT);
+} tbl_vfs_pid SEC(".maps");
 
-struct bpf_map_def SEC("maps") tbl_vfs_stats = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries =  NETDATA_VFS_COUNTER
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_VFS_COUNTER);
+} tbl_vfs_stats  SEC(".maps");
 
-struct bpf_map_def SEC("maps") vfs_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
-    .max_entries = NETDATA_CONTROLLER_END
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u32);
+    __uint(max_entries, NETDATA_CONTROLLER_END);
+} vfs_ctrl SEC(".maps");
 
 /************************************************************************************
  *     

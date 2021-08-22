@@ -64,6 +64,7 @@ NETDATA_APPS= btrfs \
 	      syncfs \
 	      sync_file_range \
 	      swap \
+	      vfs \
 	      #
 
 all: $(NETDATA_APPS)
