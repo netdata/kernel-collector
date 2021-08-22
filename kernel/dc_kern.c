@@ -1,9 +1,8 @@
 #define KBUILD_MODNAME "dc_kern"
 #include <linux/bpf.h>
-#include <linux/ptrace.h>
-#include <linux/threads.h>
 
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -12,30 +11,30 @@
  *
  ***********************************************************************************/
 
-struct bpf_map_def SEC("maps") dcstat_global = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_DIRECTORY_CACHE_END
-};
+struct {
+        __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+        __type(key, __u32);
+        __type(value, __u64);
+        __uint(max_entries, NETDATA_DIRECTORY_CACHE_END);
+} dcstat_global SEC(".maps");
 
-struct bpf_map_def SEC("maps") dcstat_pid = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
-    .type = BPF_MAP_TYPE_HASH,
+struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+        __uint(type, BPF_MAP_TYPE_HASH);
 #else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
+        __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 #endif
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(netdata_dc_stat_t),
-    .max_entries = PID_MAX_DEFAULT
-};
+        __type(key, __u32);
+        __type(value, netdata_dc_stat_t);
+        __uint(max_entries, PID_MAX_DEFAULT);
+} dcstat_pid SEC(".maps");
 
-struct bpf_map_def SEC("maps") dcstat_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
-    .max_entries = NETDATA_CONTROLLER_END
-};
+struct {
+        __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+        __type(key, __u32);
+        __type(value, __u32);
+        __uint(max_entries, NETDATA_CONTROLLER_END);
+} dcstat_ctrl SEC(".maps");
 
 /************************************************************************************
  *
