@@ -51,6 +51,7 @@ NETDATA_APPS= btrfs \
 	      oomkill \
 	      mount \
 	      msync \
+	      nfs \
 	      process \
 	      socket \
 	      softirq \
