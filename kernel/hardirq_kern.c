@@ -42,13 +42,14 @@ int netdata_irq_handler_entry(struct netdata_irq_handler_entry *ptr)
     key.irq = ptr->irq;
     valp = bpf_map_lookup_elem(&tbl_hardirq, &key);
     if (!valp) {
-        valp = &val;
         val.latency = 0;
         TP_DATA_LOC_READ_CONST(val.name, ptr, ptr->data_loc_name, NETDATA_HARDIRQ_NAME_LEN);
+    } else {
+        val.latency = valp->latency;
     }
 
-    valp->ts = bpf_ktime_get_ns();
-    bpf_map_update_elem(&tbl_hardirq, &key, valp, BPF_ANY);
+    val.ts = bpf_ktime_get_ns();
+    bpf_map_update_elem(&tbl_hardirq, &key, &val, BPF_ANY);
 
     return 0;
 }
@@ -85,12 +86,13 @@ int netdata_irq_ ##__type(struct netdata_irq_vectors_entry *ptr)              \
     idx = __enum_idx;                                                         \
     valp = bpf_map_lookup_elem(&tbl_hardirq_static, &idx);                    \
     if (!valp) {                                                              \
-        valp = &val;                                                          \
         val.latency = 0;                                                      \
+    } else {                                                                  \
+        val.latency = valp->latency;                                          \
     }                                                                         \
                                                                               \
-    valp->ts = bpf_ktime_get_ns();                                            \
-    bpf_map_update_elem(&tbl_hardirq_static, &idx, valp, BPF_ANY);            \
+    val.ts = bpf_ktime_get_ns();                                              \
+    bpf_map_update_elem(&tbl_hardirq_static, &idx, &val, BPF_ANY);            \
                                                                               \
     return 0;                                                                 \
 }

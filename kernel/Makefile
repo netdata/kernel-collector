@@ -44,8 +44,9 @@ NETDATA_APPS= btrfs \
 	      mount \
 	      msync \
 	      nfs \
-	      socket \
 	      process \
+	      socket \
+	      softirq \
 	      sync \
 	      sync_file_range \
 	      syncfs \

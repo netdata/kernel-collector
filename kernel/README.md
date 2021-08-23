@@ -28,6 +28,7 @@ Right now we have the following `eBPF` program collectors:
 - `nfs_kern.c`            : provides nfs monitoring.
 - `process_kern.c`        : provides process, file and VFS stats.
 - `socket_kern.c`         : provides network stats;
+- `softirq_kern.c`        : provides software interrupt (soft IRQ) latency monitoring.
 - `swap_kern.c`           : provides swap stats;
 - `sync_file_range_kern.c`: monitor calls for syscall `sync_file_range`.
 - `sync_kern.c`           : monitor calls for syscall `sync`.
