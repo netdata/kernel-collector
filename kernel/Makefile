@@ -65,6 +65,7 @@ NETDATA_APPS= btrfs \
 	      syncfs \
 	      sync_file_range \
 	      swap \
+	      xfs \
 	      vfs \
 	      #
 

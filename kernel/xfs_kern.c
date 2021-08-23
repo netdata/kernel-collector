@@ -4,6 +4,7 @@
 #include <linux/genhd.h>
 
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -12,23 +13,23 @@
  *     
  ***********************************************************************************/
 
-struct bpf_map_def SEC("maps") tbl_xfs = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_FS_MAX_ELEMENTS
-};
+struct {
+        __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+        __type(key, __u32);
+        __type(value, __u64);
+        __uint(max_entries, NETDATA_FS_MAX_ELEMENTS);
+} tbl_xfs SEC(".maps");
 
-struct bpf_map_def SEC("maps") tmp_xfs = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
-    .type = BPF_MAP_TYPE_HASH,
+struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+        __uint(type, BPF_MAP_TYPE_HASH);
 #else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif    
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = 4192
-};
+        __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
+        __type(key, __u32);
+        __type(value, __u64);
+        __uint(max_entries,  4192);
+} tmp_xfs SEC(".maps");
 
 /************************************************************************************
  *     
