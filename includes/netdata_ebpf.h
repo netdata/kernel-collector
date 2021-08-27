@@ -19,6 +19,7 @@ This header has the common definitions for all `.c` files.
 #include "netdata_fs.h"
 #include "netdata_hardirq.h"
 #include "netdata_mount.h"
+#include "netdata_oomkill.h"
 #include "netdata_process.h"
 #include "netdata_socket.h"
 #include "netdata_softirq.h"

@@ -26,6 +26,7 @@ Right now we have the following `eBPF` program collectors:
 - `mount_kern.c`          : monitor calls for syscalls `mount` and `umount`.
 - `msync_kern.c`          : monitor calls for syscall `msync`.
 - `nfs_kern.c`            : provides nfs monitoring.
+- `oomkill_kern.c`        : provides info on which processes got OOM killed.
 - `process_kern.c`        : provides process, file and VFS stats.
 - `socket_kern.c`         : provides network stats;
 - `softirq_kern.c`        : provides software interrupt (soft IRQ) latency monitoring.
