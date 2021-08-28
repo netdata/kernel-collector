@@ -9,8 +9,8 @@ typedef struct netdata_oomkill {
     // how many times a process was killed.
     u32 killcnt;
 
-    // command of the process as obtained from the kernel's
-    // `struct oom_control#chosen#comm` field.
+    // command of the process as obtained from the kernel's task_struct for the
+    // OOM killed process.
     char comm[TASK_COMM_LEN];
 } netdata_oomkill_t;
 
