@@ -20,13 +20,28 @@ struct bpf_map_def SEC("maps") tbl_oomkill = {
     .max_entries = 256
 };
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))
 SEC("kprobe/oom_kill_process")
 int netdata_oom_kill_process(
-    struct pt_regs* ctx,
-    struct oom_control *oc,
+    struct pt_regs *ctx,
+    struct task_struct *p,
+    gfp_t gfp_mask,
+    int order,
+    unsigned int points,
+    unsigned long totalpages,
+    struct mem_cgroup *memcg,
+    nodemask_t *nodemask,
     const char *message
 ) {
+#else
+SEC("kprobe/out_of_memory")
+int netdata_out_of_memory(
+    struct pt_regs *ctx,
+    struct oom_control *oc
+) {
     struct task_struct *p = oc->chosen;
+#endif
+
     u32 key;
     netdata_oomkill_t val = {}, *valp;
 
