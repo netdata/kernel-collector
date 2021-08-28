@@ -34,7 +34,7 @@ int netdata_mark_oom_victim(
         libnetdata_update_u32(&valp->killcnt, 1);
     } else {
         val.killcnt = 1;
-        bpf_probe_read_kernel(&val.comm, sizeof(val.comm), p->comm);
+        bpf_probe_read(&val.comm, sizeof(val.comm), p->comm);
         bpf_map_update_elem(&tbl_oomkill, &key, &val, BPF_ANY);
     }
 
