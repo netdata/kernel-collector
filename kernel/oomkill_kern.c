@@ -48,7 +48,7 @@ int netdata_out_of_memory(
     key = p->pid;
     valp = bpf_map_lookup_elem(&tbl_oomkill, &key);
     if (valp) {
-        libnetdata_update_u64(&valp->killcnt, 1);
+        libnetdata_update_u32(&valp->killcnt, 1);
     } else {
         val.killcnt = 1;
         bpf_probe_read_kernel(&val.comm, sizeof(val.comm), p->comm);
