@@ -21,6 +21,16 @@ static int (*bpf_map_delete_elem)(void *map, void *key) =
 	(void *) BPF_FUNC_map_delete_elem;
 static int (*bpf_probe_read)(void *dst, int size, void *unsafe_ptr) =
 	(void *) BPF_FUNC_probe_read;
+static int (*bpf_probe_read_str)(void *dst, int size, void *unsafe_ptr) =
+	(void *)BPF_FUNC_probe_read_str;
+static int (*bpf_probe_read_user)(void *dst, int size, void *unsafe_ptr) =
+	(void *) BPF_FUNC_probe_read_user;
+static int (*bpf_probe_read_user_str)(void *dst, int size, void *unsafe_ptr) =
+	(void *) BPF_FUNC_probe_read_user_str;
+static int (*bpf_probe_read_kernel)(void *dst, int size, void *unsafe_ptr) =
+	(void *) BPF_FUNC_probe_read_kernel;
+static int (*bpf_probe_read_kernel_str)(void *dst, int size, void *unsafe_ptr) =
+	(void *) BPF_FUNC_probe_read_kernel_str;
 static unsigned long long (*bpf_ktime_get_ns)(void) =
 	(void *) BPF_FUNC_ktime_get_ns;
 static int (*bpf_trace_printk)(const char *fmt, int fmt_size, ...) =
