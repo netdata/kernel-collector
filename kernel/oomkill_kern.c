@@ -15,9 +15,7 @@ struct bpf_map_def SEC("maps") tbl_oomkill = {
 #endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(netdata_oomkill_t),
-    // there will likely never be many OOM kills to track simultaneously within
-    // a very short period of time, so this number is plenty sufficient.
-    .max_entries = 256
+    .max_entries = NETDATA_OOMKILL_MAX_ENTRIES
 };
 
 SEC("kprobe/mark_oom_victim")
