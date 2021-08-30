@@ -34,14 +34,13 @@ int netdata_softirq_entry(struct netdata_softirq_entry *ptr)
     }
 
     valp = bpf_map_lookup_elem(&tbl_softirq, &vec);
-    if (!valp) {
-        val.latency = 0;
+    if (valp) {
+        valp->ts = bpf_ktime_get_ns();
     } else {
-        val.latency = valp->latency;
+        val.latency = 0;
+        val.ts = bpf_ktime_get_ns();
+        bpf_map_update_elem(&tbl_softirq, &vec, &val, BPF_ANY);
     }
-
-    val.ts = bpf_ktime_get_ns();
-    bpf_map_update_elem(&tbl_softirq, &vec, &val, BPF_ANY);
 
     return 0;
 }
