@@ -9,8 +9,12 @@
 #include <linux/threads.h>
 #include <linux/version.h>
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
+#else
+#include "netdata_bpf_helpers.h"
+#endif
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -19,6 +23,7 @@
  *     
  ***********************************************************************************/
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
         __type(key, __u32);
@@ -39,6 +44,31 @@ struct {
         __type(value, __u32);
         __uint(max_entries, NETDATA_CONTROLLER_END);
 } fd_ctrl SEC(".maps");
+
+#else
+
+struct bpf_map_def SEC("maps") tbl_fd_pid = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(struct netdata_fd_stat_t),
+    .max_entries = PID_MAX_DEFAULT
+};
+
+struct bpf_map_def SEC("maps") tbl_fd_global = {
+    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .max_entries =  NETDATA_FD_COUNTER
+};
+
+struct bpf_map_def SEC("maps") fd_ctrl = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
+    .max_entries = NETDATA_CONTROLLER_END
+};
+
+#endif
 
 /************************************************************************************
  *     
