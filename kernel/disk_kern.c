@@ -2,8 +2,12 @@
 #include <linux/bpf.h>
 #include <linux/genhd.h>
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
+#else
+#include "netdata_bpf_helpers.h"
+#endif
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -12,6 +16,7 @@
  *     
  ***********************************************************************************/
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
 //Hardware
 struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
@@ -35,6 +40,34 @@ struct {
         __type(value, __u64);
         __uint(max_entries, 8192);
 } tmp_disk_tp_stat SEC(".maps");
+
+#else
+
+//Hardware
+struct bpf_map_def SEC("maps") tbl_disk_iocall = {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    .type = BPF_MAP_TYPE_HASH,
+#else
+    .type = BPF_MAP_TYPE_PERCPU_HASH,
+#endif
+    .key_size = sizeof(block_key_t),
+    .value_size = sizeof(__u64),
+    .max_entries = NETDATA_DISK_HISTOGRAM_LENGTH
+};
+
+// Temporary use only
+struct bpf_map_def SEC("maps") tmp_disk_tp_stat = {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    .type = BPF_MAP_TYPE_HASH,
+#else
+    .type = BPF_MAP_TYPE_PERCPU_HASH,
+#endif
+    .key_size = sizeof(netdata_disk_key_t),
+    .value_size = sizeof(__u64),
+    .max_entries = 8192
+};
+
+#endif
 
 /************************************************************************************
  *     
