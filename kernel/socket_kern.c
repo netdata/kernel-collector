@@ -10,8 +10,12 @@
 #include <linux/udp.h>
 #include <linux/version.h>
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
+#else
+#include "netdata_bpf_helpers.h"
+#endif
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -20,6 +24,7 @@
  *
  ***********************************************************************************/
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
 struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -84,6 +89,75 @@ struct {
     __type(value, __u32);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } socket_ctrl SEC(".maps");
+
+#else
+
+struct bpf_map_def SEC("maps") tbl_bandwidth = {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    .type = BPF_MAP_TYPE_HASH,
+#else
+    .type = BPF_MAP_TYPE_PERCPU_HASH,
+#endif
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(netdata_bandwidth_t),
+    .max_entries = 65536
+};
+
+struct bpf_map_def SEC("maps") tbl_global_sock = {
+    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .max_entries =  NETDATA_SOCKET_COUNTER
+};
+
+struct bpf_map_def SEC("maps") tbl_conn_ipv4 = {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    .type = BPF_MAP_TYPE_HASH,
+#else
+    .type = BPF_MAP_TYPE_PERCPU_HASH,
+#endif
+    .key_size = sizeof(netdata_socket_idx_t),
+    .value_size = sizeof(netdata_socket_t),
+    .max_entries = 65536
+};
+
+struct bpf_map_def SEC("maps") tbl_conn_ipv6 = {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    .type = BPF_MAP_TYPE_HASH,
+#else
+    .type = BPF_MAP_TYPE_PERCPU_HASH,
+#endif
+    .key_size = sizeof(netdata_socket_idx_t),
+    .value_size = sizeof(netdata_socket_t),
+    .max_entries = 65536
+};
+
+struct bpf_map_def SEC("maps") tbl_nv_udp = {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    .type = BPF_MAP_TYPE_HASH,
+#else
+    .type = BPF_MAP_TYPE_PERCPU_HASH,
+#endif
+    .key_size = sizeof(__u64),
+    .value_size = sizeof(void *),
+    .max_entries = 8192
+};
+
+struct bpf_map_def SEC("maps") tbl_lports = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(__u16),
+    .value_size = sizeof(__u8),
+    .max_entries =  65536
+};
+
+struct bpf_map_def SEC("maps") socket_ctrl = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
+    .max_entries = NETDATA_CONTROLLER_END
+};
+
+#endif
 
 /************************************************************************************
  *
