@@ -13,27 +13,16 @@ struct bpf_map_def SEC("maps") tbl_oomkill = {
 #else
     .type = BPF_MAP_TYPE_PERCPU_HASH,
 #endif
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(netdata_oomkill_t),
+    .key_size = sizeof(int),
+    .value_size = 0,
     .max_entries = NETDATA_OOMKILL_MAX_ENTRIES
 };
 
-SEC("kprobe/mark_oom_victim")
-int netdata_mark_oom_victim(struct pt_regs *ctx) {
-    u32 key;
-    netdata_oomkill_t val = {}, *valp;
-
-    struct task_struct *p = (struct task_struct *)PT_REGS_PARM1(ctx);
-    bpf_probe_read(&key, sizeof(key), &p->pid);
-    valp = bpf_map_lookup_elem(&tbl_oomkill, &key);
-    if (valp) {
-        libnetdata_update_u32(&valp->killcnt, 1);
-    } else {
-        val.killcnt = 1;
-        bpf_probe_read(val.comm, sizeof(val.comm), p->comm);
-        bpf_map_update_elem(&tbl_oomkill, &key, &val, BPF_ANY);
-    }
-
+SEC("tracepoint/oom/mark_victim")
+int netdata_oom_mark_victim(struct netdata_oom_mark_victim_entry *ptr) {
+    int key = ptr->pid;
+    int val = 0;
+    bpf_map_update_elem(&tbl_oomkill, &key, &val, BPF_ANY);
     return 0;
 }
 
