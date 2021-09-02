@@ -9,7 +9,7 @@
 #include <linux/fs.h>
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
 #else
@@ -23,7 +23,7 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 struct {
         __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
         __type(key, __u32);

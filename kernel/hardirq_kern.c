@@ -3,7 +3,7 @@
 #include <linux/ptrace.h>
 #include <linux/genhd.h>
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
 #else
@@ -16,7 +16,7 @@
  *                                 MAPS
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
         __uint(type, BPF_MAP_TYPE_HASH);

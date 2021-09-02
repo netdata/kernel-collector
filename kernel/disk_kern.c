@@ -2,7 +2,7 @@
 #include <linux/bpf.h>
 #include <linux/genhd.h>
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
 #else
@@ -16,7 +16,7 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 //Hardware
 struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
