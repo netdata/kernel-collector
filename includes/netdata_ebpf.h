@@ -19,6 +19,7 @@ This header has the common definitions for all `.c` files.
 #include "netdata_fs.h"
 #include "netdata_hardirq.h"
 #include "netdata_mount.h"
+#include "netdata_oomkill.h"
 #include "netdata_process.h"
 #include "netdata_socket.h"
 #include "netdata_softirq.h"
@@ -115,7 +116,7 @@ static inline void libnetdata_update_u32(u32 *res, u32 value)
         return;
 
     __sync_fetch_and_add(res, value);
-    if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
+    if ( (0xFFFFFFFF - *res) <= value) {
         *res = value;
     }
 }
