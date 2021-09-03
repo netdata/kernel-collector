@@ -20,7 +20,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u32);
     __type(value, __u64);
-    _uint(max_entries, NETDATA_SYNC_END);
+    __uint(max_entries, NETDATA_SYNC_END);
 } tbl_sync SEC(".maps");
 #else
 struct bpf_map_def SEC("maps") tbl_sync = {
