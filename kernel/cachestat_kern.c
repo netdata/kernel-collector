@@ -14,28 +14,28 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 struct {
-        __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-        __type(key, __u32);
-        __type(value, __u64);
-        __uint(max_entries, NETDATA_CACHESTAT_END);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_CACHESTAT_END);
 } cstat_global  SEC(".maps");
 
 struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-        __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_HASH);
 #else
-        __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 #endif
-        __type(key, __u32);
-        __type(value, netdata_cachestat_t);
-        __uint(max_entries, PID_MAX_DEFAULT);
+    __type(key, __u32);
+    __type(value, netdata_cachestat_t);
+    __uint(max_entries, PID_MAX_DEFAULT);
 } cstat_pid SEC(".maps");
 
 struct {
-        __uint(type, BPF_MAP_TYPE_ARRAY);
-        __type(key, __u32);
-        __type(value, __u32);
-        __uint(max_entries, NETDATA_CONTROLLER_END);
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u32);
+    __uint(max_entries, NETDATA_CONTROLLER_END);
 } cstat_ctrl SEC(".maps");
 
 #else

@@ -17,10 +17,10 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 struct {
-        __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-        __type(key, __u32);
-        __type(value, __u64);
-        __uint(max_entries, NETDATA_MOUNT_END);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_MOUNT_END);
 } tbl_mount SEC(".maps");
 #else
 struct bpf_map_def SEC("maps") tbl_mount = {

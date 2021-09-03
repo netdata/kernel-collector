@@ -17,10 +17,10 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 struct {
-        __uint(type, BPF_MAP_TYPE_ARRAY);
-        __type(key, __u32);
-        __type(value, __u64);
-        __uint(max_entries, NETDATA_SYNC_END);
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_SYNC_END);
 } tbl_msync SEC(".maps");
 
 #else

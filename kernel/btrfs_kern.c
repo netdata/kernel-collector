@@ -25,28 +25,28 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 struct {
-        __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-        __type(key, __u32);
-        __type(value, __u64);
-        __uint(max_entries, NETDATA_FS_MAX_ELEMENTS);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_FS_MAX_ELEMENTS);
 } tbl_btrfs SEC(".maps");
 
 struct {
-        __uint(type, BPF_MAP_TYPE_HASH);
-        __type(key, __u32);
-        __type(value, __u64);
-        __uint(max_entries,  1);
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries,  1);
 } tbl_ext_addr SEC(".maps");
 
 struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-        __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_HASH);
 #else
-        __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 #endif
-        __type(key, __u32);
-        __type(value, __u64);
-        __uint(max_entries,  4192);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries,  4192);
 } tmp_btrfs SEC(".maps");
 
 #else

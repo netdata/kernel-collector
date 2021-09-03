@@ -17,28 +17,28 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 struct {
-        __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-        __type(key, __u32);
-        __type(value, __u64);
-        __uint(max_entries, NETDATA_DIRECTORY_CACHE_END);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_DIRECTORY_CACHE_END);
 } dcstat_global SEC(".maps");
 
 struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-        __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_HASH);
 #else
-        __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 #endif
-        __type(key, __u32);
-        __type(value, netdata_dc_stat_t);
-        __uint(max_entries, PID_MAX_DEFAULT);
+    __type(key, __u32);
+    __type(value, netdata_dc_stat_t);
+    __uint(max_entries, PID_MAX_DEFAULT);
 } dcstat_pid SEC(".maps");
 
 struct {
-        __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-        __type(key, __u32);
-        __type(value, __u32);
-        __uint(max_entries, NETDATA_CONTROLLER_END);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u32);
+    __uint(max_entries, NETDATA_CONTROLLER_END);
 } dcstat_ctrl SEC(".maps");
 
 #else
