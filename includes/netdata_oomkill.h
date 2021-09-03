@@ -3,9 +3,9 @@
 #ifndef _NETDATA_OOMKILL_H_
 #define _NETDATA_OOMKILL_H_ 1
 
-// since we only store PIDs which are 4 bytes, and the map will be at least
-// 4096 bytes, do 1024 entries.
-#define NETDATA_OOMKILL_MAX_ENTRIES 1024
+// to try and only use 4096 bytes in the map and no more given 4 byte keys & 1
+// byte values, we choose a very small number.
+#define NETDATA_OOMKILL_MAX_ENTRIES 64
 
 // /sys/kernel/debug/tracing/events/oom/mark_victim/
 struct netdata_oom_mark_victim_entry {

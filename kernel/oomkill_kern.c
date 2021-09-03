@@ -14,14 +14,14 @@ struct bpf_map_def SEC("maps") tbl_oomkill = {
     .type = BPF_MAP_TYPE_PERCPU_HASH,
 #endif
     .key_size = sizeof(int),
-    .value_size = 0,
+    .value_size = sizeof(__u8),
     .max_entries = NETDATA_OOMKILL_MAX_ENTRIES
 };
 
 SEC("tracepoint/oom/mark_victim")
 int netdata_oom_mark_victim(struct netdata_oom_mark_victim_entry *ptr) {
     int key = ptr->pid;
-    int val = 0;
+    u8 val = 0;
     bpf_map_update_elem(&tbl_oomkill, &key, &val, BPF_ANY);
     return 0;
 }
