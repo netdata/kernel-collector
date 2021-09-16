@@ -26,11 +26,7 @@ struct {
 } tbl_swap  SEC(".maps");
 
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, __u32);
     __type(value, netdata_swap_access_t);
     __uint(max_entries, PID_MAX_DEFAULT);

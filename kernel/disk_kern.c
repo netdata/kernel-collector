@@ -19,11 +19,7 @@
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 //Hardware
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, block_key_t);
     __type(value, __u64);
     __uint(max_entries, NETDATA_DISK_HISTOGRAM_LENGTH);
@@ -31,11 +27,7 @@ struct {
 
 // Temporary use only
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, netdata_disk_key_t);
     __type(value, __u64);
     __uint(max_entries, 8192);
