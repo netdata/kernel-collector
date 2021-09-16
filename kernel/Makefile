@@ -49,24 +49,15 @@ NETDATA_APPS= btrfs \
 	      msync \
 	      nfs \
 	      oomkill \
-	      mount \
-	      msync \
-	      nfs \
 	      process \
 	      socket \
 	      softirq \
 	      sync \
-	      sync_file_range \
-	      syncfs \
-	      swap \
-	      vfs \
-	      xfs \
-	      zfs \
 	      syncfs \
 	      sync_file_range \
 	      swap \
-	      xfs \
 	      vfs \
+	      xfs \
 	      zfs \
 	      #
 
