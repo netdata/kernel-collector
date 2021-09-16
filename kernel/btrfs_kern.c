@@ -1,6 +1,5 @@
 #define KBUILD_MODNAME "btrfs_netdata"
 #include <linux/bpf.h>
-#include <linux/ptrace.h>
 #include <linux/genhd.h>
 #include <linux/version.h>
 // Condition added because struct kiocb was moved when 4.1.0 was released
@@ -10,7 +9,12 @@
 #include <linux/fs.h>
 #endif
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
+#else
+#include "netdata_bpf_helpers.h"
+#endif
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -18,6 +22,30 @@
  *                                 MAP Section
  *     
  ***********************************************************************************/
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_FS_MAX_ELEMENTS);
+} tbl_btrfs SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries,  1);
+} tbl_ext_addr SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries,  4192);
+} tmp_btrfs SEC(".maps");
+
+#else
 
 struct bpf_map_def SEC("maps") tbl_btrfs = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
@@ -34,15 +62,16 @@ struct bpf_map_def SEC("maps") tbl_ext_addr = {
 };
 
 struct bpf_map_def SEC("maps") tmp_btrfs = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
 #else
     .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif    
+#endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries = 4192
 };
+#endif
 
 /************************************************************************************
  *     

@@ -1,7 +1,6 @@
 #define KBUILD_MODNAME "fd_kern"
 #include <linux/bpf.h>
 #include <linux/version.h>
-#include <linux/ptrace.h>
 #include <linux/sched.h>
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,10,17))
 # include <linux/sched/task.h>
@@ -10,7 +9,12 @@
 #include <linux/threads.h>
 #include <linux/version.h>
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
+#else
+#include "netdata_bpf_helpers.h"
+#endif
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -18,6 +22,30 @@
  *                                 MAPS Section
  *     
  ***********************************************************************************/
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32);
+    __type(value, struct netdata_fd_stat_t);
+    __uint(max_entries, PID_MAX_DEFAULT);
+} tbl_fd_pid SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_FD_COUNTER);
+} tbl_fd_global SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u32);
+    __uint(max_entries, NETDATA_CONTROLLER_END);
+} fd_ctrl SEC(".maps");
+
+#else
 
 struct bpf_map_def SEC("maps") tbl_fd_pid = {
     .type = BPF_MAP_TYPE_HASH,
@@ -39,6 +67,8 @@ struct bpf_map_def SEC("maps") fd_ctrl = {
     .value_size = sizeof(__u32),
     .max_entries = NETDATA_CONTROLLER_END
 };
+
+#endif
 
 /************************************************************************************
  *     

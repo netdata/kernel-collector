@@ -3,13 +3,35 @@
 #include <linux/ptrace.h>
 #include <linux/genhd.h>
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
+#else
+#include "netdata_bpf_helpers.h"
+#endif
 #include "netdata_ebpf.h"
+
 
 /************************************************************************************
  *                                 MAPS
  ***********************************************************************************/
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __type(key, hardirq_key_t);
+    __type(value, hardirq_val_t);
+    __uint(max_entries, NETDATA_HARDIRQ_MAX_IRQS);
+} tbl_hardirq SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, hardirq_static_val_t);
+    __uint(max_entries, NETDATA_HARDIRQ_STATIC_END);
+} tbl_hardirq_static SEC(".maps");
+
+#else
 struct bpf_map_def SEC("maps") tbl_hardirq = {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
@@ -28,6 +50,7 @@ struct bpf_map_def SEC("maps") tbl_hardirq_static = {
     .value_size = sizeof(hardirq_static_val_t),
     .max_entries = NETDATA_HARDIRQ_STATIC_END
 };
+#endif
 
 /************************************************************************************
  *                                HARDIRQ SECTION
@@ -236,3 +259,4 @@ HARDIRQ_STATIC_GEN_EXIT(
 )
 
 char _license[] SEC("license") = "GPL";
+

@@ -4,9 +4,22 @@
 #include <linux/oom.h>
 #include <linux/threads.h>
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
+#else
+#include "netdata_bpf_helpers.h"
+#endif
 #include "netdata_ebpf.h"
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __type(key, int);
+    __type(value, __u8);
+    __uint(max_entries, NETDATA_OOMKILL_MAX_ENTRIES);
+} tbl_oomkill SEC(".maps");
+#else
 struct bpf_map_def SEC("maps") tbl_oomkill = {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
@@ -17,6 +30,7 @@ struct bpf_map_def SEC("maps") tbl_oomkill = {
     .value_size = sizeof(__u8),
     .max_entries = NETDATA_OOMKILL_MAX_ENTRIES
 };
+#endif
 
 SEC("tracepoint/oom/mark_victim")
 int netdata_oom_mark_victim(struct netdata_oom_mark_victim_entry *ptr) {

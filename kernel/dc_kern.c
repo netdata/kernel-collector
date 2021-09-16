@@ -1,9 +1,12 @@
 #define KBUILD_MODNAME "dc_kern"
 #include <linux/bpf.h>
-#include <linux/ptrace.h>
-#include <linux/threads.h>
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
+#include "bpf_tracing.h"
+#else
+#include "netdata_bpf_helpers.h"
+#endif
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -11,6 +14,30 @@
  *                                   Maps Section
  *
  ***********************************************************************************/
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_DIRECTORY_CACHE_END);
+} dcstat_global SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __type(key, __u32);
+    __type(value, netdata_dc_stat_t);
+    __uint(max_entries, PID_MAX_DEFAULT);
+} dcstat_pid SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u32);
+    __uint(max_entries, NETDATA_CONTROLLER_END);
+} dcstat_ctrl SEC(".maps");
+
+#else
 
 struct bpf_map_def SEC("maps") dcstat_global = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
@@ -20,7 +47,7 @@ struct bpf_map_def SEC("maps") dcstat_global = {
 };
 
 struct bpf_map_def SEC("maps") dcstat_pid = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
 #else
     .type = BPF_MAP_TYPE_PERCPU_HASH,
@@ -36,6 +63,8 @@ struct bpf_map_def SEC("maps") dcstat_ctrl = {
     .value_size = sizeof(__u32),
     .max_entries = NETDATA_CONTROLLER_END
 };
+
+#endif
 
 /************************************************************************************
  *
