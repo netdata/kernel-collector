@@ -28,6 +28,7 @@ Right now we have the following `eBPF` program collectors:
 - `nfs_kern.c`            : provides nfs monitoring.
 - `oomkill_kern.c`        : provides info on which processes got OOM killed.
 - `process_kern.c`        : provides process, file and VFS stats.
+- `shm_kern.c`            : monitor calls for syscalls `shmget`, `shmat`, `shmdt` and `shmctl`.
 - `socket_kern.c`         : provides network stats;
 - `softirq_kern.c`        : provides software interrupt (soft IRQ) latency monitoring.
 - `swap_kern.c`           : provides swap stats;
