@@ -75,8 +75,8 @@ struct bpf_map_def SEC("maps") process_ctrl = {
  *     
  ***********************************************************************************/
 
-SEC("kprobe/do_exit")
-int netdata_sys_exit(struct pt_regs* ctx)
+SEC("tracepoint/sched/sched_process_exit")
+int netdata_tracepoint_sched_process_exit(struct netdata_sched_process_exit *ptr)
 {
     struct netdata_pid_stat_t *fill;
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;

@@ -5,6 +5,14 @@
 
 #include <linux/sched.h>
 
+// /sys/kernel/tracing/events/sched/sched_process_exit/format
+typedef struct netdata_sched_process_exit {
+    __u64 pad;      // This is not used with eBPF
+    char comm[16] ; // offset:8;       size:16;        signed:1;
+    int pid;        // offset:24;      size:4; signed:1;
+    int prio;       // offset:28;      size:4; signed:1;
+} netdata_sched_process_exit_t;
+
 struct netdata_pid_stat_t {
     __u64 pid_tgid;                     //Unique identifier
     __u32 pid;                          //process id
