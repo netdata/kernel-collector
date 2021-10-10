@@ -13,6 +13,23 @@ typedef struct netdata_sched_process_exit {
     int prio;       // offset:28;      size:4; signed:1;
 } netdata_sched_process_exit_t;
 
+// /sys/kernel/tracing/events/sched/sched_process_exit/format
+typedef struct netdata_sched_process_fork {
+    __u64 pad;                // This is not used with eBPF
+    char parent_comm[16];     // offset:8;       size:16;        signed:1;
+    int parent_pid;           // offset:24;      size:4; signed:1;
+    char child_comm[16];      // offset:28;      size:16;        signed:1;
+    int child_pid;            // offset:44;      size:4; signed:1;
+} netdata_sched_process_fork_t;
+
+// /sys/kernel/tracing/events/sched/sched_process_exec/format
+typedef struct netdata_sched_process_exec {
+    __u64 pad;      // This is not used with eBPF
+    int filename;   // offset:8;       size:4; signed:1;
+    int pid;        // offset:12;      size:4; signed:1;
+    int old_pid;   // offset:16;      size:4; signed:1;
+} netdata_sched_process_exec_t;
+
 struct netdata_pid_stat_t {
     __u64 pid_tgid;                     //Unique identifier
     __u32 pid;                          //process id
