@@ -131,7 +131,7 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
     // This is necessary, because it represents the main function to start a thread
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_FORK, 1);
 
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
+    __u32 *apps = bpf_map_lookup_elem(&process_ctrl, &key);
     if (apps)
         if (*apps == 0)
             return 0;
@@ -139,7 +139,7 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     key = (__u32)(pid_tgid >> 32);
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
+    fill = bpf_map_lookup_elem(&tbl_pid_stats, &key);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->fork_call, 1) ;
@@ -181,7 +181,7 @@ int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         fill->release_call = 0;
-        libnetdata_update_u32(&fill->clone_call, 1) ;
+        libnetdata_update_u32(&fill->clone_call, 1);
     } else {
         data.pid_tgid = pid_tgid;  
         data.pid = tgid;  

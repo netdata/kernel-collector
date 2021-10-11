@@ -13,7 +13,7 @@ typedef struct netdata_sched_process_exit {
     int prio;       // offset:28;      size:4; signed:1;
 } netdata_sched_process_exit_t;
 
-// /sys/kernel/tracing/events/sched/sched_process_exit/format
+// /sys/kernel/tracing/events/sched/sched_process_fork/format
 typedef struct netdata_sched_process_fork {
     __u64 pad;                // This is not used with eBPF
     char parent_comm[16];     // offset:8;       size:16;        signed:1;
