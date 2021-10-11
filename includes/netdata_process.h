@@ -37,12 +37,10 @@ struct netdata_pid_stat_t {
     //Counter
     __u32 exit_call;                    //Exit syscalls (exit for exit_group)
     __u32 release_call;                 //Exit syscalls (exit and exit_group)
-    __u32 fork_call;                    //Start syscall (fork, clone, forkv)
-    __u32 clone_call;                    //Start syscall (fork, clone, forkv)
+    __u32 create_process;               //Start syscall (fork, clone, forkv)
+    __u32 create_thread;                //Start syscall (fork, clone, forkv)
 
-    //Counter
-    __u32 fork_err;
-    __u32 clone_err;
+    __u32 task_err;
 
     __u8 removeme;
 };

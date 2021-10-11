@@ -142,11 +142,11 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
     fill = bpf_map_lookup_elem(&tbl_pid_stats, &key);
     if (fill) {
         fill->release_call = 0;
-        libnetdata_update_u32(&fill->fork_call, 1) ;
+        libnetdata_update_u32(&fill->create_process, 1) ;
     } else {
         data.pid_tgid = pid_tgid;  
         data.pid = tgid;  
-        data.fork_call = 1;
+        data.create_process = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
@@ -181,13 +181,15 @@ int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         fill->release_call = 0;
-        libnetdata_update_u32(&fill->clone_call, 1);
+        libnetdata_update_u32(&fill->create_process, 1);
+        if (thread)
+            libnetdata_update_u32(&fill->create_thread, 1);
     } else {
         data.pid_tgid = pid_tgid;  
         data.pid = tgid;  
-        data.fork_call = 1;
+        data.create_process = 1;
         if (thread)
-            data.clone_call = 1;
+            data.create_thread = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
     }
@@ -240,16 +242,15 @@ int netdata_fork(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_u32(&fill->fork_err, 1) ;
+            libnetdata_update_u32(&fill->task_err, 1) ;
         } 
 #endif
     } else {
         data.pid_tgid = pid_tgid;  
         data.pid = tgid;  
-        data.fork_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
-            data.fork_err = 1;
+            data.task_err = 1;
         } 
 #endif
         bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
@@ -292,20 +293,19 @@ int netdata_sys_clone(struct pt_regs *ctx)
     fill = bpf_map_lookup_elem(&tbl_pid_stats ,&key);
     if (fill) {
         fill->release_call = 0;
-        libnetdata_update_u32(&fill->fork_call, 1) ;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_u32(&fill->fork_err, 1) ;
+            libnetdata_update_u32(&fill->task_err, 1) ;
         } 
 #endif
     } else {
         data.pid_tgid = pid_tgid;
         data.pid = tgid;
-        data.fork_call = 1;
+
 #if NETDATASEL < 2
         if (ret < 0) {
-            data.fork_err = 1;
+            data.task_err = 1;
         }
 #endif
 
