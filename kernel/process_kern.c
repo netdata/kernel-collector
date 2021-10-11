@@ -129,7 +129,7 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
     struct netdata_pid_stat_t *fill;
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     // This is necessary, because it represents the main function to start a thread
-    libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_FORK, 1);
+    libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_PROCESS, 1);
 
     __u32 *apps = bpf_map_lookup_elem(&process_ctrl, &key);
     if (apps)
@@ -161,13 +161,13 @@ int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr
     struct netdata_pid_stat_t *fill;
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
-    libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_FORK, 1);
+    libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_PROCESS, 1);
 
     // Parent ID = 1 means that init called process/thread creation
     int thread = 0;
     if (ptr->parent_pid != ptr->child_pid && ptr->parent_pid != 1) {
         thread = 1;
-        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_SYS_CLONE, 1);
+        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_THREAD, 1);
     }
 
     __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
@@ -222,7 +222,7 @@ int netdata_fork(struct pt_regs* ctx)
 
 #if NETDATASEL < 2
     if (ret < 0) {
-        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_FORK, 1);
+        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_PROCESS, 1);
     } 
 #endif
 
@@ -277,7 +277,7 @@ int netdata_sys_clone(struct pt_regs *ctx)
 
 #if NETDATASEL < 2
     if (ret < 0) {
-        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_DO_FORK, 1);
+        libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_PROCESS, 1);
     } 
 #endif
 
