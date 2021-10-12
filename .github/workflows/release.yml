@@ -5,6 +5,9 @@ on:
   push:
     tags:
       - 'v*'
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build-artifacts:
     name: Build Artifacts
