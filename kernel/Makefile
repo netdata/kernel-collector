@@ -71,6 +71,7 @@ all: $(NETDATA_APPS)
 	    	-Wno-compare-distinct-pointer-types \
 	    	-Wno-gnu-variable-sized-type-not-at-end \
 	    	-Wno-tautological-compare \
+		-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=0 \
 		-D__BPF_TRACING__ \
 		-include ../includes/netdata_asm_goto.h \
@@ -81,6 +82,7 @@ all: $(NETDATA_APPS)
 	    	-Wno-compare-distinct-pointer-types \
 	    	-Wno-gnu-variable-sized-type-not-at-end \
 	    	-Wno-tautological-compare \
+		-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=1 \
 		-D__BPF_TRACING__ \
 		-include ../includes/netdata_asm_goto.h \
@@ -91,6 +93,7 @@ all: $(NETDATA_APPS)
 	    	-Wno-compare-distinct-pointer-types \
 	    	-Wno-gnu-variable-sized-type-not-at-end \
 	    	-Wno-tautological-compare \
+		-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=2 \
 		-D__BPF_TRACING__ \
 		-include ../includes/netdata_asm_goto.h \
