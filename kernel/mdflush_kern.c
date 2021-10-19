@@ -35,16 +35,16 @@ struct bpf_map_def SEC("maps") tbl_mdflush = {
 SEC("kprobe/md_flush_request")
 int netdata_md_flush_request(struct pt_regs *ctx)
 {
-    mdflush_key_t key = {};
-    mdflush_val_t *valp, val = {};
+    mdflush_key_t key;
+    mdflush_val_t *valp, val;
     struct mddev *mddev = (struct mddev *)PT_REGS_PARM1(ctx);
 
-    key.unit = mddev->unit;
+    bpf_probe_read(&key, sizeof(key), &mddev->unit);
     valp = bpf_map_lookup_elem(&tbl_mdflush, &key);
     if (valp) {
-        valp->cnt += 1;
+        *valp += 1;
     } else {
-        val.cnt = 1;
+        val = 1;
         bpf_map_update_elem(&tbl_mdflush, &key, &val, BPF_ANY);
     }
 
