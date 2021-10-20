@@ -41,6 +41,8 @@ int netdata_md_flush_request(struct pt_regs *ctx)
     struct mddev *mddev = (struct mddev *)PT_REGS_PARM1(ctx);
 
     // get correct key.
+    // this essentially does the logic here:
+    // https://elixir.bootlin.com/linux/v4.14/source/drivers/md/md.c#L5256
     bpf_probe_read(&key, sizeof(key), &mddev->unit);
     int partitioned = (MAJOR(key) != MD_MAJOR);
     int shift = partitioned ? MdpMinorShift : 0;
