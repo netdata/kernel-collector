@@ -1,6 +1,7 @@
 #define KBUILD_MODNAME "mdflush_netdata"
 #include <linux/bpf.h>
 #include <drivers/md/md.h>
+#include <linux/raid/md_u.h>
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
@@ -35,11 +36,16 @@ struct bpf_map_def SEC("maps") tbl_mdflush = {
 SEC("kprobe/md_flush_request")
 int netdata_md_flush_request(struct pt_regs *ctx)
 {
-    mdflush_key_t key;
+    mdflush_key_t key = 0;
     mdflush_val_t *valp, val;
     struct mddev *mddev = (struct mddev *)PT_REGS_PARM1(ctx);
 
+    // get correct key.
     bpf_probe_read(&key, sizeof(key), &mddev->unit);
+    int partitioned = (MAJOR(key) != MD_MAJOR);
+    int shift = partitioned ? MdpMinorShift : 0;
+    key = MINOR(key) >> shift;
+
     valp = bpf_map_lookup_elem(&tbl_mdflush, &key);
     if (valp) {
         *valp += 1;
