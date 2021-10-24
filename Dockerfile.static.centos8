@@ -1,0 +1,35 @@
+FROM alpine:3.14.2 AS build
+
+ARG ARCH=x86
+ENV ARCH=$ARCH
+
+ARG KERNEL_VERSION=4.18.0-147.5.1.el8_1
+
+ENV _LIBC=static
+
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
+                          bc elfutils-dev openssl-dev clang clang-dev llvm \
+                          rsync bison flex tar xz bash rpm ssl_client
+RUN apk add --no-cache -U linux-headers  # Why?
+
+RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+    echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros
+
+RUN wget https://vault.centos.org/8.1.1911/BaseOS/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm && \
+    rpm -i kernel-${KERNEL_VERSION}.src.rpm
+
+RUN cd ~/rpmbuild/SOURCES && \
+    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+    mkdir -p /usr/src/kernels
+
+RUN cd /usr/src && \
+    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+
+WORKDIR /kernel-collector
+
+COPY .dockerfiles/build.sh /build.sh
+COPY . .
+
+CMD ["/build.sh"]
