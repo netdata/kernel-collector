@@ -15,7 +15,7 @@ RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
 RUN apk add --no-cache -U linux-headers  # Why?
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
-    echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
+    echo "%_topdir %(echo $HOME)/rpmbuild" > ~/.rpmmacros && \
     wget -q https://vault.centos.org/8.1.1911/BaseOS/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm && \
     rpm -i kernel-${KERNEL_VERSION}.src.rpm && \
     cd ~/rpmbuild/SOURCES && \
