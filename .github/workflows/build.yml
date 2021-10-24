@@ -27,9 +27,6 @@ jobs:
           # excludes static on 4.16.18 (https://github.com/netdata/kernel-collector/issues/153)
           - kernel_version: 4.16.18
             libc: static
-          # excludes static on 4.18.18 (https://github.com/netdata/kernel-collector/issues/153)
-          - kernel_version: 4.18.0
-            libc: static
           # excludes static on 3.10.0 (https://github.com/netdata/kernel-collector/issues/153)
           - kernel_version: 3.10.0
             libc: static
