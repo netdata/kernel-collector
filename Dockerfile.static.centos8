@@ -12,6 +12,7 @@ RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
                           bc elfutils-dev openssl-dev clang clang-dev llvm \
                           rsync bison flex tar xz bash rpm ssl_client linux-headers
 
+# hadolint ingore=DL3003,SC3009
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo "%_topdir %(echo $HOME)/rpmbuild" > ~/.rpmmacros && \
     wget -q https://vault.centos.org/8.1.1911/BaseOS/Source/SPackages/kernel-${LOCAL_KERNEL_VERSION}.src.rpm && \
