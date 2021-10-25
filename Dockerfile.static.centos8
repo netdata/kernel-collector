@@ -7,10 +7,10 @@ ARG LOCAL_KERNEL_VERSION=4.18.0-147.5.1.el8_1
 
 ENV _LIBC=static
 
+# hadolint ignore=DL3018
 RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
                           bc elfutils-dev openssl-dev clang clang-dev llvm \
-                          rsync bison flex tar xz bash rpm ssl_client
-RUN apk add --no-cache -U linux-headers  # Why?
+                          rsync bison flex tar xz bash rpm ssl_client linux-headers
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo "%_topdir %(echo $HOME)/rpmbuild" > ~/.rpmmacros && \
