@@ -27,12 +27,6 @@ jobs:
           # excludes static on 3.10.0 (https://github.com/netdata/kernel-collector/issues/153)
           - kernel_version: 3.10.0
             libc: static
-          # excludes musl on 4.18.0
-          - kernel_version: 4.18.0
-            libc: musl
-          # excludes musl on 4.16.18
-          - kernel_version: 4.16.18
-            libc: musl
           # excludes musl on 3.10.0
           - kernel_version: 3.10.0
             libc: musl
