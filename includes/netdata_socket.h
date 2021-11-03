@@ -3,8 +3,6 @@
 #ifndef _NETDATA_NETWORK_H_
 #define _NETDATA_NETWORK_H_ 1
 
-#include <linux/sched.h>
-
 /**
  * Union used to store ip addresses
  */

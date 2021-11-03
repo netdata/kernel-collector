@@ -3,8 +3,6 @@
 #ifndef _NETDATA_CACHE_H_
 #define _NETDATA_CACHE_H_ 1
 
-#include <linux/sched.h>
-
 typedef struct netdata_cachestat {
     __u64 add_to_page_cache_lru;
     __u64 mark_page_accessed;

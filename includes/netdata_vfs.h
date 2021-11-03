@@ -3,8 +3,6 @@
 #ifndef _NETDATA_VFS_H_
 #define _NETDATA_VFS_H_ 1
 
-#include <linux/sched.h>
-
 struct netdata_vfs_stat_t {
     __u64 pid_tgid;                     
     __u32 pid;                          

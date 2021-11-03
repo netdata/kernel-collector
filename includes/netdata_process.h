@@ -3,8 +3,6 @@
 #ifndef _NETDATA_EBPF_PROCESS_H_
 #define _NETDATA_EBPF_PROCESS_H_ 1
 
-#include <linux/sched.h>
-
 // /sys/kernel/tracing/events/sched/sched_process_exit/format
 typedef struct netdata_sched_process_exit {
     __u64 pad;      // This is not used with eBPF

@@ -3,8 +3,6 @@
 #ifndef _NETDATA_EBPF_FD_H_
 #define _NETDATA_EBPF_FD_H_ 1
 
-#include <linux/sched.h>
-
 struct netdata_fd_stat_t {
     __u64 pid_tgid;                     //Unique identifier
     __u32 pid;                          //process id
