@@ -11,6 +11,7 @@ This header has the common definitions for all `.c` files.
 
 #include <linux/sched.h>
 #include <linux/version.h>
+#include <linux/types.h>
 
 #include "netdata_common.h"
 #include "netdata_cache.h"
