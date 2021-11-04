@@ -157,6 +157,5 @@ Netdata's Agent team for inclusion in Netdata.
     bpf_probe_read((void *)_dst, __length, (char *)_arg + __offset);          \
 } while (0)
 
-
 #endif /* _NETDATA_COMMON_ */
 
