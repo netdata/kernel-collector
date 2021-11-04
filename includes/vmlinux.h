@@ -1,1 +1,1 @@
-includes/vmlinux_508.h
+vmlinux_508.h
