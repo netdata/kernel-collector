@@ -3,8 +3,6 @@
 #ifndef _NETDATA_MDFLUSH_H_
 #define _NETDATA_MDFLUSH_H_ 1
 
-#include <linux/types.h>
-
 typedef dev_t mdflush_key_t;
 typedef u64 mdflush_val_t;
 

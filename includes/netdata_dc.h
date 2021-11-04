@@ -3,8 +3,6 @@
 #ifndef _NETDATA_DIRECTORY_CACHE_H_
 #define _NETDATA_DIRECTORY_CACHE_H_ 1
 
-#include <linux/sched.h>
-
 typedef struct netdata_dc_stat {
     __u64 references;
     __u64 slow;
