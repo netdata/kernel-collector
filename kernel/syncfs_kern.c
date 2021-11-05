@@ -51,3 +51,5 @@ int netdata_syscall_sync(struct pt_regs* ctx)
  *
  ***********************************************************************************/
 
+char _license[] SEC("license") = "GPL";
+
