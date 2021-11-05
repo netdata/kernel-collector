@@ -27,4 +27,4 @@ RUN mkdir -p /usr/src && \
 
 WORKDIR /kernel-collector/co-re
 
-CMD ["/test.sh"]
+RUN make
