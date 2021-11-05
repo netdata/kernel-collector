@@ -1,0 +1,30 @@
+FROM ubuntu:21.10 AS build
+
+ARG ARCH=x86
+ENV ARCH=$ARCH
+
+ARG KERNEL_VERSION=5.15
+ENV KERNEL_VERSION=$KERNEL_VERSION
+
+ENV _LIBC=glibc
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
+    apt-get install -y build-essential autoconf automake coreutils pkg-config \
+                       bc libelf-dev libssl-dev clang-tools-12 libclang-12-dev \
+                       llvm-12 rsync bison flex tar xz-utils wget libbfd-dev \
+                       libcap-dev
+RUN ln -s /usr/bin/clang-12 /usr/bin/clang && \
+    ln -s /usr/bin/llvm-strip-12 /usr/bin/llvm-strip
+
+RUN mkdir -p /usr/src && \
+    cd /usr/src && \
+    wget -q https://cdn.kernel.org/pub/linux/kernel/v$(echo "$KERNEL_VERSION" | cut -f 1 -d '.').x/linux-${KERNEL_VERSION}.tar.xz && \
+    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+    make -C linux-${KERNEL_VERSION}/tools/bpf/bpftool/ && \
+    cp linux-5.15/tools/bpf/bpftool/bpftool /usr/bin/
+
+
+WORKDIR /kernel-collector/co-re
+
+CMD ["/test.sh"]

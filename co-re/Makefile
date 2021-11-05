@@ -1,6 +1,6 @@
 LIBBPF = ../libbpf
 CFLAGS = -Wall -ggdb
-INCLUDES = -I../includes/ -I../libbpf/src/ -I./includes/
+INCLUDES = -I../includes/ -I../libbpf/src/ -I./includes/ -I../libbpf
 CLANG ?= clang 
 LLVM_STRIP ?= llvm-strip
 OUTPUT = tests/
@@ -13,7 +13,7 @@ APPS = syncfs \
 all: $(APPS)
 
 libbpf:
-	cd ../libbpf/src && mkdir root build && $(MAKE) BUILD_STATIC_ONLY=1 OBJDIR=build DESTDIR=.. INCLUDEDIR= LIBDIR= UAPIDIR=
+	cd ../libbpf/src && mkdir root build && $(MAKE) BUILD_STATIC_ONLY=1 OBJDIR=build DESTDIR=.. INCLUDEDIR= LIBDIR= UAPIDIR= install
 
 %.bpf.o: %.bpf.c libbpf
 	cp ../libbpf/src/build/*.a .
