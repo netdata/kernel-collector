@@ -1,4 +1,4 @@
-FROM ubuntu:21.10 AS build
+FROM ubuntu:latest AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
