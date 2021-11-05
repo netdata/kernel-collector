@@ -25,6 +25,4 @@ RUN mkdir -p /usr/src && \
     cp linux-5.15/tools/bpf/bpftool/bpftool /usr/bin/
 
 
-WORKDIR /kernel-collector/co-re
-
-RUN make
+RUN cd /kernel-collector/co-re/ &&  make
