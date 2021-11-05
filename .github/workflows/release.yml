@@ -16,6 +16,7 @@ jobs:
         kernel_version:
           - '5.11.2'
           - '5.10.3'
+          - '5.7.0'
           - '5.4.85'
           - '4.16.18'
           - '4.18.0'
@@ -32,6 +33,11 @@ jobs:
           # excludes musl on 3.10.0
           - kernel_version: 3.10.0
             libc: musl
+          # excludes musl and static on 5.7.0 until developed is finished
+          - kernel_version: 5.7.0
+            libc: musl
+          - kernel_version: 5.7.0
+            libc: static
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,6 +50,8 @@ jobs:
             os=centos8
           elif [ ${{ matrix.kernel_version }} = "3.10.0" ]; then
             os=centos7
+          elif [ ${{ matrix.kernel_version }} = "5.7.0" ]; then
+            os=core
           else
             os=generic
           fi
