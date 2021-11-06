@@ -27,3 +27,8 @@ RUN mkdir -p /usr/src && \
     cp linux-5.15/tools/bpf/bpftool/bpftool /usr/bin/
 
 WORKDIR /kernel-collector
+
+COPY .dockerfiles/build_core.sh /build.sh
+COPY . .
+
+CMD ["/build.sh"]
