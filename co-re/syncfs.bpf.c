@@ -24,8 +24,8 @@ struct {
  *
  ***********************************************************************************/
 
-SEC("kprobe/__x64_sys_syncfs")
-int BPF_KPROBE(__x64_sys_syncfs, int fd)
+SEC("fentry/__x64_sys_syncfs")
+int BPF_PROG(__x64_sys_syncfs)
 {
     libnetdata_update_global(&tbl_syncfs, NETDATA_KEY_SYNC_CALL, 1);
 
