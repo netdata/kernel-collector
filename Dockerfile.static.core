@@ -1,5 +1,8 @@
 FROM alpine:edge AS build
 
+#
+# Alpine does not support BTF, so this is frozen until they change the distribution
+
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
@@ -10,7 +13,8 @@ ENV _LIBC=static
 # hadolint ignore=DL3018
 RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
                           bc elfutils-dev openssl-dev clang clang-dev llvm \
-                          rsync bison flex tar xz bash ssl_client linux-headers
+                          rsync bison flex tar xz bash ssl_client linux-headers \
+                          libpcap-dev binutils-dev
 
 # hadolint ignore=DL3003,SC3009,DL4006,SC2046
 RUN mkdir -p /usr/src && \
