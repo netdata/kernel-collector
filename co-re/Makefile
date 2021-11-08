@@ -17,13 +17,13 @@ _LIBC ?= glibc
 APPS = syncfs \
        #
 
-all: $(APPS)
+all: compress
 
 libbpf:
-	cd ../libbpf/src && mkdir root build && $(MAKE) BUILD_STATIC_ONLY=1 OBJDIR=build DESTDIR=.. INCLUDEDIR= LIBDIR= UAPIDIR= install
+	cd ../libbpf/src && mkdir root build && $(MAKE) BUILD_STATIC_ONLY=1 OBJDIR=build DESTDIR=.. INCLUDEDIR= LIBDIR= UAPIDIR= install \
+	&& cp build/*.a ../../co-re/	
 
 %.bpf.o: %.bpf.c libbpf
-	cp ../libbpf/src/build/*.a .
 	$(CLANG) $(INCLUDES) -ggdb -O2 -target bpf -D__TARGET_ARCH_$(ARCH) $(CLANG_BPF_SYS_INCLUDES) -c $(filter %.c,$^) -o $@
 	$(LLVM_STRIP) -g $@ # strip useless DWARF info
 
@@ -37,6 +37,8 @@ $(patsubst %,%.o,$(APPS)): %.o: %.skel.h
 
 $(APPS): %: %.o 
 	$(CLANG) $(CFLAGS) -L. $^ -lelf -lz -lbpf -o $(OUTPUT)$@
+
+compress: $(APPS)
 	tar -cf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar includes/*
 	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar ../tools/check-kernel-core.sh; fi
 	xz ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar
