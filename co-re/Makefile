@@ -20,7 +20,7 @@ APPS = syncfs \
 all: compress
 
 libbpf:
-	cd ../libbpf/src && mkdir root build && $(MAKE) BUILD_STATIC_ONLY=1 OBJDIR=build DESTDIR=.. INCLUDEDIR= LIBDIR= UAPIDIR= install \
+	cd ../libbpf/src && mkdir -p root build && $(MAKE) BUILD_STATIC_ONLY=1 OBJDIR=build DESTDIR=.. INCLUDEDIR= LIBDIR= UAPIDIR= install \
 	&& cp build/*.a ../../co-re/	
 
 %.bpf.o: %.bpf.c libbpf
