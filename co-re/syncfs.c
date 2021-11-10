@@ -15,7 +15,15 @@
 #include "syncfs.skel.h"
 #include "netdata_tests.h"
 
-static char *ebpf_syncfs_syscall = { "__x64_sys_syncfs" };
+enum netdata_sync_enum {
+    NETDATA_SYNCFS_SYSCALL,
+
+    NETDATA_END_SYNC_ENUM
+};
+
+static char *ebpf_syncfs_syscall[NETDATA_END_SYNC_ENUM] = {
+    "__x64_sys_syncfs"
+};
 
 void test_synchronization()
 {
@@ -60,7 +68,7 @@ int syncfs_tests(int fd) {
     return ret;
 }
 
-static inline int find_syncfs_id(struct btf *bf, char *name)
+static inline int find_sync_id(struct btf *bf, char *name)
 {
     const struct btf_type *type = netdata_find_bpf_attach_type(bf);
     if (!type)
@@ -103,9 +111,39 @@ static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id, char *nam
     }
 
     if (!ret)
-        fprintf(stdout, "%s loaded with success\n", (id > 0) ? "entry" : "probe");
+        fprintf(stdout, "%s: %s loaded with success\n", name, (id > 0) ? "entry" : "probe");
 
      return ret;
+}
+
+int ebpf_syncfs_tests(struct btf *bf)
+{
+    struct syncfs_bpf *obj = NULL;
+
+    int id = -1;
+    if (bf) {
+        id = find_sync_id(bf, ebpf_syncfs_syscall[NETDATA_SYNCFS_SYSCALL]);
+    }
+
+    obj = syncfs_bpf__open();
+    if (!obj) {
+        fprintf(stderr, "Cannot open or load BPF object\n");
+        if (bf)
+            btf__free(bf);
+
+        return 2;
+    }
+
+    int ret = ebpf_load_and_attach(obj, id, ebpf_syncfs_syscall[NETDATA_SYNCFS_SYSCALL]);
+    if (!ret) {
+        int fd = bpf_map__fd(obj->maps.tbl_syncfs) ;
+        ret = syncfs_tests(fd);
+    } else
+        fprintf(stderr, "Error to attach BPF program\n");
+
+    syncfs_bpf__destroy(obj);
+
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -144,45 +182,22 @@ int main(int argc, char **argv)
         }
     }
 
-    struct syncfs_bpf *obj = NULL;
     // Adjust memory
     int ret = netdata_ebf_memlock_limit();
     if (ret) {
         fprintf(stderr, "Cannot increase memory: error = %d\n", ret);
         return 1;
     }
-
+    
     struct btf *bf = NULL;
-    int id = -1;
     if (!selector) {
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);
-        int has_btf = (!bf) ? 0 : 1;
-
-        if (has_btf) {
-            id = find_syncfs_id(bf, ebpf_syncfs_syscall);
-        }
     }
 
-    obj = syncfs_bpf__open();
-    if (!obj) {
-        fprintf(stderr, "Cannot open or load BPF object\n");
-        if (bf)
-            btf__free(bf);
-
-        return 2;
-    }
-
-    ret = ebpf_load_and_attach(obj, id, ebpf_syncfs_syscall);
-    if (!ret) {
-        int fd = bpf_map__fd(obj->maps.tbl_syncfs) ;
-        ret = syncfs_tests(fd);
-    } else
-        fprintf(stderr, "Error to attach BPF program\n");
+    ret = ebpf_syncfs_tests(bf);
 
     if (bf)
         btf__free(bf);
-
-    syncfs_bpf__destroy(obj);
 
     return ret;
 }
