@@ -20,18 +20,22 @@
 enum netdata_sync_enum {
     NETDATA_SYNCFS_SYSCALL,
     NETDATA_MSYNC_SYSCALL,
+    NETDATA_SYNC_FILE_RANGE_SYSCALL,
 
     NETDATA_END_SYNC_ENUM
 };
 
 static char *ebpf_sync_syscall[NETDATA_END_SYNC_ENUM] = {
     "__x64_sys_syncfs",
-    "__x64_sys_msync"
+    "__x64_sys_msync",
+    "__x64_sys_sync_file_range"
 };
+
+char *filename = { "useless_data.txt" };
 
 /****************************************************************************************
  *
- *                                      COMMON FUNCTIONS
+ *                                 COMMON FUNCTIONS
  *
  ***************************************************************************************/ 
 
@@ -91,7 +95,6 @@ static inline int find_sync_id(struct btf *bf, char *name)
 
 void test_syncfs_synchronization()
 {
-    char *filename = { "useless_data.txt" };
     int fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0660);
     if (fd < 0 ) {
         perror("Cannot open file descriptor");
@@ -106,8 +109,6 @@ void test_syncfs_synchronization()
     close(fd);
 
     sleep(2);
-
-    unlink(filename);
 }
 
 int syncfs_tests(int fd) {
@@ -171,7 +172,6 @@ void test_msync_synchronization()
         return;
     }
 
-    char *filename = { "useless_data.txt" };
     int fd = open(filename, (O_CREAT | O_TRUNC | O_RDWR), (S_IRWXU | S_IRWXG | S_IRWXO));
     if (fd < 0 ) {
         perror("Cannot open file");
@@ -203,8 +203,6 @@ void test_msync_synchronization()
 
     close(fd);
     sleep(2);
-
-    unlink(filename);
 }
 
 int msync_tests(int fd) {
@@ -217,12 +215,12 @@ int msync_tests(int fd) {
         if (stored) 
             ret = 0;
         else {
-            ret = 4;
+            ret = 6;
             fprintf(stderr, "Invalid data read from hash table");
         }
     } else {
         fprintf(stderr, "Cannot get data from hash table\n");
-        ret = 3;
+        ret = 5;
     }
 
     return ret;
@@ -245,6 +243,79 @@ int ebpf_msync_tests(struct btf *bf, int id)
     if (!ret) {
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = msync_tests(fd);
+    } else
+        fprintf(stderr, "Error to attach BPF program\n");
+
+    sync_bpf__destroy(obj);
+
+    return 0;
+}
+
+/****************************************************************************************
+ *
+ *                                  SYNC_FILE_RANGE
+ *
+ ***************************************************************************************/ 
+
+void test_sync_file_range_synchronization()
+{
+    int fd = open (filename, O_WRONLY | O_CREAT | O_APPEND, 0660);
+    if (fd < 0 ) {
+        perror("Cannot get page size");
+        return;
+    }
+
+    int i;
+    size_t offset = 0;
+    for ( i = 0 ; i < 1000; i++ )  {
+        size_t length = 23;
+        write(fd, "Testing more one syscall", length);
+        sync_file_range(fd, offset, length, SYNC_FILE_RANGE_WRITE);
+        offset += length;
+    }
+
+    close(fd);
+    sleep(2);
+}
+
+int sync_file_range_tests(int fd) {
+    test_sync_file_range_synchronization();
+
+    uint32_t idx = 0;
+    uint64_t stored;
+    int ret;
+    if (!bpf_map_lookup_elem(fd, &idx, &stored)) {
+        if (stored) 
+            ret = 0;
+        else {
+            ret = 8;
+            fprintf(stderr, "Invalid data read from hash table");
+        }
+    } else {
+        fprintf(stderr, "Cannot get data from hash table\n");
+        ret = 7;
+    }
+
+    return ret;
+}
+
+int ebpf_sync_file_range_tests(struct btf *bf, int id)
+{
+    struct sync_bpf *obj = NULL;
+
+    obj = sync_bpf__open();
+    if (!obj) {
+        fprintf(stderr, "Cannot open or load BPF object\n");
+        if (bf)
+            btf__free(bf);
+
+        return 2;
+    }
+
+    int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[NETDATA_SYNC_FILE_RANGE_SYSCALL]);
+    if (!ret) {
+        int fd = bpf_map__fd(obj->maps.tbl_sync) ;
+        ret = sync_file_range_tests(fd);
     } else
         fprintf(stderr, "Error to attach BPF program\n");
 
@@ -316,8 +387,13 @@ int main(int argc, char **argv)
     if (!ret)
         ret = ebpf_msync_tests(bf, id);
 
+    if (!ret)
+        ret = ebpf_sync_file_range_tests(bf, id);
+
     if (bf)
         btf__free(bf);
+
+    unlink(filename);
 
     return ret;
 }
