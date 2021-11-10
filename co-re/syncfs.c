@@ -12,20 +12,24 @@
 #include <bpf/libbpf.h>
 #include <bpf/btf.h>
 
+#include <sys/mman.h>
+
 #include "syncfs.skel.h"
 #include "netdata_tests.h"
 
 enum netdata_sync_enum {
     NETDATA_SYNCFS_SYSCALL,
+    NETDATA_MSYNC_SYSCALL,
 
     NETDATA_END_SYNC_ENUM
 };
 
 static char *ebpf_syncfs_syscall[NETDATA_END_SYNC_ENUM] = {
-    "__x64_sys_syncfs"
+    "__x64_sys_syncfs",
+    "__x64_sys_msync"
 };
 
-void test_synchronization()
+void test_syncfs_synchronization()
 {
     char *filename = { "useless_data.txt" };
     int fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0660);
@@ -46,9 +50,8 @@ void test_synchronization()
     unlink(filename);
 }
 
-
 int syncfs_tests(int fd) {
-    test_synchronization();
+    test_syncfs_synchronization();
 
     uint32_t idx = 0;
     uint64_t stored;
@@ -116,14 +119,9 @@ static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id, char *nam
      return ret;
 }
 
-int ebpf_syncfs_tests(struct btf *bf)
+int ebpf_syncfs_tests(struct btf *bf, int id)
 {
     struct syncfs_bpf *obj = NULL;
-
-    int id = -1;
-    if (bf) {
-        id = find_sync_id(bf, ebpf_syncfs_syscall[NETDATA_SYNCFS_SYSCALL]);
-    }
 
     obj = syncfs_bpf__open();
     if (!obj) {
@@ -138,6 +136,97 @@ int ebpf_syncfs_tests(struct btf *bf)
     if (!ret) {
         int fd = bpf_map__fd(obj->maps.tbl_syncfs) ;
         ret = syncfs_tests(fd);
+    } else
+        fprintf(stderr, "Error to attach BPF program\n");
+
+    syncfs_bpf__destroy(obj);
+
+    return 0;
+}
+
+// test based on IBM example https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/apis/msync.htm
+void test_msync_synchronization()
+{
+    int pagesize = sysconf(_SC_PAGE_SIZE);
+    if (pagesize < 0) {
+        perror("Cannot get page size");
+        return;
+    }
+
+    char *filename = { "useless_data.txt" };
+    int fd = open(filename, (O_CREAT | O_TRUNC | O_RDWR), (S_IRWXU | S_IRWXG | S_IRWXO));
+    if (fd < 0 ) {
+        perror("Cannot open file");
+        return;
+    }
+
+    (void) lseek( fd, pagesize, SEEK_SET);
+    ssize_t written = write(fd, " ", 1);
+    if ( written != 1 ) {
+        perror("Write error.");
+        close(fd);
+        return;
+    }
+
+    off_t my_offset = 0;
+    void *address = mmap(NULL, pagesize, PROT_WRITE, MAP_SHARED, fd, my_offset);
+
+    if ( address == MAP_FAILED ) {
+        perror("Map error.");
+        close(fd);
+        return;
+    }
+
+    (void) strcpy((char*) address, "This is a text to test calls to msync");
+
+    if ( msync(address, pagesize, MS_SYNC) < 0 ) {
+        perror("msync failed with error:");
+    }
+
+    close(fd);
+    sleep(2);
+
+    unlink(filename);
+}
+
+int msync_tests(int fd) {
+    test_msync_synchronization();
+
+    uint32_t idx = 0;
+    uint64_t stored;
+    int ret;
+    if (!bpf_map_lookup_elem(fd, &idx, &stored)) {
+        if (stored) 
+            ret = 0;
+        else {
+            ret = 4;
+            fprintf(stderr, "Invalid data read from hash table");
+        }
+    } else {
+        fprintf(stderr, "Cannot get data from hash table\n");
+        ret = 3;
+    }
+
+    return ret;
+}
+
+int ebpf_msync_tests(struct btf *bf, int id)
+{
+    struct syncfs_bpf *obj = NULL;
+
+    obj = syncfs_bpf__open();
+    if (!obj) {
+        fprintf(stderr, "Cannot open or load BPF object\n");
+        if (bf)
+            btf__free(bf);
+
+        return 2;
+    }
+
+    int ret = ebpf_load_and_attach(obj, id, ebpf_syncfs_syscall[NETDATA_MSYNC_SYSCALL]);
+    if (!ret) {
+        int fd = bpf_map__fd(obj->maps.tbl_syncfs) ;
+        ret = msync_tests(fd);
     } else
         fprintf(stderr, "Error to attach BPF program\n");
 
@@ -190,11 +279,18 @@ int main(int argc, char **argv)
     }
     
     struct btf *bf = NULL;
+    int id = -1;
     if (!selector) {
+        if (bf) {
+            id = find_sync_id(bf, ebpf_syncfs_syscall[NETDATA_SYNCFS_SYSCALL]);
+        }
+
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);
     }
 
-    ret = ebpf_syncfs_tests(bf);
+    ret = ebpf_syncfs_tests(bf, id);
+    if (!ret)
+        ret = ebpf_msync_tests(bf, id);
 
     if (bf)
         btf__free(bf);
