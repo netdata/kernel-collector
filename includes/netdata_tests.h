@@ -3,7 +3,10 @@
 #ifndef _NETDATA_TESTS_H_
 #define _NETDATA_TESTS_H_ 1
 
+#define NETDATA_BTF_FILE "/sys/kernel/btf/vmlinux"
+
 #include <sys/resource.h>
+#include <bpf/btf.h>
 
 static inline int netdata_ebf_memlock_limit(void)
 {
@@ -13,6 +16,39 @@ static inline int netdata_ebf_memlock_limit(void)
     }
 
     return 0;
+}
+
+static inline struct btf *netdata_parse_btf_file(const char *filename)
+{
+    struct btf *bf = btf__parse(filename, NULL);
+    if (libbpf_get_error(bf)) {
+        fprintf(stderr, "Cannot parse btf file");
+        btf__free(bf);
+    }
+
+    return bf;
+}
+
+static inline const struct btf_type *netdata_find_bpf_attach_type(struct btf *bf)
+{
+    int id = btf__find_by_name_kind(bf, "bpf_attach_type", BTF_KIND_ENUM);
+    if (id < 0) {
+        fprintf(stderr, "Cannot find 'bpf_attach_type'");
+
+        return NULL;
+    }
+
+    return btf__type_by_id(bf, id);
+}
+
+static inline void ebpf_print_help(char *name, char *info) {
+    fprintf(stdout, "%s tests if it is possible to monitor %s on host\n\n"
+                    "The following options are available:\n\n"
+                    "--help       (-h): Prints this help.\n"
+                    "--probe      (-p): Use probe and do no try to use trampolines (fentry/fexit).\n"
+                    "--trampoline (-t): Try to use trampoline(fentry/fexit), when it is not possible" 
+                    " probes will be used.\n"
+                    , name, info);
 }
 
 #endif /* _NETDATA_TESTS_H_ */
