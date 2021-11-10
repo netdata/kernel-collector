@@ -60,7 +60,7 @@ int syncfs_tests(int fd) {
     return ret;
 }
 
-static inline int find_syncfs_id(struct btf *bf)
+static inline int find_syncfs_id(struct btf *bf, char *name)
 {
     const struct btf_type *type = netdata_find_bpf_attach_type(bf);
     if (!type)
@@ -70,7 +70,7 @@ static inline int find_syncfs_id(struct btf *bf)
     int i, id;
     for (id = -1, i = 0; i < btf_vlen(type); i++, e++) {
         if (!strcmp(btf__name_by_offset(bf, e->name_off), "BPF_TRACE_FENTRY")) {
-            id = btf__find_by_name_kind(bf, ebpf_syncfs_syscall, BTF_KIND_FUNC);
+            id = btf__find_by_name_kind(bf, name, BTF_KIND_FUNC);
             break;
         }
     }
@@ -78,12 +78,12 @@ static inline int find_syncfs_id(struct btf *bf)
     return id;
 }
 
-static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id)
+static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id, char *name)
 {
     if (id > 0) {
         bpf_program__set_autoload(obj->progs.netdata_sync_kprobe, false);
         bpf_program__set_attach_target(obj->progs.netdata_sync_fentry, 0,
-                                       ebpf_syncfs_syscall);
+                                       name);
     } else {
         bpf_program__set_autoload(obj->progs.netdata_sync_fentry, false);
     }
@@ -98,7 +98,7 @@ static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id)
         ret = syncfs_bpf__attach(obj);
     else {
         obj->links.netdata_sync_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_sync_kprobe,
-                                                                    false, ebpf_syncfs_syscall);
+                                                                    false, name);
         ret = libbpf_get_error(obj->links.netdata_sync_kprobe);
     }
 
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
         int has_btf = (!bf) ? 0 : 1;
 
         if (has_btf) {
-            id = find_syncfs_id(bf);
+            id = find_syncfs_id(bf, ebpf_syncfs_syscall);
         }
     }
 
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    ret = ebpf_load_and_attach(obj, id);
+    ret = ebpf_load_and_attach(obj, id, ebpf_syncfs_syscall);
     if (!ret) {
         int fd = bpf_map__fd(obj->maps.tbl_syncfs) ;
         ret = syncfs_tests(fd);
