@@ -21,6 +21,7 @@ enum netdata_sync_enum {
     NETDATA_SYNCFS_SYSCALL,
     NETDATA_MSYNC_SYSCALL,
     NETDATA_SYNC_FILE_RANGE_SYSCALL,
+    NETDATA_FSYNC_SYSCALL,
 
     NETDATA_END_SYNC_ENUM
 };
@@ -28,7 +29,8 @@ enum netdata_sync_enum {
 static char *ebpf_sync_syscall[NETDATA_END_SYNC_ENUM] = {
     "__x64_sys_syncfs",
     "__x64_sys_msync",
-    "__x64_sys_sync_file_range"
+    "__x64_sys_sync_file_range",
+    "__x64_sys_fsync"
 };
 
 char *filename = { "useless_data.txt" };
@@ -89,11 +91,11 @@ static inline int find_sync_id(struct btf *bf, char *name)
 
 /****************************************************************************************
  *
- *                                      SYNCFS
+ *                               SYNCFS, FSYNC
  *
  ***************************************************************************************/ 
 
-void test_syncfs_synchronization()
+void test_fcnt_synchronization(int (*fcnt)(int))
 {
     int fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0660);
     if (fd < 0 ) {
@@ -105,14 +107,14 @@ void test_syncfs_synchronization()
     for ( i = 0 ; i < 1000; i++ )
         write(fd, "synchronize the data after this.", 32);
 
-    syncfs(fd);
+    fcnt(fd);
     close(fd);
 
     sleep(2);
 }
 
-int syncfs_tests(int fd) {
-    test_syncfs_synchronization();
+int common_fcnt_tests(int fd, int (*fcnt)(int)) {
+    test_fcnt_synchronization(fcnt);
 
     uint32_t idx = 0;
     uint64_t stored;
@@ -132,7 +134,8 @@ int syncfs_tests(int fd) {
     return ret;
 }
 
-int ebpf_syncfs_tests(struct btf *bf, int id)
+
+int ebpf_fcnt_tests(struct btf *bf, int id, int (*fcnt)(int), enum netdata_sync_enum idx)
 {
     struct sync_bpf *obj = NULL;
 
@@ -145,10 +148,10 @@ int ebpf_syncfs_tests(struct btf *bf, int id)
         return 2;
     }
 
-    int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+    int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[idx]);
     if (!ret) {
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
-        ret = syncfs_tests(fd);
+        ret = common_fcnt_tests(fd, fcnt);
     } else
         fprintf(stderr, "Error to attach BPF program\n");
 
@@ -383,12 +386,15 @@ int main(int argc, char **argv)
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);
     }
 
-    ret = ebpf_syncfs_tests(bf, id);
+    ret = ebpf_fcnt_tests(bf, id, syncfs, NETDATA_SYNCFS_SYSCALL);
     if (!ret)
         ret = ebpf_msync_tests(bf, id);
 
     if (!ret)
         ret = ebpf_sync_file_range_tests(bf, id);
+
+    if (!ret)
+        ret = ebpf_fcnt_tests(bf, id, fsync, NETDATA_FSYNC_SYSCALL);
 
     if (bf)
         btf__free(bf);
