@@ -14,7 +14,7 @@ VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
 
 _LIBC ?= glibc
 
-APPS = syncfs \
+APPS = sync \
        #
 
 all: compress

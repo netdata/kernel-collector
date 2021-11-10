@@ -14,7 +14,7 @@
 
 #include <sys/mman.h>
 
-#include "syncfs.skel.h"
+#include "sync.skel.h"
 #include "netdata_tests.h"
 
 enum netdata_sync_enum {
@@ -24,7 +24,7 @@ enum netdata_sync_enum {
     NETDATA_END_SYNC_ENUM
 };
 
-static char *ebpf_syncfs_syscall[NETDATA_END_SYNC_ENUM] = {
+static char *ebpf_sync_syscall[NETDATA_END_SYNC_ENUM] = {
     "__x64_sys_syncfs",
     "__x64_sys_msync"
 };
@@ -89,7 +89,7 @@ static inline int find_sync_id(struct btf *bf, char *name)
     return id;
 }
 
-static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id, char *name)
+static inline int ebpf_load_and_attach(struct sync_bpf *obj, int id, char *name)
 {
     if (id > 0) {
         bpf_program__set_autoload(obj->progs.netdata_sync_kprobe, false);
@@ -99,14 +99,14 @@ static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id, char *nam
         bpf_program__set_autoload(obj->progs.netdata_sync_fentry, false);
     }
 
-    int ret = syncfs_bpf__load(obj);
+    int ret = sync_bpf__load(obj);
     if (ret) {
         fprintf(stderr, "failed to load BPF object: %d\n", ret);
         return -1;
     }
 
     if (id > 0)
-        ret = syncfs_bpf__attach(obj);
+        ret = sync_bpf__attach(obj);
     else {
         obj->links.netdata_sync_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_sync_kprobe,
                                                                     false, name);
@@ -121,9 +121,9 @@ static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id, char *nam
 
 int ebpf_syncfs_tests(struct btf *bf, int id)
 {
-    struct syncfs_bpf *obj = NULL;
+    struct sync_bpf *obj = NULL;
 
-    obj = syncfs_bpf__open();
+    obj = sync_bpf__open();
     if (!obj) {
         fprintf(stderr, "Cannot open or load BPF object\n");
         if (bf)
@@ -132,14 +132,14 @@ int ebpf_syncfs_tests(struct btf *bf, int id)
         return 2;
     }
 
-    int ret = ebpf_load_and_attach(obj, id, ebpf_syncfs_syscall[NETDATA_SYNCFS_SYSCALL]);
+    int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
     if (!ret) {
-        int fd = bpf_map__fd(obj->maps.tbl_syncfs) ;
+        int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = syncfs_tests(fd);
     } else
         fprintf(stderr, "Error to attach BPF program\n");
 
-    syncfs_bpf__destroy(obj);
+    sync_bpf__destroy(obj);
 
     return 0;
 }
@@ -212,9 +212,9 @@ int msync_tests(int fd) {
 
 int ebpf_msync_tests(struct btf *bf, int id)
 {
-    struct syncfs_bpf *obj = NULL;
+    struct sync_bpf *obj = NULL;
 
-    obj = syncfs_bpf__open();
+    obj = sync_bpf__open();
     if (!obj) {
         fprintf(stderr, "Cannot open or load BPF object\n");
         if (bf)
@@ -223,14 +223,14 @@ int ebpf_msync_tests(struct btf *bf, int id)
         return 2;
     }
 
-    int ret = ebpf_load_and_attach(obj, id, ebpf_syncfs_syscall[NETDATA_MSYNC_SYSCALL]);
+    int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[NETDATA_MSYNC_SYSCALL]);
     if (!ret) {
-        int fd = bpf_map__fd(obj->maps.tbl_syncfs) ;
+        int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = msync_tests(fd);
     } else
         fprintf(stderr, "Error to attach BPF program\n");
 
-    syncfs_bpf__destroy(obj);
+    sync_bpf__destroy(obj);
 
     return 0;
 }
@@ -282,7 +282,7 @@ int main(int argc, char **argv)
     int id = -1;
     if (!selector) {
         if (bf) {
-            id = find_sync_id(bf, ebpf_syncfs_syscall[NETDATA_SYNCFS_SYSCALL]);
+            id = find_sync_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
         }
 
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);

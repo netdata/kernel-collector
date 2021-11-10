@@ -16,7 +16,7 @@ struct {
     __type(key, __u32);
     __type(value, __u64);
     __uint(max_entries, NETDATA_SYNC_END);
-} tbl_syncfs SEC(".maps");
+} tbl_sync SEC(".maps");
 
 /************************************************************************************
  *
@@ -27,7 +27,7 @@ struct {
 SEC("fentry/netdata_sync")
 int BPF_PROG(netdata_sync_fentry)
 {
-    libnetdata_update_global(&tbl_syncfs, NETDATA_KEY_SYNC_CALL, 1);
+    libnetdata_update_global(&tbl_sync, NETDATA_KEY_SYNC_CALL, 1);
 
     return 0;
 }
@@ -35,7 +35,7 @@ int BPF_PROG(netdata_sync_fentry)
 SEC("kprobe/netdata_sync")
 int BPF_KPROBE(netdata_sync_kprobe)
 {
-    libnetdata_update_global(&tbl_syncfs, NETDATA_KEY_SYNC_CALL, 1);
+    libnetdata_update_global(&tbl_sync, NETDATA_KEY_SYNC_CALL, 1);
 
     return 0;
 }
