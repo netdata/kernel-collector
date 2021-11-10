@@ -2,7 +2,7 @@ CLANG = clang
 LLC = llc
 KERNELSOURCE = /usr/src/linux
 LIBBPF = ../libbpf
-ARCH = x86
+ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 EXTRA_CFLAGS += -fno-stack-protector
 
@@ -74,6 +74,7 @@ all: $(NETDATA_APPS)
 	    	-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=0 \
 		-D__BPF_TRACING__ \
+		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
 		-O2 -g -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o r$@ $(<:.c=.ll)
@@ -85,6 +86,7 @@ all: $(NETDATA_APPS)
 	    	-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=1 \
 		-D__BPF_TRACING__ \
+		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
 		-O2 -g -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o d$@ $(<:.c=.ll)
@@ -96,6 +98,7 @@ all: $(NETDATA_APPS)
 	    	-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=2 \
 		-D__BPF_TRACING__ \
+		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
 		-O2 -g -emit-llvm -c $<
 	$(LLC) -march=bpf -filetype=obj -o p$@ $(<:.c=.ll)

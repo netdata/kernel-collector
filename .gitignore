@@ -7,3 +7,8 @@
 
 *.ll
 *.o*
+
+*.skel.h
+*.a
+
+co-re/tests/*

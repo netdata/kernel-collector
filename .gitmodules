@@ -1,3 +1,4 @@
 [submodule "libbpf"]
 	path = libbpf
 	url = https://github.com/netdata/libbpf
+        ignore = dirty

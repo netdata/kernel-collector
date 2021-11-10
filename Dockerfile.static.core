@@ -1,0 +1,32 @@
+FROM alpine:edge AS build
+
+#
+# Alpine does not support BTF, so this is frozen until they change the distribution
+
+ARG ARCH=x86
+ENV ARCH=$ARCH
+
+ARG LOCAL_KERNEL_VERSION=5.15
+
+ENV _LIBC=static
+
+# hadolint ignore=DL3018
+RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
+                          bc elfutils-dev openssl-dev clang clang-dev llvm \
+                          rsync bison flex tar xz bash ssl_client linux-headers \
+                          libpcap-dev binutils-dev
+
+# hadolint ignore=DL3003,SC3009,DL4006,SC2046
+RUN mkdir -p /usr/src && \
+    cd /usr/src && \
+    wget -q https://cdn.kernel.org/pub/linux/kernel/v$(echo "$LOCAL_KERNEL_VERSION" | cut -f 1 -d '.').x/linux-${LOCAL_KERNEL_VERSION}.tar.xz && \
+    tar -xf linux-${LOCAL_KERNEL_VERSION}.tar.xz && \
+    make -C linux-${LOCAL_KERNEL_VERSION}/tools/bpf/bpftool/ && \
+    cp linux-5.15/tools/bpf/bpftool/bpftool /usr/bin/
+
+WORKDIR /kernel-collector
+
+COPY .dockerfiles/build_core.sh /build.sh
+COPY . .
+
+CMD ["/build.sh"]
