@@ -29,6 +29,66 @@ static char *ebpf_sync_syscall[NETDATA_END_SYNC_ENUM] = {
     "__x64_sys_msync"
 };
 
+/****************************************************************************************
+ *
+ *                                      COMMON FUNCTIONS
+ *
+ ***************************************************************************************/ 
+
+static inline int ebpf_load_and_attach(struct sync_bpf *obj, int id, char *name)
+{
+    if (id > 0) {
+        bpf_program__set_autoload(obj->progs.netdata_sync_kprobe, false);
+        bpf_program__set_attach_target(obj->progs.netdata_sync_fentry, 0,
+                                       name);
+    } else {
+        bpf_program__set_autoload(obj->progs.netdata_sync_fentry, false);
+    }
+
+    int ret = sync_bpf__load(obj);
+    if (ret) {
+        fprintf(stderr, "failed to load BPF object: %d\n", ret);
+        return -1;
+    }
+
+    if (id > 0)
+        ret = sync_bpf__attach(obj);
+    else {
+        obj->links.netdata_sync_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_sync_kprobe,
+                                                                    false, name);
+        ret = libbpf_get_error(obj->links.netdata_sync_kprobe);
+    }
+
+    if (!ret)
+        fprintf(stdout, "%s: %s loaded with success\n", name, (id > 0) ? "entry" : "probe");
+
+     return ret;
+}
+
+static inline int find_sync_id(struct btf *bf, char *name)
+{
+    const struct btf_type *type = netdata_find_bpf_attach_type(bf);
+    if (!type)
+        return -1;
+
+    const struct btf_enum *e = btf_enum(type);
+    int i, id;
+    for (id = -1, i = 0; i < btf_vlen(type); i++, e++) {
+        if (!strcmp(btf__name_by_offset(bf, e->name_off), "BPF_TRACE_FENTRY")) {
+            id = btf__find_by_name_kind(bf, name, BTF_KIND_FUNC);
+            break;
+        }
+    }
+
+    return id;
+}
+
+/****************************************************************************************
+ *
+ *                                      SYNCFS
+ *
+ ***************************************************************************************/ 
+
 void test_syncfs_synchronization()
 {
     char *filename = { "useless_data.txt" };
@@ -71,54 +131,6 @@ int syncfs_tests(int fd) {
     return ret;
 }
 
-static inline int find_sync_id(struct btf *bf, char *name)
-{
-    const struct btf_type *type = netdata_find_bpf_attach_type(bf);
-    if (!type)
-        return -1;
-
-    const struct btf_enum *e = btf_enum(type);
-    int i, id;
-    for (id = -1, i = 0; i < btf_vlen(type); i++, e++) {
-        if (!strcmp(btf__name_by_offset(bf, e->name_off), "BPF_TRACE_FENTRY")) {
-            id = btf__find_by_name_kind(bf, name, BTF_KIND_FUNC);
-            break;
-        }
-    }
-
-    return id;
-}
-
-static inline int ebpf_load_and_attach(struct sync_bpf *obj, int id, char *name)
-{
-    if (id > 0) {
-        bpf_program__set_autoload(obj->progs.netdata_sync_kprobe, false);
-        bpf_program__set_attach_target(obj->progs.netdata_sync_fentry, 0,
-                                       name);
-    } else {
-        bpf_program__set_autoload(obj->progs.netdata_sync_fentry, false);
-    }
-
-    int ret = sync_bpf__load(obj);
-    if (ret) {
-        fprintf(stderr, "failed to load BPF object: %d\n", ret);
-        return -1;
-    }
-
-    if (id > 0)
-        ret = sync_bpf__attach(obj);
-    else {
-        obj->links.netdata_sync_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_sync_kprobe,
-                                                                    false, name);
-        ret = libbpf_get_error(obj->links.netdata_sync_kprobe);
-    }
-
-    if (!ret)
-        fprintf(stdout, "%s: %s loaded with success\n", name, (id > 0) ? "entry" : "probe");
-
-     return ret;
-}
-
 int ebpf_syncfs_tests(struct btf *bf, int id)
 {
     struct sync_bpf *obj = NULL;
@@ -143,6 +155,12 @@ int ebpf_syncfs_tests(struct btf *bf, int id)
 
     return 0;
 }
+
+/****************************************************************************************
+ *
+ *                                      MSYNC
+ *
+ ***************************************************************************************/ 
 
 // test based on IBM example https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/apis/msync.htm
 void test_msync_synchronization()
@@ -234,6 +252,12 @@ int ebpf_msync_tests(struct btf *bf, int id)
 
     return 0;
 }
+
+/****************************************************************************************
+ *
+ *                                      ENTRY
+ *
+ ***************************************************************************************/ 
 
 int main(int argc, char **argv)
 {
