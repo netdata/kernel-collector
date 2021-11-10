@@ -24,16 +24,16 @@ struct {
  *
  ***********************************************************************************/
 
-SEC("fentry/__x64_sys_syncfs")
-int BPF_PROG(__x64_sys_syncfs_fentry)
+SEC("fentry/netdata_sync")
+int BPF_PROG(netdata_sync_fentry)
 {
     libnetdata_update_global(&tbl_syncfs, NETDATA_KEY_SYNC_CALL, 1);
 
     return 0;
 }
 
-SEC("kprobe/__x64_sys_syncfs")
-int BPF_KPROBE(__x64_sys_syncfs_kprobe)
+SEC("kprobe/netdata_sync")
+int BPF_KPROBE(netdata_sync_kprobe)
 {
     libnetdata_update_global(&tbl_syncfs, NETDATA_KEY_SYNC_CALL, 1);
 

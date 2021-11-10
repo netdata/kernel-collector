@@ -81,9 +81,11 @@ static inline int find_syncfs_id(struct btf *bf)
 static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id)
 {
     if (id > 0) {
-        bpf_program__set_autoload(obj->progs.__x64_sys_syncfs_kprobe, false);
+        bpf_program__set_autoload(obj->progs.netdata_sync_kprobe, false);
+        bpf_program__set_attach_target(obj->progs.netdata_sync_fentry, 0,
+                                       ebpf_syncfs_syscall);
     } else {
-        bpf_program__set_autoload(obj->progs.__x64_sys_syncfs_fentry, false);
+        bpf_program__set_autoload(obj->progs.netdata_sync_fentry, false);
     }
 
     int ret = syncfs_bpf__load(obj);
@@ -95,9 +97,9 @@ static inline int ebpf_load_and_attach(struct syncfs_bpf *obj, int id)
     if (id > 0)
         ret = syncfs_bpf__attach(obj);
     else {
-        obj->links.__x64_sys_syncfs_kprobe = bpf_program__attach_kprobe(obj->progs.__x64_sys_syncfs_kprobe,
-                                                                         false, ebpf_syncfs_syscall);
-        ret = libbpf_get_error(obj->links.__x64_sys_syncfs_kprobe);
+        obj->links.netdata_sync_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_sync_kprobe,
+                                                                    false, ebpf_syncfs_syscall);
+        ret = libbpf_get_error(obj->links.netdata_sync_kprobe);
     }
 
     if (!ret)
