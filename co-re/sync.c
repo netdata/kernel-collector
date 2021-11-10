@@ -22,6 +22,7 @@ enum netdata_sync_enum {
     NETDATA_MSYNC_SYSCALL,
     NETDATA_SYNC_FILE_RANGE_SYSCALL,
     NETDATA_FSYNC_SYSCALL,
+    NETDATA_FDATASYNC_SYSCALL,
 
     NETDATA_END_SYNC_ENUM
 };
@@ -30,7 +31,8 @@ static char *ebpf_sync_syscall[NETDATA_END_SYNC_ENUM] = {
     "__x64_sys_syncfs",
     "__x64_sys_msync",
     "__x64_sys_sync_file_range",
-    "__x64_sys_fsync"
+    "__x64_sys_fsync",
+    "__x64_sys_fdatasync"
 };
 
 char *filename = { "useless_data.txt" };
@@ -91,7 +93,7 @@ static inline int find_sync_id(struct btf *bf, char *name)
 
 /****************************************************************************************
  *
- *                               SYNCFS, FSYNC
+ *                              SYNCFS, FSYNC, FDATASYNC
  *
  ***************************************************************************************/ 
 
@@ -135,9 +137,14 @@ int common_fcnt_tests(int fd, int (*fcnt)(int)) {
 }
 
 
-int ebpf_fcnt_tests(struct btf *bf, int id, int (*fcnt)(int), enum netdata_sync_enum idx)
+int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_enum idx)
 {
     struct sync_bpf *obj = NULL;
+
+    int id = -1;
+    if (bf) {
+        id = find_sync_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -229,9 +236,14 @@ int msync_tests(int fd) {
     return ret;
 }
 
-int ebpf_msync_tests(struct btf *bf, int id)
+int ebpf_msync_tests(struct btf *bf)
 {
     struct sync_bpf *obj = NULL;
+
+    int id = -1;
+    if (bf) {
+        id = find_sync_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -302,9 +314,14 @@ int sync_file_range_tests(int fd) {
     return ret;
 }
 
-int ebpf_sync_file_range_tests(struct btf *bf, int id)
+int ebpf_sync_file_range_tests(struct btf *bf)
 {
     struct sync_bpf *obj = NULL;
+
+    int id = -1;
+    if (bf) {
+        id = find_sync_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -377,24 +394,22 @@ int main(int argc, char **argv)
     }
     
     struct btf *bf = NULL;
-    int id = -1;
     if (!selector) {
-        if (bf) {
-            id = find_sync_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
-        }
-
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);
     }
 
-    ret = ebpf_fcnt_tests(bf, id, syncfs, NETDATA_SYNCFS_SYSCALL);
+    ret = ebpf_fcnt_tests(bf, syncfs, NETDATA_SYNCFS_SYSCALL);
     if (!ret)
-        ret = ebpf_msync_tests(bf, id);
+        ret = ebpf_msync_tests(bf);
 
     if (!ret)
-        ret = ebpf_sync_file_range_tests(bf, id);
+        ret = ebpf_sync_file_range_tests(bf);
 
     if (!ret)
-        ret = ebpf_fcnt_tests(bf, id, fsync, NETDATA_FSYNC_SYSCALL);
+        ret = ebpf_fcnt_tests(bf, fsync, NETDATA_FSYNC_SYSCALL);
+
+    if (!ret)
+        ret = ebpf_fcnt_tests(bf, fsync, NETDATA_FDATASYNC_SYSCALL);
 
     if (bf)
         btf__free(bf);
