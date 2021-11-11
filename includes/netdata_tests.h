@@ -51,5 +51,23 @@ static inline void ebpf_print_help(char *name, char *info) {
                     , name, info);
 }
 
+static inline int ebpf_find_function_id(struct btf *bf, char *name)
+{
+    const struct btf_type *type = netdata_find_bpf_attach_type(bf);
+    if (!type)
+        return -1;
+
+    const struct btf_enum *e = btf_enum(type);
+    int i, id;
+    for (id = -1, i = 0; i < btf_vlen(type); i++, e++) {
+        if (!strcmp(btf__name_by_offset(bf, e->name_off), "BPF_TRACE_FENTRY")) {
+            id = btf__find_by_name_kind(bf, name, BTF_KIND_FUNC);
+            break;
+        }
+    }
+
+    return id;
+}
+
 #endif /* _NETDATA_TESTS_H_ */
 

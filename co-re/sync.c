@@ -73,31 +73,13 @@ static inline int ebpf_load_and_attach(struct sync_bpf *obj, int id, char *name)
      return ret;
 }
 
-static inline int find_sync_id(struct btf *bf, char *name)
-{
-    const struct btf_type *type = netdata_find_bpf_attach_type(bf);
-    if (!type)
-        return -1;
-
-    const struct btf_enum *e = btf_enum(type);
-    int i, id;
-    for (id = -1, i = 0; i < btf_vlen(type); i++, e++) {
-        if (!strcmp(btf__name_by_offset(bf, e->name_off), "BPF_TRACE_FENTRY")) {
-            id = btf__find_by_name_kind(bf, name, BTF_KIND_FUNC);
-            break;
-        }
-    }
-
-    return id;
-}
-
 /****************************************************************************************
  *
  *                              SYNCFS, FSYNC, FDATASYNC
  *
  ***************************************************************************************/ 
 
-void test_fcnt_synchronization(int (*fcnt)(int))
+static void test_fcnt_synchronization(int (*fcnt)(int))
 {
     int fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0660);
     if (fd < 0 ) {
@@ -115,7 +97,7 @@ void test_fcnt_synchronization(int (*fcnt)(int))
     sleep(2);
 }
 
-int common_fcnt_tests(int fd, int (*fcnt)(int)) {
+static int common_fcnt_tests(int fd, int (*fcnt)(int)) {
     test_fcnt_synchronization(fcnt);
 
     uint32_t idx = 0;
@@ -136,21 +118,18 @@ int common_fcnt_tests(int fd, int (*fcnt)(int)) {
     return ret;
 }
 
-
-int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_enum idx)
+static int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_enum idx)
 {
     struct sync_bpf *obj = NULL;
 
     int id = -1;
     if (bf) {
-        id = find_sync_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
     }
 
     obj = sync_bpf__open();
     if (!obj) {
         fprintf(stderr, "Cannot open or load BPF object\n");
-        if (bf)
-            btf__free(bf);
 
         return 2;
     }
@@ -174,7 +153,7 @@ int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_enum idx
  ***************************************************************************************/ 
 
 // test based on IBM example https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/apis/msync.htm
-void test_msync_synchronization()
+static void test_msync_synchronization()
 {
     int pagesize = sysconf(_SC_PAGE_SIZE);
     if (pagesize < 0) {
@@ -215,7 +194,7 @@ void test_msync_synchronization()
     sleep(2);
 }
 
-int msync_tests(int fd) {
+static int msync_tests(int fd) {
     test_msync_synchronization();
 
     uint32_t idx = 0;
@@ -225,33 +204,31 @@ int msync_tests(int fd) {
         if (stored) 
             ret = 0;
         else {
-            ret = 6;
+            ret = 3;
             fprintf(stderr, "Invalid data read from hash table");
         }
     } else {
         fprintf(stderr, "Cannot get data from hash table\n");
-        ret = 5;
+        ret = 3;
     }
 
     return ret;
 }
 
-int ebpf_msync_tests(struct btf *bf)
+static int ebpf_msync_tests(struct btf *bf)
 {
     struct sync_bpf *obj = NULL;
 
     int id = -1;
     if (bf) {
-        id = find_sync_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
     }
 
     obj = sync_bpf__open();
     if (!obj) {
         fprintf(stderr, "Cannot open or load BPF object\n");
-        if (bf)
-            btf__free(bf);
 
-        return 2;
+        return 3;
     }
 
     int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[NETDATA_MSYNC_SYSCALL]);
@@ -272,7 +249,7 @@ int ebpf_msync_tests(struct btf *bf)
  *
  ***************************************************************************************/ 
 
-void test_sync_file_range_synchronization()
+static void test_sync_file_range_synchronization()
 {
     int fd = open (filename, O_WRONLY | O_CREAT | O_APPEND, 0660);
     if (fd < 0 ) {
@@ -293,7 +270,7 @@ void test_sync_file_range_synchronization()
     sleep(2);
 }
 
-int sync_file_range_tests(int fd) {
+static int sync_file_range_tests(int fd) {
     test_sync_file_range_synchronization();
 
     uint32_t idx = 0;
@@ -303,31 +280,29 @@ int sync_file_range_tests(int fd) {
         if (stored) 
             ret = 0;
         else {
-            ret = 8;
+            ret = 4;
             fprintf(stderr, "Invalid data read from hash table");
         }
     } else {
         fprintf(stderr, "Cannot get data from hash table\n");
-        ret = 7;
+        ret = 4;
     }
 
     return ret;
 }
 
-int ebpf_sync_file_range_tests(struct btf *bf)
+static int ebpf_sync_file_range_tests(struct btf *bf)
 {
     struct sync_bpf *obj = NULL;
 
     int id = -1;
     if (bf) {
-        id = find_sync_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
     }
 
     obj = sync_bpf__open();
     if (!obj) {
         fprintf(stderr, "Cannot open or load BPF object\n");
-        if (bf)
-            btf__free(bf);
 
         return 2;
     }
@@ -409,7 +384,7 @@ int main(int argc, char **argv)
         ret = ebpf_fcnt_tests(bf, fsync, NETDATA_FSYNC_SYSCALL);
 
     if (!ret)
-        ret = ebpf_fcnt_tests(bf, fsync, NETDATA_FDATASYNC_SYSCALL);
+        ret = ebpf_fcnt_tests(bf, fdatasync, NETDATA_FDATASYNC_SYSCALL);
 
     if (bf)
         btf__free(bf);
