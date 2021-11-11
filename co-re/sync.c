@@ -136,7 +136,7 @@ static int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_e
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = common_fcnt_tests(fd, fcnt);
     } else
-        fprintf(stderr, "Error to attach BPF program\n");
+        fprintf(stderr, "Failed to attach BPF program\n");
 
     sync_bpf__destroy(obj);
 
@@ -233,7 +233,7 @@ static int ebpf_msync_tests(struct btf *bf)
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = msync_tests(fd);
     } else
-        fprintf(stderr, "Error to attach BPF program\n");
+        fprintf(stderr, "Failed to attach BPF program\n");
 
     sync_bpf__destroy(obj);
 
@@ -258,7 +258,7 @@ static void test_sync_file_range_synchronization()
     size_t offset = 0;
     for ( i = 0 ; i < 1000; i++ )  {
         size_t length = 23;
-        write(fd, "Testing more one syscall", length);
+        write(fd, "Testing one more syscall", length);
         sync_file_range(fd, offset, length, SYNC_FILE_RANGE_WRITE);
         offset += length;
     }
@@ -309,18 +309,12 @@ static int ebpf_sync_file_range_tests(struct btf *bf)
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = sync_file_range_tests(fd);
     } else
-        fprintf(stderr, "Error to attach BPF program\n");
+        fprintf(stderr, "Failed to attach BPF program\n");
 
     sync_bpf__destroy(obj);
 
     return 0;
 }
-
-/****************************************************************************************
- *
- *                                      ENTRY
- *
- ***************************************************************************************/ 
 
 int main(int argc, char **argv)
 {

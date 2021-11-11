@@ -61,7 +61,7 @@ static inline void ebpf_print_help(char *name, char *info) {
                     "The following options are available:\n\n"
                     "--help       (-h): Prints this help.\n"
                     "--probe      (-p): Use probe and do no try to use trampolines (fentry/fexit).\n"
-                    "--trampoline (-t): Try to use trampoline(fentry/fexit), when it is not possible" 
+                    "--trampoline (-t): Try to use trampoline(fentry/fexit). If this is not possible" 
                     " probes will be used.\n"
                     , name, info);
 }
