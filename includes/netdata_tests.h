@@ -6,6 +6,21 @@
 #define NETDATA_BTF_FILE "/sys/kernel/btf/vmlinux"
 
 #include <sys/resource.h>
+#include <linux/version.h>
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0))
+// Copied from https://elixir.bootlin.com/linux/v5.13/source/include/uapi/linux/btf.h#L75
+#define BTF_KIND_FLOAT		16	/* Floating point	*/
+
+#undef BTF_KIND_MAX
+#undef NR_BTF_KINDS
+
+#define BTF_KIND_MAX    BTF_KIND_FLOAT
+#define NR_BTF_KINDS    (BTF_KIND_MAX + 1)
+#endif
+
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 #include <bpf/btf.h>
 
 static inline int netdata_ebf_memlock_limit(void)

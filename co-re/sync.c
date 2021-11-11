@@ -8,14 +8,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <bpf/bpf.h>
-#include <bpf/libbpf.h>
-#include <bpf/btf.h>
+#include "netdata_tests.h"
 
 #include <sys/mman.h>
 
 #include "sync.skel.h"
-#include "netdata_tests.h"
 
 enum netdata_sync_enum {
     NETDATA_SYNCFS_SYSCALL,
