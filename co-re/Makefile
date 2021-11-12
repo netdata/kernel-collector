@@ -1,6 +1,6 @@
 LIBBPF = ../libbpf
 CFLAGS = -Wall -ggdb
-INCLUDES = -I../includes/ -I../libbpf/src/ -I./includes/ -I../libbpf
+INCLUDES = -I../includes/ -I../libbpf/src/ -I./includes/ -I../libbpf -I../libbpf/include/uapi/
 CLANG ?= clang 
 LLVM_STRIP ?= llvm-strip
 OUTPUT = tests/
