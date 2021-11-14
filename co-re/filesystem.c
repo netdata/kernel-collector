@@ -55,49 +55,35 @@ struct filesystem_data fd[] = {
     }
 };
 
-static int ebpf_load_btf_file()
+static int ebpf_load_btf_file(int idx)
 {
-    int counter = 0;
-    while (fd[counter].name) {
-        fprintf(stderr, "KILLME %s\n", fd[counter].path);
-        fd[counter].bf = netdata_parse_btf_file(fd[counter].path);
-        if (!fd[counter].bf)
-            return -1;
-
-        counter++;
-    }
+    fd[idx].bf = netdata_parse_btf_file(fd[idx].path);
+    if (!fd[idx].bf)
+        return -1;
 
     return 0;
 }
 
-static int ebpf_find_ids()
+static int ebpf_find_ids(int idx)
 {
-    int counter = 0;
-    while (fd[counter].name) {
-        int *ids = fd[counter].ids;
-        struct btf *bf = fd[counter].bf;
-        int i;
-        for (i = 0; i < NETDATA_FS_BTF_END ; i++) {
-            ids[i] = ebpf_find_function_id(bf, (char *)fd[counter].functions[i]);
+    int *ids = fd[idx].ids;
+    struct btf *bf = fd[idx].bf;
+    int i;
+    for (i = 0; i < NETDATA_FS_BTF_END ; i++) {
+        if (fd[idx].functions[i]) {
+            ids[i] = ebpf_find_function_id(bf, (char *)fd[idx].functions[i]);
             if (ids[i] < 0)
                 return -1;
         }
-
-        counter++;
     }
 
     return 0;
 }
 
-static void ebpf_clean_btf_file()
+static void ebpf_clean_btf_file(int idx)
 {
-    int counter = 0;
-    while (fd[counter].name) {
-        if (fd[counter].bf)
-            btf__free(fd[counter].bf);
-
-        counter++;
-    }
+    if (fd[idx].bf)
+        btf__free(fd[idx].bf);
 }
 
 static void ebpf_fs_disable_kprobe(struct filesystem_bpf *obj)
@@ -253,21 +239,29 @@ static inline int ebpf_load_and_attach(struct filesystem_bpf *obj, const char **
 }
 
 
-static int ebpf_load_fs()
+static int ebpf_load_fs(int idx)
 {
     struct filesystem_bpf *obj = NULL;
-    int counter = 0;
-    while (fd[counter].name) {
-        obj = filesystem_bpf__open();
-        if (obj) {
-            ebpf_load_and_attach(obj, fd[counter].functions, fd[counter].name, fd[counter].bf);
-            filesystem_bpf__destroy(obj);
-        }
-
-        counter++;
+    obj = filesystem_bpf__open();
+    if (obj) {
+        ebpf_load_and_attach(obj, fd[idx].functions, fd[idx].name, fd[idx].bf);
+        filesystem_bpf__destroy(obj);
     }
 
     return 0;
+}
+
+static inline void ebpf_print_fs_help(char *name, char *info) {
+    fprintf(stdout, "%s tests if it is possible to monitor %s on host\n\n"
+                    "The following options are available:\n\n"
+                    "--help       (-h): Prints this help.\n"
+                    "--probe      (-p): Use probe and do no try to use trampolines (fentry/fexit).\n"
+                    "--trampoline (-t): Try to use trampoline(fentry/fexit).\n" 
+                    "--nfs        (-n): Run tests for nfs filesystem\n" 
+                    "--ext4       (-e): Run tests for ext4 filesystem\n" 
+                    "\n\n"
+                    "Usage: %s --probe --ext4\n"
+                    , name, info, name);
 }
 
 int main(int argc, char **argv)
@@ -276,11 +270,14 @@ int main(int argc, char **argv)
         {"help",        no_argument,    0,  'h' },
         {"probe",       no_argument,    0,  'p' },
         {"trampoline",  no_argument,    0,  't' },
+        {"nfs",         no_argument,    0,  'n' },
+        {"ext4",        no_argument,    0,  'e' },
         {0, 0, 0, 0}
     };
 
     int selector = 0;
     int option_index = 0;
+    int fs = -1;
     while (1) {
         int c = getopt_long(argc, argv, "", long_options, &option_index);
         if (c == -1)
@@ -288,7 +285,7 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'h': {
-                          ebpf_print_help(argv[0], "filesystem");
+                          ebpf_print_fs_help(argv[0], "filesystem");
                           exit(0);
                       }
             case 'p': {
@@ -300,31 +297,44 @@ int main(int argc, char **argv)
                           selector = 0;
                           break;
                       }
+            case 'n': {
+                          fs = 0;
+                          break;
+                      }
+            case 'e': {
+                          fs = 1;
+                          break;
+                      }
             default: {
                          break;
                      }
         }
     }
 
+    if (fs == -1) {
+        ebpf_print_fs_help(argv[0], "filesystem");
+        exit(1);
+    }
+
     // Adjust memory
     int ret = netdata_ebf_memlock_limit();
     if (ret) {
         fprintf(stderr, "Cannot increase memory: error = %d\n", ret);
-        return 1;
+        return 2;
     }
 
     if (!selector) {
-        ret = ebpf_load_btf_file();
+        ret = ebpf_load_btf_file(fs);
         if (!ret) {
-            ret = ebpf_find_ids();
+            ret = ebpf_find_ids(fs);
         }
     }
 
     // run tests here
     if (!ret) {
-        ret = ebpf_load_fs();
-        ebpf_clean_btf_file();
+        ret = ebpf_load_fs(fs);
     }
+    ebpf_clean_btf_file(fs);
 
     return ret;
 }
