@@ -21,8 +21,11 @@ struct filesystem_data {
     struct btf *bf;
 };
 
+/* Files used with ext4 and btrfs, but the usage depends of
+ * kerel compliation, to avoid problems we will use only probes.
 #define NETDATA_EXT4_BTF_FILE "/sys/kernel/btf/ext4"
 #define NETDATA_BTRFS_BTF_FILE "/sys/kernel/btf/btrfs"
+*/
 
 struct filesystem_data fd[] = {
     {   
@@ -32,13 +35,13 @@ struct filesystem_data fd[] = {
                         "nfs_file_write",
                         "nfs_open",
                         "nfs_getattr",
-                        "nfs4_file_open" },
+                        NULL }, // "nfs4_file_open" - not present on all kernels
         .ids = { -1, -1, -1, -1, -1},
         .bf = NULL
     },
     {   
         .name = "ext4",
-        .path = NETDATA_EXT4_BTF_FILE,
+        .path = NULL,
         .functions = {  "ext4_file_read_iter",
                         "ext4_file_write_iter",
                         "ext4_file_open",
@@ -49,7 +52,7 @@ struct filesystem_data fd[] = {
     },
     {   
         .name = "btrfs",
-        .path = NETDATA_BTRFS_BTF_FILE,
+        .path = NULL,
         .functions = {  "btrfs_file_read_iter",
                         "btrfs_file_write_iter",
                         "btrfs_file_open",
@@ -60,7 +63,7 @@ struct filesystem_data fd[] = {
     },
     {   
         .name = "xfs",
-        .path = NETDATA_BTF_FILE,
+        .path = NULL,
         .functions = {  "xfs_file_read_iter",
                         "xfs_file_write_iter",
                         "xfs_file_open",
@@ -81,8 +84,10 @@ struct filesystem_data fd[] = {
 static int ebpf_load_btf_file(int idx)
 {
     fd[idx].bf = netdata_parse_btf_file(fd[idx].path);
-    if (!fd[idx].bf)
+    if (!fd[idx].bf) {
+        fprintf(stderr, "BTF file not given, use kprobe instead.\n");
         return -1;
+    }
 
     return 0;
 }
