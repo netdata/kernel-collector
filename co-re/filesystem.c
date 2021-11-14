@@ -22,6 +22,7 @@ struct filesystem_data {
 };
 
 #define NETDATA_EXT4_BTF_FILE "/sys/kernel/btf/ext4"
+#define NETDATA_BTRFS_BTF_FILE "/sys/kernel/btf/btrfs"
 
 struct filesystem_data fd[] = {
     {   
@@ -42,6 +43,17 @@ struct filesystem_data fd[] = {
                         "ext4_file_write_iter",
                         "ext4_file_open",
                         "ext4_sync_file",
+                        NULL },
+        .ids = { -1, -1, -1, -1, -1},
+        .bf = NULL
+    },
+    {   
+        .name = "btrfs",
+        .path = NETDATA_BTRFS_BTF_FILE,
+        .functions = {  "btrfs_file_read_iter",
+                        "btrfs_file_write_iter",
+                        "btrfs_file_open",
+                        "btrfs_sync_file",
                         NULL },
         .ids = { -1, -1, -1, -1, -1},
         .bf = NULL
@@ -259,6 +271,7 @@ static inline void ebpf_print_fs_help(char *name, char *info) {
                     "--trampoline (-t): Try to use trampoline(fentry/fexit).\n" 
                     "--nfs        (-n): Run tests for nfs filesystem\n" 
                     "--ext4       (-e): Run tests for ext4 filesystem\n" 
+                    "--btrfs      (-b): Run tests for btrfs filesystem\n" 
                     "\n\n"
                     "Usage: %s --probe --ext4\n"
                     , name, info, name);
@@ -272,6 +285,7 @@ int main(int argc, char **argv)
         {"trampoline",  no_argument,    0,  't' },
         {"nfs",         no_argument,    0,  'n' },
         {"ext4",        no_argument,    0,  'e' },
+        {"btrfs",       no_argument,    0,  'b' },
         {0, 0, 0, 0}
     };
 
@@ -303,6 +317,10 @@ int main(int argc, char **argv)
                       }
             case 'e': {
                           fs = 1;
+                          break;
+                      }
+            case 'b': {
+                          fs = 2;
                           break;
                       }
             default: {
