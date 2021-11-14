@@ -58,6 +58,17 @@ struct filesystem_data fd[] = {
         .ids = { -1, -1, -1, -1, -1},
         .bf = NULL
     },
+    {   
+        .name = "xfs",
+        .path = NETDATA_BTF_FILE,
+        .functions = {  "xfs_file_read_iter",
+                        "xfs_file_write_iter",
+                        "xfs_file_open",
+                        "xfs_file_fsync",
+                        NULL },
+        .ids = { -1, -1, -1, -1, -1},
+        .bf = NULL
+    },
     {
         .name = NULL,
         .path = NULL,
@@ -272,6 +283,7 @@ static inline void ebpf_print_fs_help(char *name, char *info) {
                     "--nfs        (-n): Run tests for nfs filesystem\n" 
                     "--ext4       (-e): Run tests for ext4 filesystem\n" 
                     "--btrfs      (-b): Run tests for btrfs filesystem\n" 
+                    "--xfs        (-x): Run tests for xfs filesystem\n" 
                     "\n\n"
                     "Usage: %s --probe --ext4\n"
                     , name, info, name);
@@ -286,6 +298,7 @@ int main(int argc, char **argv)
         {"nfs",         no_argument,    0,  'n' },
         {"ext4",        no_argument,    0,  'e' },
         {"btrfs",       no_argument,    0,  'b' },
+        {"xfs",         no_argument,    0,  'x' },
         {0, 0, 0, 0}
     };
 
@@ -307,7 +320,6 @@ int main(int argc, char **argv)
                           break;
                       }
             case 't': {
-                          //id is already set to 0
                           selector = 0;
                           break;
                       }
@@ -321,6 +333,10 @@ int main(int argc, char **argv)
                       }
             case 'b': {
                           fs = 2;
+                          break;
+                      }
+            case 'x': {
+                          fs = 3;
                           break;
                       }
             default: {
