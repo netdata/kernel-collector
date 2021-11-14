@@ -12,6 +12,16 @@ enum fs_counters {
     NETDATA_FS_END
 };
 
+enum fs_btf_counters {
+    NETDATA_KEY_BTF_READ,
+    NETDATA_KEY_BTF_WRITE,
+    NETDATA_KEY_BTF_OPEN,
+    NETDATA_KEY_BTF_SYNC_ATTR,
+    NETDATA_KEY_BTF_OPEN2,
+
+    NETDATA_FS_BTF_END
+};
+
 // We are using 24 as hard limit to avoid intervals bigger than
 // 8 seconds and to keep memory aligment.
 #define NETDATA_FS_MAX_BINS 24UL
