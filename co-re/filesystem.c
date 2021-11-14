@@ -21,6 +21,7 @@ struct filesystem_data {
     struct btf *bf;
 };
 
+#define NETDATA_EXT4_BTF_FILE "/sys/kernel/btf/ext4"
 
 struct filesystem_data fd[] = {
     {   
@@ -31,6 +32,17 @@ struct filesystem_data fd[] = {
                         "nfs_open",
                         "nfs_getattr",
                         "nfs4_file_open" },
+        .ids = { -1, -1, -1, -1, -1},
+        .bf = NULL
+    },
+    {   
+        .name = "ext4",
+        .path = NETDATA_EXT4_BTF_FILE,
+        .functions = {  "ext4_file_read_iter",
+                        "ext4_file_write_iter",
+                        "ext4_file_open",
+                        "ext4_sync_file",
+                        NULL },
         .ids = { -1, -1, -1, -1, -1},
         .bf = NULL
     },
@@ -47,6 +59,7 @@ static int ebpf_load_btf_file()
 {
     int counter = 0;
     while (fd[counter].name) {
+        fprintf(stderr, "KILLME %s\n", fd[counter].path);
         fd[counter].bf = netdata_parse_btf_file(fd[counter].path);
         if (!fd[counter].bf)
             return -1;
@@ -308,10 +321,10 @@ int main(int argc, char **argv)
     }
 
     // run tests here
-    if (!ret)
+    if (!ret) {
         ret = ebpf_load_fs();
-
-    ebpf_clean_btf_file();
+        ebpf_clean_btf_file();
+    }
 
     return ret;
 }
