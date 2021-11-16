@@ -83,9 +83,14 @@ struct filesystem_data fd[] = {
 
 static int ebpf_load_btf_file(int idx)
 {
+    if (!fd[idx].path) {
+        fprintf(stderr, "BTF file not given, use kprobe instead.\n");
+        return -1;
+    }
+
     fd[idx].bf = netdata_parse_btf_file(fd[idx].path);
     if (!fd[idx].bf) {
-        fprintf(stderr, "BTF file not given, use kprobe instead.\n");
+        fprintf(stderr, "Cannot load BTF file.\n");
         return -1;
     }
 
