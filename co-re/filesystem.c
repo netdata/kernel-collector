@@ -288,14 +288,12 @@ static inline void ebpf_print_fs_help(char *name, char *info) {
     fprintf(stdout, "%s tests if it is possible to monitor %s on host\n\n"
                     "The following options are available:\n\n"
                     "--help       (-h): Prints this help.\n"
-                    "--probe      (-p): Use probe and do no try to use trampolines (fentry/fexit).\n"
-                    "--trampoline (-t): Try to use trampoline(fentry/fexit).\n" 
                     "--nfs        (-n): Run tests for nfs filesystem\n" 
                     "--ext4       (-e): Run tests for ext4 filesystem\n" 
                     "--btrfs      (-b): Run tests for btrfs filesystem\n" 
                     "--xfs        (-x): Run tests for xfs filesystem\n" 
                     "\n\n"
-                    "Usage: %s --probe --ext4\n"
+                    "Usage: %s --ext4\n"
                     , name, info, name);
 }
 
@@ -303,8 +301,6 @@ int main(int argc, char **argv)
 {
     static struct option long_options[] = {
         {"help",        no_argument,    0,  'h' },
-        {"probe",       no_argument,    0,  'p' },
-        {"trampoline",  no_argument,    0,  't' },
         {"nfs",         no_argument,    0,  'n' },
         {"ext4",        no_argument,    0,  'e' },
         {"btrfs",       no_argument,    0,  'b' },
@@ -312,7 +308,10 @@ int main(int argc, char **argv)
         {0, 0, 0, 0}
     };
 
-    int selector = 0;
+    // Selector is kept for the moment that distributions start compiling
+    // their filesystem with support for trampoline, for while we are using
+    // only probes
+    int selector = 1;
     int option_index = 0;
     int fs = -1;
     while (1) {
@@ -324,14 +323,6 @@ int main(int argc, char **argv)
             case 'h': {
                           ebpf_print_fs_help(argv[0], "filesystem");
                           exit(0);
-                      }
-            case 'p': {
-                          selector = -1;
-                          break;
-                      }
-            case 't': {
-                          selector = 0;
-                          break;
                       }
             case 'n': {
                           fs = 0;
