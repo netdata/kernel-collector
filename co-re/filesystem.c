@@ -30,7 +30,7 @@ struct filesystem_data {
 struct filesystem_data fd[] = {
     {   
         .name = "nfs",
-        .path = NETDATA_BTF_FILE,
+        .path = NULL,
         .functions = {  "nfs_file_read",
                         "nfs_file_write",
                         "nfs_open",
