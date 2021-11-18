@@ -51,6 +51,7 @@ static inline void ebpf_print_help(char *name, char *info) {
                     "The following options are available:\n\n"
                     "--help       (-h): Prints this help.\n"
                     "--probe      (-p): Use probe and do no try to use trampolines (fentry/fexit).\n"
+                    "--tracepoint (-r): Use tracepoint.\n"
                     "--trampoline (-t): Try to use trampoline(fentry/fexit). If this is not possible" 
                     " probes will be used.\n"
                     , name, info);
@@ -72,6 +73,24 @@ static inline int ebpf_find_function_id(struct btf *bf, char *name)
     }
 
     return id;
+}
+
+static inline char *ebpf_select_type(int selector)
+{
+    switch(selector)
+    {
+        case 0: {
+                    return "trampoline";
+                }
+        case 1: {
+                    return "probe";
+                }
+        case 2: {
+                    return "tracepoint";
+                }
+    }
+
+    return NULL;
 }
 
 #endif /* _NETDATA_TESTS_H_ */
