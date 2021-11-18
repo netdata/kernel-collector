@@ -20,6 +20,7 @@ enum netdata_sync_enum {
     NETDATA_SYNC_FILE_RANGE_SYSCALL,
     NETDATA_FSYNC_SYSCALL,
     NETDATA_FDATASYNC_SYSCALL,
+    NETDATA_SYNC_SYSCALL,
 
     NETDATA_END_SYNC_ENUM
 };
@@ -29,7 +30,8 @@ static char *ebpf_sync_syscall[NETDATA_END_SYNC_ENUM] = {
     "__x64_sys_msync",
     "__x64_sys_sync_file_range",
     "__x64_sys_fsync",
-    "__x64_sys_fdatasync"
+    "__x64_sys_fdatasync",
+    "__x64_sys_sync"
 };
 
 char *filename = { "useless_data.txt" };
@@ -316,6 +318,56 @@ static int ebpf_sync_file_range_tests(struct btf *bf)
     return 0;
 }
 
+/****************************************************************************************
+ *
+ *                              SYNC
+ *
+ ***************************************************************************************/
+
+static int sync_tests(int fd) {
+    sync();
+    sleep(2);
+
+    uint32_t idx = 0;
+    uint64_t stored;
+    int ret;
+    if (!bpf_map_lookup_elem(fd, &idx, &stored)) {
+        if (stored)
+            ret = 0;
+        else {
+            ret = 5;
+            fprintf(stderr, "Invalid data read from hash table");
+        }
+    } else {
+        fprintf(stderr, "Cannot get data from hash table\n");
+        ret = 5;
+    }
+
+    return ret;
+}
+
+static int ebpf_test_sync()
+{
+    struct sync_bpf *obj = NULL;
+
+    obj = sync_bpf__open();
+    if (!obj) {
+        fprintf(stderr, "Cannot open or load BPF object\n");
+
+        return 5;
+    }
+
+    int ret = ebpf_load_and_attach(obj, -1, ebpf_sync_syscall[NETDATA_SYNC_SYSCALL]);
+    if (!ret) {
+        int fd = bpf_map__fd(obj->maps.tbl_sync) ;
+        ret = sync_tests(fd);
+    }
+
+    sync_bpf__destroy(obj);
+
+    return ret;
+}
+
 int main(int argc, char **argv)
 {
     static struct option long_options[] = {
@@ -376,6 +428,9 @@ int main(int argc, char **argv)
 
     if (!ret)
         ret = ebpf_fcnt_tests(bf, fdatasync, NETDATA_FDATASYNC_SYSCALL);
+
+    if (!ret)
+        ret = ebpf_test_sync();
 
     if (bf)
         btf__free(bf);
