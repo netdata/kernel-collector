@@ -121,7 +121,7 @@ static int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_e
 
     int id = -1;
     if (bf) {
-        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+        id = ebpf_find_function_id(bf, ebpf_sync_syscall[idx]);
     }
 
     obj = sync_bpf__open();
@@ -218,7 +218,7 @@ static int ebpf_msync_tests(struct btf *bf)
 
     int id = -1;
     if (bf) {
-        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_MSYNC_SYSCALL]);
     }
 
     obj = sync_bpf__open();
@@ -294,7 +294,7 @@ static int ebpf_sync_file_range_tests(struct btf *bf)
 
     int id = -1;
     if (bf) {
-        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
+        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNC_FILE_RANGE_SYSCALL]);
     }
 
     obj = sync_bpf__open();
