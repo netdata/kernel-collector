@@ -40,5 +40,13 @@ int BPF_KPROBE(netdata_sync_kprobe)
     return 0;
 }
 
+SEC("tracepoint/syscalls/sys_entry_sync")
+int netdata_sync_entry(struct trace_event_raw_sys_enter *ctx)
+{
+    libnetdata_update_global(&tbl_sync, NETDATA_KEY_SYNC_CALL, 1);
+
+    return 0;
+}
+
 char _license[] SEC("license") = "GPL";
 

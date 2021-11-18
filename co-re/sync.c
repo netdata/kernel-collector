@@ -46,9 +46,11 @@ static inline int ebpf_load_and_attach(struct sync_bpf *obj, int id, char *name)
 {
     if (id > 0) {
         bpf_program__set_autoload(obj->progs.netdata_sync_kprobe, false);
+        bpf_program__set_autoload(obj->progs.netdata_sync_entry, false);
         bpf_program__set_attach_target(obj->progs.netdata_sync_fentry, 0,
                                        name);
     } else {
+        bpf_program__set_autoload(obj->progs.netdata_sync_entry, false);
         bpf_program__set_autoload(obj->progs.netdata_sync_fentry, false);
     }
 
