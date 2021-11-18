@@ -24,16 +24,6 @@ struct {
  *
  ***********************************************************************************/
 
-/*
- *  To use these tracepoints, the kernel must be compiled with option:
- *
- *  CONFIG_FTRACE_SYSCALLS (Kernel hacking->Tracer->Trace Syscalls)
- *
- *  after this the following directory will be available:
- *  
- *  /sys/kernel/debug/tracing/events/syscalls
- */
-
 SEC("tracepoint/syscalls/sys_exit_mount")
 int netdata_mount_fexit(struct trace_event_raw_sys_exit *arg)
 {
