@@ -16,6 +16,39 @@
 
 #include "mount.skel.h"
 
+
+static int attach_probe(struct mount_bpf *obj)
+{
+    char *mount_syscall = { "__x64_sys_mount" };
+    char *umount_syscall = { "__x64_sys_umount" };
+
+    obj->links.netdata_mount_probe = bpf_program__attach_kprobe(obj->progs.netdata_mount_probe,
+                                                                false, mount_syscall);
+    int ret = libbpf_get_error(obj->links.netdata_mount_probe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata_mount_retprobe = bpf_program__attach_kprobe(obj->progs.netdata_mount_retprobe,
+                                                                   true, mount_syscall);
+    ret = libbpf_get_error(obj->links.netdata_mount_retprobe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata_umount_probe = bpf_program__attach_kprobe(obj->progs.netdata_umount_probe,
+                                                                 false, umount_syscall);
+    ret = libbpf_get_error(obj->links.netdata_umount_probe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata_umount_retprobe = bpf_program__attach_kprobe(obj->progs.netdata_umount_retprobe,
+                                                                    true, mount_syscall);
+    ret = libbpf_get_error(obj->links.netdata_umount_retprobe);
+    if (ret)
+        return -1;
+
+    return 0;
+}
+
 static inline int ebpf_load_and_attach(struct mount_bpf *obj, int selector)
 {
     if (selector) { // tracepoint
@@ -23,6 +56,9 @@ static inline int ebpf_load_and_attach(struct mount_bpf *obj, int selector)
         bpf_program__set_autoload(obj->progs.netdata_mount_retprobe, false);
         bpf_program__set_autoload(obj->progs.netdata_umount_probe, false);
         bpf_program__set_autoload(obj->progs.netdata_umount_retprobe, false);
+    } else {
+        bpf_program__set_autoload(obj->progs.netdata_mount_fexit, false);
+        bpf_program__set_autoload(obj->progs.netdata_umount_fexit, false);
     }
 
     int ret = mount_bpf__load(obj);
@@ -33,6 +69,9 @@ static inline int ebpf_load_and_attach(struct mount_bpf *obj, int selector)
 
     if (selector)
         ret = mount_bpf__attach(obj);
+    else {
+        ret = attach_probe(obj);
+    }
 
     if (!ret) {
         fprintf(stdout, "%s loaded with success\n", (selector) ? "tracepoint" : "probe");
@@ -50,8 +89,8 @@ static int call_syscalls()
     }
 
     // I am not testing return, because errors are also stored at hash map
-    mount("none", dst, "tmpfs", 0, "mode=0777");
-    umount(dst);
+    (void)mount("none", dst, "tmpfs", 0, "mode=0777");
+    (void)umount(dst);
 
     rmdir(dst);
 
