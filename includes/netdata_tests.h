@@ -46,15 +46,16 @@ static inline const struct btf_type *netdata_find_bpf_attach_type(struct btf *bf
     return btf__type_by_id(bf, id);
 }
 
-static inline void ebpf_print_help(char *name, char *info) {
+static inline void ebpf_print_help(char *name, char *info, int has_trampoline) {
     fprintf(stdout, "%s tests if it is possible to monitor %s on host\n\n"
                     "The following options are available:\n\n"
                     "--help       (-h): Prints this help.\n"
                     "--probe      (-p): Use probe and do no try to use trampolines (fentry/fexit).\n"
                     "--tracepoint (-r): Use tracepoint.\n"
-                    "--trampoline (-t): Try to use trampoline(fentry/fexit). If this is not possible" 
-                    " probes will be used.\n"
                     , name, info);
+    if (has_trampoline)
+        fprintf(stdout, "--trampoline (-t): Try to use trampoline(fentry/fexit). If this is not possible" 
+                        " probes will be used.\n");
 }
 
 static inline int ebpf_find_function_id(struct btf *bf, char *name)

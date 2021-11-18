@@ -430,7 +430,7 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'h': {
-                          ebpf_print_help(argv[0], "sys_syncfs");
+                          ebpf_print_help(argv[0], "sys_syncfs", 1);
                           exit(0);
                       }
             case 'p': {
