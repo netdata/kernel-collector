@@ -15,6 +15,7 @@ VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
 _LIBC ?= glibc
 
 APPS = filesystem \
+       mount \
        sync \
        #
 
