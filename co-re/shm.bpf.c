@@ -34,7 +34,7 @@ struct {
 
 /************************************************************************************
  *
- *                     MOUNT SECTION (trampoline)
+ *                     SHARED MEMORY (common)
  *
  ***********************************************************************************/
 
@@ -56,7 +56,7 @@ static inline int netdata_global_apps_shm(__u32 idx)
 
 /************************************************************************************
  *
- *                     MOUNT SECTION (tracepoint)
+ *                     SHARED MEMORY (tracepoint)
  *
  ***********************************************************************************/
 
@@ -92,6 +92,52 @@ int netdata_syscall_shmdt(struct trace_event_raw_sys_enter *arg)
 
 SEC("tracepoint/syscalls/sys_enter_shmctl")
 int netdata_syscall_shmctl(struct trace_event_raw_sys_enter *arg)
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMCTL_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+/************************************************************************************
+ *
+ *                     SHARED MEMORY (kprobe)
+ *
+ ***********************************************************************************/
+
+SEC("kprobe/netdata_shmget_probe")
+int BPF_KPROBE(netdata_shmget_probe)
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMGET_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+SEC("kprobe/netdata_shmat_probe")
+int BPF_KPROBE(netdata_shmat_probe)
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMAT_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+SEC("kprobe/netdata_shmdt_probe")
+int BPF_KPROBE(netdata_shmdt_probe)
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMDT_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+SEC("kprobe/netdata_shmctl_probe")
+int BPF_KPROBE(netdata_shmctl_probe)
 {
     int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMCTL_CALL);
     if (!store_apps)

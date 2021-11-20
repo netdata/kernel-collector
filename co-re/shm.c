@@ -24,13 +24,58 @@ static void ebpf_disable_tracepoint(struct shm_bpf *obj)
     bpf_program__set_autoload(obj->progs.netdata_syscall_shmctl, false);
 }
 
+static void ebpf_disable_kprobe(struct shm_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_shmget_probe, false);
+    bpf_program__set_autoload(obj->progs.netdata_shmat_probe, false);
+    bpf_program__set_autoload(obj->progs.netdata_shmdt_probe, false);
+    bpf_program__set_autoload(obj->progs.netdata_shmctl_probe, false);
+}
+
+static int ebpf_attach_kprobe(struct shm_bpf *obj)
+{
+    char *syscalls[NETDATA_SHM_END] = { "__x64_sys_shmget",
+                                        "__x64_sys_shmat",
+                                        "__x64_sys_shmdt",
+                                        "__x64_sys_shmctl"
+                                        };
+
+    obj->links.netdata_shmget_probe = bpf_program__attach_kprobe(obj->progs.netdata_shmget_probe,
+                                                                 false, syscalls[NETDATA_KEY_SHMGET_CALL]);
+    int ret = libbpf_get_error(obj->links.netdata_shmget_probe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata_shmat_probe = bpf_program__attach_kprobe(obj->progs.netdata_shmat_probe,
+                                                                false, syscalls[NETDATA_KEY_SHMAT_CALL]);
+    ret = libbpf_get_error(obj->links.netdata_shmat_probe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata_shmdt_probe = bpf_program__attach_kprobe(obj->progs.netdata_shmdt_probe,
+                                                                false, syscalls[NETDATA_KEY_SHMDT_CALL]);
+    ret = libbpf_get_error(obj->links.netdata_shmdt_probe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata_shmctl_probe = bpf_program__attach_kprobe(obj->progs.netdata_shmctl_probe,
+                                                                false, syscalls[NETDATA_KEY_SHMCTL_CALL]);
+    ret = libbpf_get_error(obj->links.netdata_shmctl_probe);
+    if (ret)
+        return -1;
+
+    return 0;
+}
+
 static inline int ebpf_load_and_attach(struct shm_bpf *obj, int selector)
 {
     if (!selector) { // trampoline
         ebpf_disable_tracepoint(obj);
+        ebpf_disable_kprobe(obj);
     } else if (selector == 1) { // kprobe
         ebpf_disable_tracepoint(obj);
     } else { // tracepoint
+        ebpf_disable_kprobe(obj);
     }
 
     int ret = shm_bpf__load(obj);
@@ -41,6 +86,8 @@ static inline int ebpf_load_and_attach(struct shm_bpf *obj, int selector)
 
     if (selector != 1) // Not kprobe
         ret = shm_bpf__attach(obj);
+    else
+        ret = ebpf_attach_kprobe(obj);
 
     if (!ret) {
         char *method = ebpf_select_type(selector);
