@@ -146,5 +146,51 @@ int BPF_KPROBE(netdata_shmctl_probe)
     return 0;
 }
 
+/************************************************************************************
+ *
+ *                     SHARED MEMORY (trampoline)
+ *
+ ***********************************************************************************/
+
+SEC("fentry/netdata_shmget")
+int BPF_PROG(netdata_shmget_fentry)
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMGET_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+SEC("fentry/netdata_shmat")
+int BPF_PROG(netdata_shmat_fentry)
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMAT_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+SEC("fentry/netdata_shmdt")
+int BPF_PROG(netdata_shmdt_fentry)
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMDT_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+SEC("fentry/netdata_shmctl")
+int BPF_PROG(netdata_shmctl_fentry)
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMCTL_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
 char _license[] SEC("license") = "GPL";
 

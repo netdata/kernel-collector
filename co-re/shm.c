@@ -16,6 +16,12 @@
 
 #include "shm.skel.h"
 
+char *syscalls[NETDATA_SHM_END] = { "__x64_sys_shmget",
+                                    "__x64_sys_shmat",
+                                    "__x64_sys_shmdt",
+                                    "__x64_sys_shmctl"
+                                    };
+
 static void ebpf_disable_tracepoint(struct shm_bpf *obj)
 {
     bpf_program__set_autoload(obj->progs.netdata_syscall_shmget, false);
@@ -32,14 +38,16 @@ static void ebpf_disable_kprobe(struct shm_bpf *obj)
     bpf_program__set_autoload(obj->progs.netdata_shmctl_probe, false);
 }
 
+static void ebpf_disable_trampoline(struct shm_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_shmget_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_shmat_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_shmdt_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_shmctl_fentry, false);
+}
+
 static int ebpf_attach_kprobe(struct shm_bpf *obj)
 {
-    char *syscalls[NETDATA_SHM_END] = { "__x64_sys_shmget",
-                                        "__x64_sys_shmat",
-                                        "__x64_sys_shmdt",
-                                        "__x64_sys_shmctl"
-                                        };
-
     obj->links.netdata_shmget_probe = bpf_program__attach_kprobe(obj->progs.netdata_shmget_probe,
                                                                  false, syscalls[NETDATA_KEY_SHMGET_CALL]);
     int ret = libbpf_get_error(obj->links.netdata_shmget_probe);
@@ -67,15 +75,35 @@ static int ebpf_attach_kprobe(struct shm_bpf *obj)
     return 0;
 }
 
+static void ebpf_set_trampoline_target(struct shm_bpf *obj)
+{
+    bpf_program__set_attach_target(obj->progs.netdata_shmget_fentry, 0,
+                                   syscalls[NETDATA_KEY_SHMGET_CALL]);
+
+    bpf_program__set_attach_target(obj->progs.netdata_shmat_fentry, 0,
+                                   syscalls[NETDATA_KEY_SHMAT_CALL]);
+
+    bpf_program__set_attach_target(obj->progs.netdata_shmdt_fentry, 0,
+                                   syscalls[NETDATA_KEY_SHMDT_CALL]);
+
+    bpf_program__set_attach_target(obj->progs.netdata_shmctl_fentry, 0,
+                                   syscalls[NETDATA_KEY_SHMCTL_CALL]);
+
+}
+
 static inline int ebpf_load_and_attach(struct shm_bpf *obj, int selector)
 {
     if (!selector) { // trampoline
         ebpf_disable_tracepoint(obj);
         ebpf_disable_kprobe(obj);
+
+        ebpf_set_trampoline_target(obj);
     } else if (selector == 1) { // kprobe
         ebpf_disable_tracepoint(obj);
+        ebpf_disable_trampoline(obj);
     } else { // tracepoint
         ebpf_disable_kprobe(obj);
+        ebpf_disable_trampoline(obj);
     }
 
     int ret = shm_bpf__load(obj);
