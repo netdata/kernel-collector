@@ -13,6 +13,14 @@
 #include <bpf/libbpf.h>
 #include <bpf/btf.h>
 
+enum netdata_user_controller {
+    NETDATA_CONTROLLER_APPS_ENABLED,
+
+    NETDATA_CONTROLLER_END
+};
+
+// Use __always_inline instead inline to keep compatiblity with old kernels
+
 static inline int netdata_ebf_memlock_limit(void)
 {
     struct rlimit r = { RLIM_INFINITY, RLIM_INFINITY };
@@ -93,6 +101,16 @@ static inline char *ebpf_select_type(int selector)
 
     return NULL;
 }
+
+static inline void update_controller_table(int fd)
+{
+    uint32_t key = NETDATA_CONTROLLER_APPS_ENABLED;
+    uint32_t value = 1;
+    int ret = bpf_map_update_elem(fd, &key, &value, 0);
+    if (ret)
+        fprintf(stderr, "Cannot insert value to control table.");
+}
+
 
 #endif /* _NETDATA_TESTS_H_ */
 

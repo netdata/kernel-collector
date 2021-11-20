@@ -16,6 +16,7 @@ _LIBC ?= glibc
 
 APPS = filesystem \
        mount \
+       shm \
        sync \
        #
 
