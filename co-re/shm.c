@@ -194,6 +194,31 @@ static int shm_read_global_array(int fd, int ebpf_nprocs)
     return 2;
 }
 
+static int shm_read_apps_array(int fd, int ebpf_nprocs)
+{
+    netdata_shm_t *stored = calloc((size_t)ebpf_nprocs, sizeof(netdata_shm_t));
+    if (!stored)
+        return 2;
+
+    uint32_t idx = (uint32_t) getpid();
+    uint64_t counter = 0;
+    if (!bpf_map_lookup_elem(fd, &idx, stored)) {
+        int j;
+        for (j = 0; j < ebpf_nprocs; j++) {
+            counter += (stored[j].get + stored[j].at + stored[j].dt +stored[j].ctl);
+        }
+    }
+
+    free(stored);
+
+    if (counter >= 4) {
+        fprintf(stdout, "Apps data stored with success\n");
+        return 0;
+    }
+
+    return 2;
+}
+
 int ebpf_shm_tests(int selector)
 {
     struct shm_bpf *obj = NULL;
@@ -212,8 +237,12 @@ int ebpf_shm_tests(int selector)
         update_controller_table(fd);
         ret = call_syscalls();
         if (!ret) {
-            int fd = bpf_map__fd(obj->maps.tbl_shm);
+            fd = bpf_map__fd(obj->maps.tbl_shm);
             ret = shm_read_global_array(fd, ebpf_nprocs);
+            if (!ret) {
+                fd = bpf_map__fd(obj->maps.tbl_pid_shm);
+                ret = shm_read_apps_array(fd, ebpf_nprocs);
+            }
         }
     }
 

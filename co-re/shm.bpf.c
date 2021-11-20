@@ -38,6 +38,49 @@ struct {
  *
  ***********************************************************************************/
 
+static inline void netdata_update_stored_data(netdata_shm_t *data, __u32 selector)
+{
+    // we are using if/else if instead switch to avoid warnings
+    if (selector == NETDATA_KEY_SHMGET_CALL)
+        libnetdata_update_u64(&data->get, 1);
+    else if (selector == NETDATA_KEY_SHMAT_CALL)
+        libnetdata_update_u64(&data->at, 1);
+    else if (selector == NETDATA_KEY_SHMDT_CALL)
+        libnetdata_update_u64(&data->dt, 1);
+    else if (selector == NETDATA_KEY_SHMCTL_CALL)
+        libnetdata_update_u64(&data->ctl, 1);
+}
+
+static inline void netdata_set_structure_value(netdata_shm_t *data, __u32 selector)
+{
+    // we are using if/else if instead switch to avoid warnings
+    if (selector == NETDATA_KEY_SHMGET_CALL)
+        data->get = 1;
+    else if (selector == NETDATA_KEY_SHMAT_CALL)
+        data->at = 1;
+    else if (selector == NETDATA_KEY_SHMDT_CALL)
+        data->dt = 1;
+    else if (selector == NETDATA_KEY_SHMCTL_CALL)
+        data->ctl = 1;
+}
+
+static inline int netdata_update_apps(__u32 idx)
+{
+    netdata_shm_t data = {};
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 key = (__u32)(pid_tgid >> 32);
+    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    if (fill) {
+        netdata_update_stored_data(fill, idx);
+    } else {
+        netdata_set_structure_value(&data, idx);
+        bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
+    }
+
+    return 0;
+}
+
 static inline int netdata_global_apps_shm(__u32 idx)
 {
     libnetdata_update_global(&tbl_shm, idx, 1);
@@ -60,7 +103,7 @@ static inline int netdata_ebpf_common_shmget()
     if (!store_apps)
         return 0;
 
-    return 0;
+    return netdata_update_apps(NETDATA_KEY_SHMGET_CALL);
 }
 
 static inline int netdata_ebpf_common_shmat()
@@ -69,7 +112,7 @@ static inline int netdata_ebpf_common_shmat()
     if (!store_apps)
         return 0;
 
-    return 0;
+    return netdata_update_apps(NETDATA_KEY_SHMAT_CALL);
 }
 
 static inline int netdata_ebpf_common_shmdt()
@@ -78,7 +121,7 @@ static inline int netdata_ebpf_common_shmdt()
     if (!store_apps)
         return 0;
 
-    return 0;
+    return netdata_update_apps(NETDATA_KEY_SHMDT_CALL);
 }
 
 static inline int netdata_ebpf_common_shmctl()
@@ -87,7 +130,7 @@ static inline int netdata_ebpf_common_shmctl()
     if (!store_apps)
         return 0;
 
-    return 0;
+    return netdata_update_apps(NETDATA_KEY_SHMCTL_CALL);
 }
 
 /************************************************************************************
