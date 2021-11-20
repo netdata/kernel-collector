@@ -54,6 +54,42 @@ static inline int netdata_global_apps_shm(__u32 idx)
     return 1;
 }
 
+static inline int netdata_ebpf_common_shmget()
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMGET_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+static inline int netdata_ebpf_common_shmat()
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMAT_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+static inline int netdata_ebpf_common_shmdt()
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMDT_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
+static inline int netdata_ebpf_common_shmctl()
+{
+    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMCTL_CALL);
+    if (!store_apps)
+        return 0;
+
+    return 0;
+}
+
 /************************************************************************************
  *
  *                     SHARED MEMORY (tracepoint)
@@ -63,41 +99,25 @@ static inline int netdata_global_apps_shm(__u32 idx)
 SEC("tracepoint/syscalls/sys_enter_shmget")
 int netdata_syscall_shmget(struct trace_event_raw_sys_enter *arg)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMGET_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmget();
 }
 
 SEC("tracepoint/syscalls/sys_enter_shmat")
 int netdata_syscall_shmat(struct trace_event_raw_sys_enter *arg)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMAT_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmat();
 }
 
 SEC("tracepoint/syscalls/sys_enter_shmdt")
 int netdata_syscall_shmdt(struct trace_event_raw_sys_enter *arg)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMDT_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmdt();
 }
 
 SEC("tracepoint/syscalls/sys_enter_shmctl")
 int netdata_syscall_shmctl(struct trace_event_raw_sys_enter *arg)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMCTL_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmctl();
 }
 
 /************************************************************************************
@@ -109,41 +129,25 @@ int netdata_syscall_shmctl(struct trace_event_raw_sys_enter *arg)
 SEC("kprobe/netdata_shmget_probe")
 int BPF_KPROBE(netdata_shmget_probe)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMGET_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmget();
 }
 
 SEC("kprobe/netdata_shmat_probe")
 int BPF_KPROBE(netdata_shmat_probe)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMAT_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmat();
 }
 
 SEC("kprobe/netdata_shmdt_probe")
 int BPF_KPROBE(netdata_shmdt_probe)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMDT_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmdt();
 }
 
 SEC("kprobe/netdata_shmctl_probe")
 int BPF_KPROBE(netdata_shmctl_probe)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMCTL_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmctl();
 }
 
 /************************************************************************************
@@ -155,41 +159,25 @@ int BPF_KPROBE(netdata_shmctl_probe)
 SEC("fentry/netdata_shmget")
 int BPF_PROG(netdata_shmget_fentry)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMGET_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmget();
 }
 
 SEC("fentry/netdata_shmat")
 int BPF_PROG(netdata_shmat_fentry)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMAT_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmat();
 }
 
 SEC("fentry/netdata_shmdt")
 int BPF_PROG(netdata_shmdt_fentry)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMDT_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmdt();
 }
 
 SEC("fentry/netdata_shmctl")
 int BPF_PROG(netdata_shmctl_fentry)
 {
-    int store_apps = netdata_global_apps_shm(NETDATA_KEY_SHMCTL_CALL);
-    if (!store_apps)
-        return 0;
-
-    return 0;
+    return netdata_ebpf_common_shmctl();
 }
 
 char _license[] SEC("license") = "GPL";
