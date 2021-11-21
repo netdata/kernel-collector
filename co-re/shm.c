@@ -219,11 +219,29 @@ static int shm_read_apps_array(int fd, int ebpf_nprocs)
     return 2;
 }
 
-int ebpf_shm_tests(int selector)
+static int ebpf_find_functions(struct btf *bf, int selector)
+{
+    if (!bf)
+        return selector;
+
+    uint32_t i;
+    for (i = 0; i < NETDATA_SHM_END; i++) {
+        if (ebpf_find_function_id(bf, syscalls[i]) < 0 ) {
+            fprintf(stderr, "Cannot find function %s\n", syscalls[i]);
+            selector = NETDATA_MODE_PROBE;
+            break;
+        }
+    }
+
+    return selector;
+}
+
+int ebpf_shm_tests(struct btf *bf, int selector)
 {
     struct shm_bpf *obj = NULL;
     int ebpf_nprocs = (int)sysconf(_SC_NPROCESSORS_ONLN);
 
+    selector = ebpf_find_functions(bf, selector);
     obj = shm_bpf__open();
     if (!obj) {
         fprintf(stderr, "Cannot open or load BPF object\n");
@@ -262,7 +280,7 @@ int main(int argc, char **argv)
     };
 
     // use trampoline as default
-    int selector = 0;
+    int selector = NETDATA_MODE_TRAMPOLINE;
     int option_index = 0;
     while (1) {
         int c = getopt_long(argc, argv, "", long_options, &option_index);
@@ -275,15 +293,15 @@ int main(int argc, char **argv)
                           exit(0);
                       }
             case 'p': {
-                          selector = 1;
+                          selector = NETDATA_MODE_PROBE;
                           break;
                       }
             case 'r': {
-                          selector = 2;
+                          selector = NETDATA_MODE_TRACEPOINT;
                           break;
                       }
             case 't': {
-                          selector = 0;
+                          selector = NETDATA_MODE_TRAMPOLINE;
                           break;
                       }
             default: {
@@ -304,7 +322,7 @@ int main(int argc, char **argv)
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);
     }
 
-    ret = ebpf_shm_tests(selector);
+    ret = ebpf_shm_tests(bf, selector);
 
     if (bf)
         btf__free(bf);

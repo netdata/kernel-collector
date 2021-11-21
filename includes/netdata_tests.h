@@ -54,6 +54,13 @@ static inline const struct btf_type *netdata_find_bpf_attach_type(struct btf *bf
     return btf__type_by_id(bf, id);
 }
 
+enum netdata_modes {
+    NETDATA_MODE_TRAMPOLINE,
+    NETDATA_MODE_PROBE,
+    NETDATA_MODE_TRACEPOINT
+};
+
+
 static inline void ebpf_print_help(char *name, char *info, int has_trampoline) {
     fprintf(stdout, "%s tests if it is possible to monitor %s on host\n\n"
                     "The following options are available:\n\n"
