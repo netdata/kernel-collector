@@ -17,11 +17,11 @@
 #include "mount.skel.h"
 
 
+char *mount_syscall = { "__x64_sys_mount" };
+char *umount_syscall = { "__x64_sys_umount" };
+
 static int attach_probe(struct mount_bpf *obj)
 {
-    char *mount_syscall = { "__x64_sys_mount" };
-    char *umount_syscall = { "__x64_sys_umount" };
-
     obj->links.netdata_mount_probe = bpf_program__attach_kprobe(obj->progs.netdata_mount_probe,
                                                                 false, mount_syscall);
     int ret = libbpf_get_error(obj->links.netdata_mount_probe);
@@ -49,16 +49,56 @@ static int attach_probe(struct mount_bpf *obj)
     return 0;
 }
 
+static inline void netdata_ebpf_disable_probe(struct mount_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_mount_probe, false);
+    bpf_program__set_autoload(obj->progs.netdata_mount_retprobe, false);
+    bpf_program__set_autoload(obj->progs.netdata_umount_probe, false);
+    bpf_program__set_autoload(obj->progs.netdata_umount_retprobe, false);
+}
+
+static inline void netdata_ebpf_disable_tracepoint(struct mount_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_mount_exit, false);
+    bpf_program__set_autoload(obj->progs.netdata_umount_exit, false);
+}
+
+static inline void netdata_ebpf_disable_trampoline(struct mount_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_mount_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_umount_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_mount_fexit, false);
+    bpf_program__set_autoload(obj->progs.netdata_umount_fexit, false);
+}
+
+static inline void netdata_set_trampoline_target(struct mount_bpf *obj)
+{
+    bpf_program__set_attach_target(obj->progs.netdata_mount_fentry, 0,
+                                   mount_syscall);
+
+    bpf_program__set_attach_target(obj->progs.netdata_mount_fexit, 0,
+                                   mount_syscall);
+
+    bpf_program__set_attach_target(obj->progs.netdata_umount_fentry, 0,
+                                   umount_syscall);
+
+    bpf_program__set_attach_target(obj->progs.netdata_umount_fexit, 0,
+                                   umount_syscall);
+}
+
 static inline int ebpf_load_and_attach(struct mount_bpf *obj, int selector)
 {
-    if (selector) { // tracepoint
-        bpf_program__set_autoload(obj->progs.netdata_mount_probe, false);
-        bpf_program__set_autoload(obj->progs.netdata_mount_retprobe, false);
-        bpf_program__set_autoload(obj->progs.netdata_umount_probe, false);
-        bpf_program__set_autoload(obj->progs.netdata_umount_retprobe, false);
-    } else {
-        bpf_program__set_autoload(obj->progs.netdata_mount_fexit, false);
-        bpf_program__set_autoload(obj->progs.netdata_umount_fexit, false);
+    if (!selector) { //trampoline
+        netdata_ebpf_disable_probe(obj);
+        netdata_ebpf_disable_tracepoint(obj);
+
+        netdata_set_trampoline_target(obj);
+    } else if (selector == 1) { // probe
+        netdata_ebpf_disable_trampoline(obj);
+        netdata_ebpf_disable_tracepoint(obj);
+    } else { // tracepoint
+        netdata_ebpf_disable_probe(obj);
+        netdata_ebpf_disable_trampoline(obj);
     }
 
     int ret = mount_bpf__load(obj);
@@ -67,10 +107,10 @@ static inline int ebpf_load_and_attach(struct mount_bpf *obj, int selector)
         return -1;
     }
 
-    if (selector)
-        ret = mount_bpf__attach(obj);
-    else {
+    if (selector == 1) // attach kprobe
         ret = attach_probe(obj);
+    else {
+        ret = mount_bpf__attach(obj);
     }
 
     if (!ret) {
@@ -158,6 +198,7 @@ int main(int argc, char **argv)
         {"help",        no_argument,    0,  'h' },
         {"probe",       no_argument,    0,  'p' },
         {"tracepoint",  no_argument,    0,  'r' },
+        {"trampoline",  no_argument,    0,  't' },
         {0, 0, 0, 0}
     };
 
@@ -170,15 +211,19 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'h': {
-                          ebpf_print_help(argv[0], "mount", 0);
+                          ebpf_print_help(argv[0], "mount", 1);
                           exit(0);
                       }
             case 'p': {
-                          selector = 0;
+                          selector = 1;
                           break;
                       }
             case 'r': {
-                          selector = 1;
+                          selector = 2;
+                          break;
+                      }
+            case 't': {
+                          selector = 0;
                           break;
                       }
             default: {

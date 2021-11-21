@@ -20,12 +20,12 @@ struct {
 
 /************************************************************************************
  *
- *                     MOUNT SECTION (trampoline)
+ *                     MOUNT SECTION (tracepoint)
  *
  ***********************************************************************************/
 
 SEC("tracepoint/syscalls/sys_exit_mount")
-int netdata_mount_fexit(struct trace_event_raw_sys_exit *arg)
+int netdata_mount_exit(struct trace_event_raw_sys_exit *arg)
 {
     libnetdata_update_global(&tbl_mount, NETDATA_KEY_MOUNT_CALL, 1);
 
@@ -37,7 +37,7 @@ int netdata_mount_fexit(struct trace_event_raw_sys_exit *arg)
 }
 
 SEC("tracepoint/syscalls/sys_exit_umount")
-int netdata_umount_fexit(struct trace_event_raw_sys_exit *arg)
+int netdata_umount_exit(struct trace_event_raw_sys_exit *arg)
 {
     libnetdata_update_global(&tbl_mount, NETDATA_KEY_UMOUNT_CALL, 1);
 
@@ -86,6 +86,50 @@ int BPF_KRETPROBE(netdata_umount_retprobe)
     int ret = (int)PT_REGS_RC(ctx);
     if (ret < 0)
         libnetdata_update_global(&tbl_mount, NETDATA_KEY_UMOUNT_ERROR, 1);
+
+    return 0;
+}
+
+/************************************************************************************
+ *
+ *                     MOUNT SECTION (trampoline)
+ *
+ ***********************************************************************************/
+
+SEC("fentry/netdata_mount")
+int BPF_PROG(netdata_mount_fentry)
+{
+    libnetdata_update_global(&tbl_mount, NETDATA_KEY_MOUNT_CALL, 1);
+
+    return 0;
+}
+
+SEC("fexit/netdata_mount")
+int BPF_PROG(netdata_mount_fexit, int ret)
+{
+    /*
+    if (ret < 0)
+        libnetdata_update_global(&tbl_mount, NETDATA_KEY_MOUNT_ERROR, 1);
+        */
+
+    return 0;
+}
+
+SEC("fentry/netdata_umount")
+int BPF_PROG(netdata_umount_fentry)
+{
+    libnetdata_update_global(&tbl_mount, NETDATA_KEY_UMOUNT_CALL, 1);
+
+    return 0;
+}
+
+SEC("fexit/netdata_umount")
+int BPF_PROG(netdata_umount_fexit, int ret)
+{
+    /*
+    if (ret < 0)
+        libnetdata_update_global(&tbl_mount, NETDATA_KEY_UMOUNT_ERROR, 1);
+        */
 
     return 0;
 }
