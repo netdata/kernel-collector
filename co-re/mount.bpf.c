@@ -105,12 +105,11 @@ int BPF_PROG(netdata_mount_fentry)
 }
 
 SEC("fexit/netdata_mount")
-int BPF_PROG(netdata_mount_fexit, int ret)
+int BPF_PROG(netdata_mount_fexit, const struct pt_regs *regs)
 {
-    /*
+    int ret = (int)PT_REGS_RC(regs);
     if (ret < 0)
         libnetdata_update_global(&tbl_mount, NETDATA_KEY_MOUNT_ERROR, 1);
-        */
 
     return 0;
 }
@@ -124,12 +123,11 @@ int BPF_PROG(netdata_umount_fentry)
 }
 
 SEC("fexit/netdata_umount")
-int BPF_PROG(netdata_umount_fexit, int ret)
+int BPF_PROG(netdata_umount_fexit, const struct pt_regs *regs)
 {
-    /*
+    int ret = (int)PT_REGS_RC(regs);
     if (ret < 0)
         libnetdata_update_global(&tbl_mount, NETDATA_KEY_UMOUNT_ERROR, 1);
-        */
 
     return 0;
 }
