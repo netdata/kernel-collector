@@ -60,7 +60,6 @@ enum netdata_modes {
     NETDATA_MODE_TRACEPOINT
 };
 
-
 static inline void ebpf_print_help(char *name, char *info, int has_trampoline) {
     fprintf(stdout, "%s tests if it is possible to monitor %s on host\n\n"
                     "The following options are available:\n\n"
@@ -118,6 +117,22 @@ static inline void update_controller_table(int fd)
         fprintf(stderr, "Cannot insert value to control table.");
 }
 
+static inline int ebpf_find_functions(struct btf *bf, int selector, char *syscalls[], uint32_t end)
+{
+    if (!bf)
+        return selector;
+
+    uint32_t i;
+    for (i = 0; i < end; i++) {
+        if (ebpf_find_function_id(bf, syscalls[i]) < 0 ) {
+            fprintf(stderr, "Cannot find function %s\n", syscalls[i]);
+            selector = NETDATA_MODE_PROBE;
+            break;
+        }
+    }
+
+    return selector;
+}
 
 #endif /* _NETDATA_TESTS_H_ */
 

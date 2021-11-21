@@ -16,32 +16,38 @@
 
 #include "mount.skel.h"
 
+enum netdata_mount_syscalls {
+    NETDATA_MOUNT_SYSCALL,
+    NETDATA_UMOUNT_SYSCALL,
 
-char *mount_syscall = { "__x64_sys_mount" };
-char *umount_syscall = { "__x64_sys_umount" };
+    NETDATA_MOUNT_SYSCALLS_END
+};
+
+char *syscalls[] = { "__x64_sys_mount",
+                     "__x64_sys_umount" };
 
 static int attach_probe(struct mount_bpf *obj)
 {
     obj->links.netdata_mount_probe = bpf_program__attach_kprobe(obj->progs.netdata_mount_probe,
-                                                                false, mount_syscall);
+                                                                false, syscalls[NETDATA_MOUNT_SYSCALL]);
     int ret = libbpf_get_error(obj->links.netdata_mount_probe);
     if (ret)
         return -1;
 
     obj->links.netdata_mount_retprobe = bpf_program__attach_kprobe(obj->progs.netdata_mount_retprobe,
-                                                                   true, mount_syscall);
+                                                                   true, syscalls[NETDATA_MOUNT_SYSCALL]);
     ret = libbpf_get_error(obj->links.netdata_mount_retprobe);
     if (ret)
         return -1;
 
     obj->links.netdata_umount_probe = bpf_program__attach_kprobe(obj->progs.netdata_umount_probe,
-                                                                 false, umount_syscall);
+                                                                 false, syscalls[NETDATA_UMOUNT_SYSCALL]);
     ret = libbpf_get_error(obj->links.netdata_umount_probe);
     if (ret)
         return -1;
 
     obj->links.netdata_umount_retprobe = bpf_program__attach_kprobe(obj->progs.netdata_umount_retprobe,
-                                                                    true, mount_syscall);
+                                                                    true, syscalls[NETDATA_UMOUNT_SYSCALL]);
     ret = libbpf_get_error(obj->links.netdata_umount_retprobe);
     if (ret)
         return -1;
@@ -74,16 +80,16 @@ static inline void netdata_ebpf_disable_trampoline(struct mount_bpf *obj)
 static inline void netdata_set_trampoline_target(struct mount_bpf *obj)
 {
     bpf_program__set_attach_target(obj->progs.netdata_mount_fentry, 0,
-                                   mount_syscall);
+                                   syscalls[NETDATA_MOUNT_SYSCALL]);
 
     bpf_program__set_attach_target(obj->progs.netdata_mount_fexit, 0,
-                                   mount_syscall);
+                                   syscalls[NETDATA_MOUNT_SYSCALL]);
 
     bpf_program__set_attach_target(obj->progs.netdata_umount_fentry, 0,
-                                   umount_syscall);
+                                   syscalls[NETDATA_UMOUNT_SYSCALL]);
 
     bpf_program__set_attach_target(obj->progs.netdata_umount_fexit, 0,
-                                   umount_syscall);
+                                   syscalls[NETDATA_UMOUNT_SYSCALL]);
 }
 
 static inline int ebpf_load_and_attach(struct mount_bpf *obj, int selector)
@@ -237,6 +243,13 @@ int main(int argc, char **argv)
     if (ret) {
         fprintf(stderr, "Cannot increase memory: error = %d\n", ret);
         return 1;
+    }
+
+    struct btf *bf = NULL;
+    if (!selector) {
+        bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);
+        if (bf)
+            selector = ebpf_find_functions(bf, selector, syscalls, NETDATA_MOUNT_SYSCALLS_END);
     }
 
     return ebpf_mount_tests(selector);

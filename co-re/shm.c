@@ -219,29 +219,14 @@ static int shm_read_apps_array(int fd, int ebpf_nprocs)
     return 2;
 }
 
-static int ebpf_find_functions(struct btf *bf, int selector)
-{
-    if (!bf)
-        return selector;
-
-    uint32_t i;
-    for (i = 0; i < NETDATA_SHM_END; i++) {
-        if (ebpf_find_function_id(bf, syscalls[i]) < 0 ) {
-            fprintf(stderr, "Cannot find function %s\n", syscalls[i]);
-            selector = NETDATA_MODE_PROBE;
-            break;
-        }
-    }
-
-    return selector;
-}
-
 int ebpf_shm_tests(struct btf *bf, int selector)
 {
     struct shm_bpf *obj = NULL;
     int ebpf_nprocs = (int)sysconf(_SC_NPROCESSORS_ONLN);
 
-    selector = ebpf_find_functions(bf, selector);
+    if (bf)
+        selector = ebpf_find_functions(bf, selector, syscalls, NETDATA_SHM_END);
+
     obj = shm_bpf__open();
     if (!obj) {
         fprintf(stderr, "Cannot open or load BPF object\n");

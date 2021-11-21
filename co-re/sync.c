@@ -25,7 +25,7 @@ enum netdata_sync_enum {
     NETDATA_END_SYNC_ENUM
 };
 
-static char *ebpf_sync_syscall[NETDATA_END_SYNC_ENUM] = {
+static char *ebpf_sync_syscall[] = {
     "__x64_sys_syncfs",
     "__x64_sys_msync",
     "__x64_sys_sync_file_range",
@@ -150,16 +150,9 @@ static int common_fcnt_tests(int fd, int (*fcnt)(int)) {
     return ret;
 }
 
-static int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_enum idx, int selector)
+static int ebpf_fcnt_tests(int (*fcnt)(int), enum netdata_sync_enum idx, int selector)
 {
     struct sync_bpf *obj = NULL;
-
-    if (bf) {
-        if (ebpf_find_function_id(bf, ebpf_sync_syscall[idx]) < 0 ) {
-            fprintf(stderr, "Cannot find function %s\n", ebpf_sync_syscall[idx]);
-            selector = 1;
-        }
-    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -249,16 +242,9 @@ static int msync_tests(int fd) {
     return ret;
 }
 
-static int ebpf_msync_tests(struct btf *bf, int selector)
+static int ebpf_msync_tests(int selector)
 {
     struct sync_bpf *obj = NULL;
-
-    if (bf) {
-        if (ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_MSYNC_SYSCALL]) < 0) {
-            fprintf(stderr, "Cannot find function %s\n", ebpf_sync_syscall[NETDATA_MSYNC_SYSCALL]);
-            selector = 1;
-        }
-    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -327,16 +313,9 @@ static int sync_file_range_tests(int fd) {
     return ret;
 }
 
-static int ebpf_sync_file_range_tests(struct btf *bf, int selector)
+static int ebpf_sync_file_range_tests(int selector)
 {
     struct sync_bpf *obj = NULL;
-
-    if (bf) {
-        if (ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNC_FILE_RANGE_SYSCALL]) < 0) {
-            fprintf(stderr, "Cannot find function %s\n", ebpf_sync_syscall[NETDATA_SYNC_FILE_RANGE_SYSCALL]);
-            selector = 1;
-        }
-    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -421,7 +400,7 @@ int main(int argc, char **argv)
     };
 
     // use trampoline as default
-    int selector = 0;
+    int selector = NETDATA_MODE_TRAMPOLINE;
     int option_index = 0;
     while (1) {
         int c = getopt_long(argc, argv, "", long_options, &option_index);
@@ -434,15 +413,15 @@ int main(int argc, char **argv)
                           exit(0);
                       }
             case 'p': {
-                          selector = 1;
+                          selector = NETDATA_MODE_PROBE;
                           break;
                       }
             case 'r': {
-                          selector = 2;
+                          selector = NETDATA_MODE_TRACEPOINT;
                           break;
                       }
             case 't': {
-                          selector = 0;
+                          selector = NETDATA_MODE_TRAMPOLINE;
                           break;
                       }
             default: {
@@ -461,20 +440,22 @@ int main(int argc, char **argv)
     struct btf *bf = NULL;
     if (!selector) {
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);
+        if (bf)
+            selector = ebpf_find_functions(bf, selector, ebpf_sync_syscall, NETDATA_END_SYNC_ENUM);
     }
 
-    ret = ebpf_fcnt_tests(bf, syncfs, NETDATA_SYNCFS_SYSCALL, selector);
+    ret = ebpf_fcnt_tests(syncfs, NETDATA_SYNCFS_SYSCALL, selector);
     if (!ret)
-        ret = ebpf_msync_tests(bf, selector);
+        ret = ebpf_msync_tests(selector);
 
     if (!ret)
-        ret = ebpf_sync_file_range_tests(bf, selector);
+        ret = ebpf_sync_file_range_tests(selector);
 
     if (!ret)
-        ret = ebpf_fcnt_tests(bf, fsync, NETDATA_FSYNC_SYSCALL, selector);
+        ret = ebpf_fcnt_tests(fsync, NETDATA_FSYNC_SYSCALL, selector);
 
     if (!ret)
-        ret = ebpf_fcnt_tests(bf, fdatasync, NETDATA_FDATASYNC_SYSCALL, selector);
+        ret = ebpf_fcnt_tests(fdatasync, NETDATA_FDATASYNC_SYSCALL, selector);
 
     if (!ret)
         ret = ebpf_test_sync(selector);
