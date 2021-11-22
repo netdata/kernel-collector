@@ -13,6 +13,14 @@
 #include <bpf/libbpf.h>
 #include <bpf/btf.h>
 
+enum netdata_user_controller {
+    NETDATA_CONTROLLER_APPS_ENABLED,
+
+    NETDATA_CONTROLLER_END
+};
+
+// Use __always_inline instead inline to keep compatiblity with old kernels
+
 static inline int netdata_ebf_memlock_limit(void)
 {
     struct rlimit r = { RLIM_INFINITY, RLIM_INFINITY };
@@ -46,14 +54,22 @@ static inline const struct btf_type *netdata_find_bpf_attach_type(struct btf *bf
     return btf__type_by_id(bf, id);
 }
 
-static inline void ebpf_print_help(char *name, char *info) {
+enum netdata_modes {
+    NETDATA_MODE_TRAMPOLINE,
+    NETDATA_MODE_PROBE,
+    NETDATA_MODE_TRACEPOINT
+};
+
+static inline void ebpf_print_help(char *name, char *info, int has_trampoline) {
     fprintf(stdout, "%s tests if it is possible to monitor %s on host\n\n"
                     "The following options are available:\n\n"
                     "--help       (-h): Prints this help.\n"
                     "--probe      (-p): Use probe and do no try to use trampolines (fentry/fexit).\n"
-                    "--trampoline (-t): Try to use trampoline(fentry/fexit). If this is not possible" 
-                    " probes will be used.\n"
+                    "--tracepoint (-r): Use tracepoint.\n"
                     , name, info);
+    if (has_trampoline)
+        fprintf(stdout, "--trampoline (-t): Try to use trampoline(fentry/fexit). If this is not possible" 
+                        " probes will be used.\n");
 }
 
 static inline int ebpf_find_function_id(struct btf *bf, char *name)
@@ -72,6 +88,50 @@ static inline int ebpf_find_function_id(struct btf *bf, char *name)
     }
 
     return id;
+}
+
+static inline char *ebpf_select_type(int selector)
+{
+    switch(selector)
+    {
+        case 0: {
+                    return "trampoline";
+                }
+        case 1: {
+                    return "probe";
+                }
+        case 2: {
+                    return "tracepoint";
+                }
+    }
+
+    return NULL;
+}
+
+static inline void update_controller_table(int fd)
+{
+    uint32_t key = NETDATA_CONTROLLER_APPS_ENABLED;
+    uint32_t value = 1;
+    int ret = bpf_map_update_elem(fd, &key, &value, 0);
+    if (ret)
+        fprintf(stderr, "Cannot insert value to control table.");
+}
+
+static inline int ebpf_find_functions(struct btf *bf, int selector, char *syscalls[], uint32_t end)
+{
+    if (!bf)
+        return selector;
+
+    uint32_t i;
+    for (i = 0; i < end; i++) {
+        if (ebpf_find_function_id(bf, syscalls[i]) < 0 ) {
+            fprintf(stderr, "Cannot find function %s\n", syscalls[i]);
+            selector = NETDATA_MODE_PROBE;
+            break;
+        }
+    }
+
+    return selector;
 }
 
 #endif /* _NETDATA_TESTS_H_ */

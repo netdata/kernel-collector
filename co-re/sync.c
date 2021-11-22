@@ -20,16 +20,18 @@ enum netdata_sync_enum {
     NETDATA_SYNC_FILE_RANGE_SYSCALL,
     NETDATA_FSYNC_SYSCALL,
     NETDATA_FDATASYNC_SYSCALL,
+    NETDATA_SYNC_SYSCALL,
 
     NETDATA_END_SYNC_ENUM
 };
 
-static char *ebpf_sync_syscall[NETDATA_END_SYNC_ENUM] = {
+static char *ebpf_sync_syscall[] = {
     "__x64_sys_syncfs",
     "__x64_sys_msync",
     "__x64_sys_sync_file_range",
     "__x64_sys_fsync",
-    "__x64_sys_fdatasync"
+    "__x64_sys_fdatasync",
+    "__x64_sys_sync"
 };
 
 char *filename = { "useless_data.txt" };
@@ -40,14 +42,45 @@ char *filename = { "useless_data.txt" };
  *
  ***************************************************************************************/ 
 
-static inline int ebpf_load_and_attach(struct sync_bpf *obj, int id, char *name)
+static inline void ebpf_disable_local_tracepoints(struct sync_bpf *obj, enum netdata_sync_enum idx)
 {
-    if (id > 0) {
+    if (idx != NETDATA_SYNCFS_SYSCALL )
+        bpf_program__set_autoload(obj->progs.netdata_syncfs_entry, false);
+
+    if (idx != NETDATA_MSYNC_SYSCALL)
+        bpf_program__set_autoload(obj->progs.netdata_msync_entry, false);
+
+    if (idx != NETDATA_SYNC_FILE_RANGE_SYSCALL)
+        bpf_program__set_autoload(obj->progs.netdata_sync_file_range_entry, false);
+
+    if (idx != NETDATA_FSYNC_SYSCALL)
+        bpf_program__set_autoload(obj->progs.netdata_fsync_entry, false);
+
+    if (idx != NETDATA_FDATASYNC_SYSCALL)
+        bpf_program__set_autoload(obj->progs.netdata_fdatasync_entry, false);
+
+    if (idx != NETDATA_SYNC_SYSCALL)
+        bpf_program__set_autoload(obj->progs.netdata_sync_entry, false);
+}
+
+static inline int ebpf_load_and_attach(struct sync_bpf *obj, int selector, enum netdata_sync_enum idx)
+{
+    char *name = ebpf_sync_syscall[idx];
+    if (!selector) { // trampoline
         bpf_program__set_autoload(obj->progs.netdata_sync_kprobe, false);
+        ebpf_disable_local_tracepoints(obj, NETDATA_END_SYNC_ENUM);
+
         bpf_program__set_attach_target(obj->progs.netdata_sync_fentry, 0,
                                        name);
-    } else {
+    } else if (selector == 1) { // kprobe
+        ebpf_disable_local_tracepoints(obj, NETDATA_END_SYNC_ENUM);
+
         bpf_program__set_autoload(obj->progs.netdata_sync_fentry, false);
+    } else { // tracepoint
+        bpf_program__set_autoload(obj->progs.netdata_sync_kprobe, false);
+        bpf_program__set_autoload(obj->progs.netdata_sync_fentry, false);
+
+        ebpf_disable_local_tracepoints(obj, idx);
     }
 
     int ret = sync_bpf__load(obj);
@@ -56,7 +89,7 @@ static inline int ebpf_load_and_attach(struct sync_bpf *obj, int id, char *name)
         return -1;
     }
 
-    if (id > 0)
+    if (selector != 1) // Not kprobe
         ret = sync_bpf__attach(obj);
     else {
         obj->links.netdata_sync_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_sync_kprobe,
@@ -64,8 +97,10 @@ static inline int ebpf_load_and_attach(struct sync_bpf *obj, int id, char *name)
         ret = libbpf_get_error(obj->links.netdata_sync_kprobe);
     }
 
-    if (!ret)
-        fprintf(stdout, "%s: %s loaded with success\n", name, (id > 0) ? "entry" : "probe");
+    if (!ret) {
+        char *method = ebpf_select_type(selector);
+        fprintf(stdout, "%s: %s loaded with success\n", name, method);
+    }
 
      return ret;
 }
@@ -115,14 +150,9 @@ static int common_fcnt_tests(int fd, int (*fcnt)(int)) {
     return ret;
 }
 
-static int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_enum idx)
+static int ebpf_fcnt_tests(int (*fcnt)(int), enum netdata_sync_enum idx, int selector)
 {
     struct sync_bpf *obj = NULL;
-
-    int id = -1;
-    if (bf) {
-        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
-    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -131,7 +161,7 @@ static int ebpf_fcnt_tests(struct btf *bf, int (*fcnt)(int), enum netdata_sync_e
         return 2;
     }
 
-    int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[idx]);
+    int ret = ebpf_load_and_attach(obj, selector, idx);
     if (!ret) {
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = common_fcnt_tests(fd, fcnt);
@@ -212,14 +242,9 @@ static int msync_tests(int fd) {
     return ret;
 }
 
-static int ebpf_msync_tests(struct btf *bf)
+static int ebpf_msync_tests(int selector)
 {
     struct sync_bpf *obj = NULL;
-
-    int id = -1;
-    if (bf) {
-        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
-    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -228,7 +253,7 @@ static int ebpf_msync_tests(struct btf *bf)
         return 3;
     }
 
-    int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[NETDATA_MSYNC_SYSCALL]);
+    int ret = ebpf_load_and_attach(obj, selector, NETDATA_MSYNC_SYSCALL);
     if (!ret) {
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = msync_tests(fd);
@@ -288,14 +313,9 @@ static int sync_file_range_tests(int fd) {
     return ret;
 }
 
-static int ebpf_sync_file_range_tests(struct btf *bf)
+static int ebpf_sync_file_range_tests(int selector)
 {
     struct sync_bpf *obj = NULL;
-
-    int id = -1;
-    if (bf) {
-        id = ebpf_find_function_id(bf, ebpf_sync_syscall[NETDATA_SYNCFS_SYSCALL]);
-    }
 
     obj = sync_bpf__open();
     if (!obj) {
@@ -304,7 +324,7 @@ static int ebpf_sync_file_range_tests(struct btf *bf)
         return 2;
     }
 
-    int ret = ebpf_load_and_attach(obj, id, ebpf_sync_syscall[NETDATA_SYNC_FILE_RANGE_SYSCALL]);
+    int ret = ebpf_load_and_attach(obj, selector, NETDATA_SYNC_FILE_RANGE_SYSCALL);
     if (!ret) {
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = sync_file_range_tests(fd);
@@ -316,16 +336,71 @@ static int ebpf_sync_file_range_tests(struct btf *bf)
     return 0;
 }
 
+/****************************************************************************************
+ *
+ *                              SYNC
+ *
+ ***************************************************************************************/
+
+static int sync_tests(int fd) {
+    sync();
+    sleep(2);
+
+    uint32_t idx = 0;
+    uint64_t stored;
+    int ret;
+    if (!bpf_map_lookup_elem(fd, &idx, &stored)) {
+        if (stored)
+            ret = 0;
+        else {
+            ret = 5;
+            fprintf(stderr, "Invalid data read from hash table");
+        }
+    } else {
+        fprintf(stderr, "Cannot get data from hash table\n");
+        ret = 5;
+    }
+
+    return ret;
+}
+
+static int ebpf_test_sync(int selector)
+{
+    struct sync_bpf *obj = NULL;
+
+    obj = sync_bpf__open();
+    if (!obj) {
+        fprintf(stderr, "Cannot open or load BPF object\n");
+
+        return 5;
+    }
+
+    if (!selector)
+        selector++;
+
+    int ret = ebpf_load_and_attach(obj, selector, NETDATA_SYNC_SYSCALL);
+    if (!ret) {
+        int fd = bpf_map__fd(obj->maps.tbl_sync) ;
+        ret = sync_tests(fd);
+    }
+
+    sync_bpf__destroy(obj);
+
+    return ret;
+}
+
 int main(int argc, char **argv)
 {
     static struct option long_options[] = {
         {"help",        no_argument,    0,  'h' },
         {"probe",       no_argument,    0,  'p' },
+        {"tracepoint",  no_argument,    0,  'r' },
         {"trampoline",  no_argument,    0,  't' },
         {0, 0, 0, 0}
     };
 
-    int selector = 0;
+    // use trampoline as default
+    int selector = NETDATA_MODE_TRAMPOLINE;
     int option_index = 0;
     while (1) {
         int c = getopt_long(argc, argv, "", long_options, &option_index);
@@ -334,16 +409,19 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'h': {
-                          ebpf_print_help(argv[0], "sys_syncfs");
+                          ebpf_print_help(argv[0], "sys_syncfs", 1);
                           exit(0);
                       }
             case 'p': {
-                          selector = -1;
+                          selector = NETDATA_MODE_PROBE;
+                          break;
+                      }
+            case 'r': {
+                          selector = NETDATA_MODE_TRACEPOINT;
                           break;
                       }
             case 't': {
-                          //id is already set to 0
-                          selector = 0;
+                          selector = NETDATA_MODE_TRAMPOLINE;
                           break;
                       }
             default: {
@@ -362,20 +440,25 @@ int main(int argc, char **argv)
     struct btf *bf = NULL;
     if (!selector) {
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);
+        if (bf)
+            selector = ebpf_find_functions(bf, selector, ebpf_sync_syscall, NETDATA_END_SYNC_ENUM);
     }
 
-    ret = ebpf_fcnt_tests(bf, syncfs, NETDATA_SYNCFS_SYSCALL);
+    ret = ebpf_fcnt_tests(syncfs, NETDATA_SYNCFS_SYSCALL, selector);
     if (!ret)
-        ret = ebpf_msync_tests(bf);
+        ret = ebpf_msync_tests(selector);
 
     if (!ret)
-        ret = ebpf_sync_file_range_tests(bf);
+        ret = ebpf_sync_file_range_tests(selector);
 
     if (!ret)
-        ret = ebpf_fcnt_tests(bf, fsync, NETDATA_FSYNC_SYSCALL);
+        ret = ebpf_fcnt_tests(fsync, NETDATA_FSYNC_SYSCALL, selector);
 
     if (!ret)
-        ret = ebpf_fcnt_tests(bf, fdatasync, NETDATA_FDATASYNC_SYSCALL);
+        ret = ebpf_fcnt_tests(fdatasync, NETDATA_FDATASYNC_SYSCALL, selector);
+
+    if (!ret)
+        ret = ebpf_test_sync(selector);
 
     if (bf)
         btf__free(bf);
