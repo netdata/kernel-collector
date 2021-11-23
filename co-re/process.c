@@ -4,6 +4,8 @@
 #include <getopt.h>
 #include <sys/wait.h>
 
+#include <linux/version.h>
+
 #define _GNU_SOURCE         /* See feature_test_macros(7) */
 #define __USE_GNU
 #include <fcntl.h>
@@ -14,17 +16,73 @@
 
 #include "process.skel.h"
 
+static void ebpf_disable_probes(struct process_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_release_task_probe, false);
+    bpf_program__set_autoload(obj->progs.netdata_do_fork_probe, false);
+    bpf_program__set_autoload(obj->progs.netdata_kernel_clone_probe, false);
+}
+
+static void ebpf_disable_tracepoints(struct process_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_clone_exit, false);
+    bpf_program__set_autoload(obj->progs.netdata_clone3_exit, false);
+    bpf_program__set_autoload(obj->progs.netdata_fork_exit, false);
+    bpf_program__set_autoload(obj->progs.netdata_vfork_exit, false);
+}
+
+static void ebpf_disable_trampoline(struct process_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_release_task_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_clone_fexit, false);
+    bpf_program__set_autoload(obj->progs.netdata_clone3_fexit, false);
+}
+
+static void ebpf_set_trampoline_target(struct process_bpf *obj)
+{
+    bpf_program__set_attach_target(obj->progs.netdata_release_task_fentry, 0,
+                                   "release_task");
+
+    bpf_program__set_attach_target(obj->progs.netdata_clone_fexit, 0,
+                                   "__x64_sys_clone");
+
+    bpf_program__set_attach_target(obj->progs.netdata_clone3_fexit, 0,
+                                   "__x64_sys_clone3");
+}
+
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5,3,0))
+// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=8f6ccf6159aed1f04c6d179f61f6fb2691261e84
+static inline void ebpf_disable_clone3(struct process_bpf *obj)
+{
+    bpf_program__set_autoload(obj->progs.netdata_clone3_exit, false);
+    bpf_program__set_autoload(obj->progs.netdata_clone3_fexit, false);
+}
+#endif
+
 static inline int ebpf_load_and_attach(struct process_bpf *obj, int selector)
 {
-    char *release_task = { "release_task" };
     if (!selector) { // trampoline
-        bpf_program__set_autoload(obj->progs.netdata_release_task_probe, false);
+        ebpf_disable_probes(obj);
+        ebpf_disable_tracepoints(obj);
 
-        bpf_program__set_attach_target(obj->progs.netdata_release_task_fentry, 0,
-                                       release_task);
-    } else { 
-        bpf_program__set_autoload(obj->progs.netdata_release_task_fentry, false);
+        ebpf_set_trampoline_target(obj);
+    } else if (selector == NETDATA_MODE_PROBE) {  // kprobe
+        ebpf_disable_tracepoints(obj);
+        ebpf_disable_trampoline(obj);
+
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5,9,16))
+    bpf_program__set_autoload(obj->progs.netdata_kernel_clone_probe, false);
+#else
+    bpf_program__set_autoload(obj->progs.netdata_do_fork_probe, false);
+#endif        
+    } else { // tracepoint
+        ebpf_disable_probes(obj);
+        ebpf_disable_trampoline(obj);
     }
+
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5,3,0))
+    ebpf_disable_clone3(obj);
+#endif
 
     int ret = process_bpf__load(obj);
     if (ret) {
@@ -48,7 +106,7 @@ static pid_t ebpf_create_threads()
         perror("Fork");
         return 0;
     } else if (!pid) {
-        fprintf(stdout, "I'm the child\n");
+        fprintf(stdout, "I'm the child.\n");
         sleep(1);
         exit(0);
     } else {
