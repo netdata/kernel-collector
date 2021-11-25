@@ -101,20 +101,14 @@ static inline int ebpf_load_and_attach(struct process_bpf *obj, int selector)
 
 static pid_t ebpf_update_tables(int global, int apps)
 {
-    pid_t pid = getpid();
-    uint32_t idx = 0;
-    uint64_t value = 1;
-
-    int ret = bpf_map_update_elem(global, &idx, &value, 0);
-    if (ret)
-        fprintf(stderr, "Cannot insert value to global table.");
+    pid_t pid = ebpf_fill_global(global);
 
     struct netdata_pid_stat_t stats = { .pid = pid, .pid_tgid = pid, .exit_call = 1, .release_call = 1,
                                         .create_process = 1, .create_thread = 1, .task_err = 1, 
                                         .removeme = 0 };
 
-    idx = (pid_t)pid;
-    ret = bpf_map_update_elem(apps, &idx, &stats, 0);
+    uint32_t idx = (uint32_t)pid;
+    int ret = bpf_map_update_elem(apps, &idx, &stats, 0);
     if (ret)
         fprintf(stderr, "Cannot insert value to global table.");
 

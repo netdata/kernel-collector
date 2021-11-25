@@ -21,6 +21,7 @@ APPS = cachestat \
        mount \
        process \
        shm \
+       swap \
        sync \
        #
 

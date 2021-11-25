@@ -5,6 +5,7 @@
 
 #define NETDATA_BTF_FILE "/sys/kernel/btf/vmlinux"
 
+#include <unistd.h>
 #include <sys/resource.h>
 #include <linux/version.h>
 
@@ -162,6 +163,19 @@ static inline int ebpf_read_global_array(int fd, int ebpf_nprocs, uint32_t end)
     }
 
     return 2;
+}
+
+static inline pid_t ebpf_fill_global(int fd)
+{
+    pid_t pid = getpid();
+    uint32_t idx = 0;
+    uint64_t value = 1;
+
+    int ret = bpf_map_update_elem(fd, &idx, &value, 0);
+    if (ret)
+        fprintf(stderr, "Cannot insert value to global table.");
+
+    return pid;
 }
 
 #endif /* _NETDATA_TESTS_H_ */
