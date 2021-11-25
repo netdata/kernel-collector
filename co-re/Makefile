@@ -17,6 +17,7 @@ RUNNING_VERSION_CODE=$(shell echo $$(( $(VER_MAJOR) * 65536 + $(VER_MINOR) * 256
 _LIBC ?= glibc
 
 APPS = cachestat \
+       dc \
        filesystem \
        mount \
        process \
