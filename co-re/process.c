@@ -99,20 +99,24 @@ static inline int ebpf_load_and_attach(struct process_bpf *obj, int selector)
     return ret;
 }
 
-static pid_t ebpf_create_threads()
+static pid_t ebpf_update_tables(int global, int apps)
 {
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("Fork");
-        return 0;
-    } else if (!pid) {
-        fprintf(stdout, "I'm the child.\n");
-        sleep(1);
-        exit(0);
-    } else {
-        fprintf(stdout, "I'm a proud dad!\n");
-        wait(NULL);
-    }
+    pid_t pid = getpid();
+    uint32_t idx = 0;
+    uint64_t value = 1;
+
+    int ret = bpf_map_update_elem(global, &idx, &value, 0);
+    if (ret)
+        fprintf(stderr, "Cannot insert value to global table.");
+
+    struct netdata_pid_stat_t stats = { .pid = pid, .pid_tgid = pid, .exit_call = 1, .release_call = 1,
+                                        .create_process = 1, .create_thread = 1, .task_err = 1, 
+                                        .removeme = 0 };
+
+    idx = (pid_t)pid;
+    ret = bpf_map_update_elem(apps, &idx, &stats, 0);
+    if (ret)
+        fprintf(stderr, "Cannot insert value to global table.");
 
     return pid;
 }
@@ -172,16 +176,19 @@ static int ebpf_process_tests(int selector)
         int fd = bpf_map__fd(obj->maps.process_ctrl);
         update_controller_table(fd);
 
-        pid_t child = ebpf_create_threads();
+        fd = bpf_map__fd(obj->maps.tbl_total_stats);
+        int fd2 = bpf_map__fd(obj->maps.tbl_pid_stats);
+        pid_t my_pid = ebpf_update_tables(fd, fd2);
         // Wait data from more processes
         sleep(10);
 
-        fd = bpf_map__fd(obj->maps.tbl_total_stats);
         ret =  ebpf_read_global_array(fd, ebpf_nprocs, NETDATA_GLOBAL_COUNTER);
         if (!ret) {
-            fd = bpf_map__fd(obj->maps.tbl_pid_stats);
-            ret = process_read_apps_array(fd, ebpf_nprocs, (uint32_t)child);
-        }
+            ret = process_read_apps_array(fd2, ebpf_nprocs, (uint32_t)my_pid);
+            if (ret)
+                fprintf(stderr, "Cannot read apps table\n");
+        } else
+            fprintf(stderr, "Cannot read global table\n");
     }
 
     process_bpf__destroy(obj);
