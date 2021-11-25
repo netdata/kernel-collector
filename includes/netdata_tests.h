@@ -157,6 +157,8 @@ static inline int ebpf_read_global_array(int fd, int ebpf_nprocs, uint32_t end)
 
     free(stored);
 
+    // Some testers store only one value, so for every value different of zero
+    // the result will be successful
     if (counter) {
         fprintf(stdout, "Global data stored with success\n");
         return 0;
