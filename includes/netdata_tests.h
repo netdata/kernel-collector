@@ -134,5 +134,35 @@ static inline int ebpf_find_functions(struct btf *bf, int selector, char *syscal
     return selector;
 }
 
+static inline int ebpf_read_global_array(int fd, int ebpf_nprocs, uint32_t end)
+{
+    uint64_t *stored = calloc((size_t)ebpf_nprocs, sizeof(uint64_t));
+    if (!stored)
+        return 2;
+
+    size_t length = (size_t)ebpf_nprocs * sizeof(uint64_t);
+    uint32_t idx;
+    uint64_t counter = 0;
+    for (idx = 0; idx < end; idx++) {
+        if (!bpf_map_lookup_elem(fd, &idx, stored)) {
+            int j;
+            for (j = 0; j < ebpf_nprocs; j++) {
+                counter += stored[j];
+            }
+        }
+
+        memset(stored, 0, length);
+    }
+
+    free(stored);
+
+    if (counter >= 4) {
+        fprintf(stdout, "Global data stored with success\n");
+        return 0;
+    }
+
+    return 2;
+}
+
 #endif /* _NETDATA_TESTS_H_ */
 
