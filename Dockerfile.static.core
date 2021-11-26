@@ -1,4 +1,4 @@
-FROM alpine:edge AS build
+FROM alpine:3.15 AS build
 
 #
 # Alpine does not support BTF, so this is frozen until they change the distribution
