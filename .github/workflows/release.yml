@@ -1,5 +1,5 @@
 ---
-# Builds and Releases packages for eBPF to be consumed by NetData Agent
+# Builds and Releases packages for eBPF to be consumed by Netdata Agent
 name: CD
 on:
   push:
