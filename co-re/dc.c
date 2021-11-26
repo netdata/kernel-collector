@@ -54,7 +54,7 @@ static inline int ebpf_load_and_attach(struct dc_bpf *obj, int selector)
         fprintf(stdout, "Directory Cache loaded with success\n");
     }
 
-    return 0;
+    return ret;
 }
 
 static int dc_read_apps_array(int fd, int ebpf_nprocs, uint32_t my_pid)
@@ -124,7 +124,8 @@ static int ebpf_dc_tests(int selector)
                 fprintf(stderr, "Cannot read apps table\n");
         } else
             fprintf(stderr, "Cannot read global table\n");
-    }
+    } else
+        fprintf(stderr ,"%s", NETDATA_CORE_DEFAULT_ERROR);
 
     dc_bpf__destroy(obj);
 

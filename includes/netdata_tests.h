@@ -14,6 +14,9 @@
 #include <bpf/libbpf.h>
 #include <bpf/btf.h>
 
+#define NETDATA_CORE_DEFAULT_ERROR "It was not possible to attach JIT code for your kernel, try another\n" \
+                                    "method or use eBPF programs from ../kernel directory.\n "
+
 enum netdata_user_controller {
     NETDATA_CONTROLLER_APPS_ENABLED,
 
