@@ -13,6 +13,7 @@ The respository has the following directory structure:
   process ends.
 - `co-re`: contains all eBPF programs that utilize eBPF CO-RE (Compile Once -
   Run Everywhere) technology.
+    - `tests`: contains test cases for our eBPF CO-RE programs.
 - `docs`: contains an assortment of documentation related to this repository.
 - `includes`: headers used throughout the project.
 - `kernel`: contains all eBPF programs that don't utilize eBPF CO-RE
@@ -20,8 +21,9 @@ The respository has the following directory structure:
   and we shift fully to CO-RE.
 - `kernel-patches`: contains patches needed to properly compile our legacy
   `kernel/` eBPF programs on some kernel versions.
-- `libbpf`: this is a submodule'd fork of the official `libbpf` package, the
-  user-space side of eBPF system calls.
+- `libbpf`: this is a submodule'd fork of
+  [netdata/libbpf](https://github.com/netdata/libbpf) which is itself a fork of
+  the official `libbpf` package, the user-space side of eBPF system calls.
 - `tools`: scripts used to verify system status before installing eBPF code.
 
 ## Requirements
@@ -128,6 +130,7 @@ After you've got your `kernel/Makefille` properly setup, you can run the
 following command to compile all the eBPF programs:
 
 ```bash
+# build in parallel jobs equal to `nproc` (number of processors)
 $ make -j`nproc`
 ```
 
