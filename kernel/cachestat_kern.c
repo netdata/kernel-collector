@@ -3,6 +3,7 @@
 
 #include <linux/threads.h>
 #include <linux/version.h>
+#include <linux/mm_types.h>
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
 #include "bpf_helpers.h"
@@ -119,6 +120,38 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
     return 0;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+SEC("kprobe/__set_page_dirty")
+int netdata_set_page_dirty(struct pt_regs* ctx)
+{
+    struct page *page = (struct page *)PT_REGS_PARM1(ctx) ;
+    struct address_space *mapping =  _(page->mapping);
+
+    if (!mapping)
+        return 0;
+
+    netdata_cachestat_t *fill, data = {};
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
+
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&cstat_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    fill = bpf_map_lookup_elem(&cstat_pid ,&key);
+    if (fill) {
+        libnetdata_update_u64(&fill->account_page_dirtied, 1);
+    } else {
+        data.account_page_dirtied = 1;
+        bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
+    }
+
+    return 0;
+}
+#else
 SEC("kprobe/account_page_dirtied")
 int netdata_account_page_dirtied(struct pt_regs* ctx)
 {
@@ -143,6 +176,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
 
     return 0;
 }
+#endif
 
 SEC("kprobe/mark_buffer_dirty")
 int netdata_mark_buffer_dirty(struct pt_regs* ctx)
