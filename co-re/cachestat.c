@@ -4,6 +4,10 @@
 #include <getopt.h>
 
 #include <linux/version.h>
+#if LINUX_VERSION_CODE != MY_LINUX_VERSION_CODE
+#undef LINUX_VERSION_CODE
+#define LINUX_VERSION_CODE = MY_LINUX_VERSION_CODE
+#endif
 
 #define _GNU_SOURCE         /* See feature_test_macros(7) */
 #define __USE_GNU
