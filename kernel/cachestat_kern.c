@@ -121,6 +121,9 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+// When kernel 5.15.0 was released the function account_page_dirtied became static
+// https://elixir.bootlin.com/linux/v5.15/source/mm/page-writeback.c#L2441
+// as consequence of this, we are monitoring the function from caller.
 SEC("kprobe/__set_page_dirty")
 int netdata_set_page_dirty(struct pt_regs* ctx)
 {
