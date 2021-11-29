@@ -156,7 +156,7 @@ static inline int ebpf_read_global_array(int fd, int ebpf_nprocs, uint32_t end)
 
     free(stored);
 
-    if (counter >= 4) {
+    if (counter) {
         fprintf(stdout, "Global data stored with success\n");
         return 0;
     }
