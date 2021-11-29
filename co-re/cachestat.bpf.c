@@ -176,5 +176,47 @@ int BPF_KPROBE(netdata_mark_buffer_dirty_kprobe)
     return netdata_common_buffer_dirty();
 }
 
+/************************************************************************************
+ *
+ *                             CACHESTAT Section (Probe)
+ *
+ ***********************************************************************************/
+
+SEC("fentry/add_to_page_cache_lru")
+int BPF_PROG(netdata_add_to_page_cache_lru_fentry)
+{
+    return netdata_common_page_cache_lru();
+}
+
+SEC("fentry/mark_page_accessed")
+int BPF_PROG(netdata_mark_page_accessed_fentry)
+{
+    return netdata_common_page_accessed();
+}
+
+// When kernel 5.15.0 was released the function account_page_dirtied became static
+// https://elixir.bootlin.com/linux/v5.15/source/mm/page-writeback.c#L2441
+// as consequence of this, we are monitoring the function from caller.
+SEC("fentry/__set_page_dirty")
+int BPF_PROG(netdata_set_page_dirty_fentry, struct page *page)
+{
+    if (!page->mapping)
+        return 0;
+
+    return netdata_common_page_dirtied();
+}
+
+SEC("fentry/account_page_dirtied")
+int BPF_PROG(netdata_account_page_dirtied_fentry)
+{
+    return netdata_common_page_dirtied();
+}
+
+SEC("fentry/mark_buffer_dirty")
+int BPF_PROG(netdata_mark_buffer_dirty_fentry)
+{
+    return netdata_common_buffer_dirty();
+}
+
 char _license[] SEC("license") = "GPL";
 

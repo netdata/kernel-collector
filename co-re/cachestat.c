@@ -47,21 +47,47 @@ static inline void netdata_ebpf_disable_specific_probe(struct cachestat_bpf *obj
 
 static inline void netdata_ebpf_disable_trampoline(struct cachestat_bpf *obj)
 {
- //   bpf_program__set_autoload(obj->progs.netdata_mount_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_add_to_page_cache_lru_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_mark_page_accessed_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_mark_buffer_dirty_fentry, false);
+}
+
+static inline void netdata_ebpf_disable_specific_trampoline(struct cachestat_bpf *obj)
+{
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
+    bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_fentry, false);
+#else
+    bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_fentry, false);
+#endif
 }
 
 static inline void netdata_set_trampoline_target(struct cachestat_bpf *obj)
 {
-    /*
-    bpf_program__set_attach_target(obj->progs.netdata_mount_fentry, 0,
-                                   syscalls[NETDATA_MOUNT_SYSCALL]);
-                                   */
+    bpf_program__set_attach_target(obj->progs.netdata_add_to_page_cache_lru_fentry, 0,
+                                   syscalls[NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU]);
+
+    bpf_program__set_attach_target(obj->progs.netdata_mark_page_accessed_fentry, 0,
+                                   syscalls[NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED]);
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
+    bpf_program__set_attach_target(obj->progs.netdata_set_page_dirty_fentry, 0,
+                                   syscalls[NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED]);
+#else
+    bpf_program__set_attach_target(obj->progs.netdata_account_page_dirtied_fentry, 0,
+                                   syscalls[NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED]);
+#endif
+
+    bpf_program__set_attach_target(obj->progs.netdata_mark_buffer_dirty_fentry, 0,
+                                   syscalls[NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY]);
 }
 
 static inline int ebpf_load_and_attach(struct cachestat_bpf *obj, int selector)
 {
     if (!selector) { //trampoline
         netdata_ebpf_disable_probe(obj);
+        netdata_ebpf_disable_specific_trampoline(obj);
 
         netdata_set_trampoline_target(obj);
     } else { // probe
