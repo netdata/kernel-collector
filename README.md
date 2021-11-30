@@ -168,6 +168,5 @@ is according with the following patterns:
 - Create an additional code that is responsible to measure the latency of your
   program.
 - We have the variable NETDATASEL, that selects where the functions will be
-  attached. Be sure that inside your code `0` is associated `kretprobe`, `1` is
-  associated with `kretprobe` and `perf events` and `2` is assoacited with
-  `kprobe`.
+  attached. Be sure that inside your code `0` is associated `kretprobe`, and `2` is assoacited
+  with `kprobe`.

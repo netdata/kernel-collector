@@ -7,14 +7,17 @@ OUTPUT = tests/
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 CLANG_BPF_SYS_INCLUDES = $(shell $(CLANG) -v -E - </dev/null 2>&1 \
 			 | sed -n '/<...> search starts here:/,/End of search list./{ s| \(/.*\)|-idirafter \1|p }') 
-KERNEL_VERSION="$(shell if [ -f /usr/src/linux/include/config/kernel.release ]; then cat /usr/src/linux/include/config/kernel.release; else cat /proc/sys/kernel/osrelease; fi)"
+KERNEL_VERSION="$(shell cat /proc/sys/kernel/osrelease)"
 FIRST_KERNEL_VERSION=$(shell sh ../tools/complement.sh "$(KERNEL_VERSION)")
 VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
 VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
+VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
+RUNNING_VERSION_CODE=$(shell echo $$(( $(VER_MAJOR) * 65536 + $(VER_MINOR) * 256 + $(VER_PATCH) )) )
 
 _LIBC ?= glibc
 
-APPS = filesystem \
+APPS = cachestat \
+       filesystem \
        mount \
        process \
        shm \
@@ -37,7 +40,7 @@ libbpf:
 $(patsubst %,%.o,$(APPS)): %.o: %.skel.h
 
 %.o: %.c 
-	$(CLANG) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
+	$(CLANG) $(CFLAGS) -DMY_LINUX_VERSION_CODE=$(RUNNING_VERSION_CODE) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
 $(APPS): %: %.o 
 	$(CLANG) $(CFLAGS) -L. $^ -lelf -lz -lbpf -o $(OUTPUT)$@
