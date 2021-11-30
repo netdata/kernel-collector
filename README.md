@@ -186,6 +186,5 @@ program matches the following patterns:
 - Your program must run on all kernels since at least kernel `4.11`.
 - Write some code that's responsible to measure the latency of your program.
 - We have the variable NETDATASEL, that selects where the functions will be
-  attached. Be sure that inside your code `0` is associated with `kretprobe`,
-  `1` is associated with `kretprobe` and `perf events` and `2` is associated
+  attached. Be sure that inside your code `0` is associated `kretprobe`, and `2` is assoacited
   with `kprobe`.
