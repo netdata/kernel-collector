@@ -1,6 +1,6 @@
 LIBBPF = ../libbpf
 CFLAGS = -Wall -ggdb
-INCLUDES = -I../includes/ -I../libbpf/src/ -I./includes/ -I../libbpf -I../libbpf/include/uapi/
+INCLUDES = -I../includes/ -I$(LIBBPF)/src/ -I./includes/ -I$(LIBBPF) -I$(LIBBPF)/include/uapi/
 CLANG ?= clang 
 LLVM_STRIP ?= llvm-strip
 OUTPUT = tests/
@@ -27,8 +27,7 @@ APPS = cachestat \
 all: compress
 
 libbpf:
-	cd ../libbpf/src && mkdir -p root build && $(MAKE) BUILD_STATIC_ONLY=1 OBJDIR=build DESTDIR=.. INCLUDEDIR= LIBDIR= UAPIDIR= install \
-	&& cp build/*.a ../../co-re/	
+	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../co-re/ INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
 %.bpf.o: %.bpf.c libbpf
 	$(CLANG) $(INCLUDES) -ggdb -O2 -target bpf -D__TARGET_ARCH_$(ARCH) $(CLANG_BPF_SYS_INCLUDES) -c $(filter %.c,$^) -o $@
@@ -52,5 +51,5 @@ compress: $(APPS)
 	( cd ../artifacts; sha256sum netdata_ebpf-CO-RE-$(_LIBC).tar.xz > netdata_ebpf-CO-RE-$(_LIBC).tar.xz.sha256sum )
 
 clean:
-	cd ../libbpf/src/ && make clean && rm -rf build root
+	cd $(LIBBPF)/src/ && make clean
 	rm *.o $(OUTPUT)* libbpf.a includes/*

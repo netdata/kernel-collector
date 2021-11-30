@@ -12,3 +12,5 @@
 *.a
 
 co-re/tests/*
+co-re/bpf
+co-re/pkgconfig
