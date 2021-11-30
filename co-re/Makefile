@@ -47,7 +47,7 @@ $(APPS): %: %.o
 compress: $(APPS)
 	tar -cf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar includes/*
 	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar ../tools/check-kernel-core.sh; fi
-	xz ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar
+	xz -f ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar
 	( cd ../artifacts; sha256sum netdata_ebpf-CO-RE-$(_LIBC).tar.xz > netdata_ebpf-CO-RE-$(_LIBC).tar.xz.sha256sum )
 
 clean:
