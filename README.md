@@ -177,7 +177,7 @@ To release a new version and create a Github Release:
 
 ## Contribution
 
-Netdata is open-software software and we are always open for contributions that
+Netdata is open-source software and we are always open for contributions that
 you can give us.
 
 If you want to contribute an eBPF program, then please be sure that your
