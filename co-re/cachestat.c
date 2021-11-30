@@ -4,10 +4,6 @@
 #include <getopt.h>
 
 #include <linux/version.h>
-#if LINUX_VERSION_CODE != MY_LINUX_VERSION_CODE
-#undef LINUX_VERSION_CODE
-#define LINUX_VERSION_CODE = MY_LINUX_VERSION_CODE
-#endif
 
 #define _GNU_SOURCE         /* See feature_test_macros(7) */
 #define __USE_GNU
@@ -23,7 +19,7 @@
 
 char *syscalls[] = { "add_to_page_cache_lru",
                      "mark_page_accessed",
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
                      "__set_page_dirty",
 #else
                      "account_page_dirtied",
@@ -42,7 +38,7 @@ static inline void netdata_ebpf_disable_probe(struct cachestat_bpf *obj)
 
 static inline void netdata_ebpf_disable_specific_probe(struct cachestat_bpf *obj)
 {
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
     bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_kprobe, false);
 #else
     bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_kprobe, false);
@@ -60,7 +56,7 @@ static inline void netdata_ebpf_disable_trampoline(struct cachestat_bpf *obj)
 
 static inline void netdata_ebpf_disable_specific_trampoline(struct cachestat_bpf *obj)
 {
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
     bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_fentry, false);
 #else
     bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_fentry, false);
@@ -75,7 +71,7 @@ static inline void netdata_set_trampoline_target(struct cachestat_bpf *obj)
     bpf_program__set_attach_target(obj->progs.netdata_mark_page_accessed_fentry, 0,
                                    syscalls[NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED]);
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
+#if (MY_LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
     bpf_program__set_attach_target(obj->progs.netdata_set_page_dirty_fentry, 0,
                                    syscalls[NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED]);
 #else

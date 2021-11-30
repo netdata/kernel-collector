@@ -40,10 +40,10 @@ libbpf:
 $(patsubst %,%.o,$(APPS)): %.o: %.skel.h
 
 %.o: %.c 
-	$(CLANG) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
+	$(CLANG) $(CFLAGS) -DMY_LINUX_VERSION_CODE=$(RUNNING_VERSION_CODE) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
 $(APPS): %: %.o 
-	$(CLANG) $(CFLAGS) -DMY_LINUX_VERSION_CODE=$(RUNNING_VERSION_CODE) -L. $^ -lelf -lz -lbpf -o $(OUTPUT)$@
+	$(CLANG) $(CFLAGS) -L. $^ -lelf -lz -lbpf -o $(OUTPUT)$@
 
 compress: $(APPS)
 	tar -cf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar includes/*
