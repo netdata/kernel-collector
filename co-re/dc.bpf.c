@@ -75,7 +75,7 @@ int BPF_KPROBE(netdata_lookup_fast_kprobe)
 }
 
 SEC("kretprobe/d_lookup")
-int BPF_KRETPROBE(netdata_d_lookup)
+int BPF_KRETPROBE(netdata_d_lookup_kretprobe)
 {
     netdata_dc_stat_t *fill, data = {};
     libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_SLOW, 1);

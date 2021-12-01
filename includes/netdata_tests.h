@@ -6,6 +6,9 @@
 #define NETDATA_BTF_FILE "/sys/kernel/btf/vmlinux"
 
 #include <unistd.h>
+#include <fcntl.h>
+#include <ctype.h>
+#include <string.h>
 #include <sys/resource.h>
 #include <linux/version.h>
 
@@ -16,6 +19,7 @@
 
 #define NETDATA_CORE_DEFAULT_ERROR "It was not possible to attach JIT code for your kernel, try another\n" \
                                     "method or use eBPF programs from ../kernel directory.\n "
+#define NETDATA_KALLSYMS "/proc/kallsyms"
 
 enum netdata_user_controller {
     NETDATA_CONTROLLER_APPS_ENABLED,
@@ -181,6 +185,37 @@ static inline pid_t ebpf_fill_global(int fd)
         fprintf(stderr, "Cannot insert value to global table.");
 
     return pid;
+}
+
+static inline char *netdata_update_name(char *search)
+{
+    char filename[FILENAME_MAX + 1];
+    char data[128];
+    char *ret = NULL;
+    snprintf(filename, FILENAME_MAX, "%s", NETDATA_KALLSYMS);
+    FILE *fp = fopen(filename, "r");
+    if (!fp)
+        return NULL;
+
+    char *parse;
+    size_t length = strlen(search);
+    while ( (parse = fgets(data, 127, fp)) ) {
+        parse += 19;
+        if (!strncmp(search, parse, length) ) {
+            char *end;
+            for (end = parse; isalnum(*end) || *end == '_' || *end == '.'; end++);
+            if (end) {
+                *end = '\0';
+                ret = strdup(parse);
+            }
+
+            break;
+        } 
+    }
+
+    fclose(fp);
+
+    return ret;
 }
 
 #endif /* _NETDATA_TESTS_H_ */

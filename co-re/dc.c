@@ -32,8 +32,21 @@ static void ebpf_set_trampoline_target(struct dc_bpf *obj)
                                    function_list[NETDATA_LOOKUP_FAST]);
 }
 
+static int ebpf_attach_probes(struct dc_bpf *obj)
+{
+    obj->links.netdata_d_lookup_kretprobe = bpf_program__attach_kprobe(obj->progs.netdata_d_lookup_kretprobe,
+                                                                       true, function_list[NETDATA_D_LOOKUP]);
+    int ret = libbpf_get_error(obj->links.netdata_d_lookup_kretprobe);
+    if (ret)
+        return -1;
+
+    return 0;
+}
+
 static inline int ebpf_load_and_attach(struct dc_bpf *obj, int selector)
 {
+    // Adjust memory
+    int ret;
     if (!selector) { // trampoline
         ebpf_disable_probes(obj);
 
@@ -42,14 +55,18 @@ static inline int ebpf_load_and_attach(struct dc_bpf *obj, int selector)
         ebpf_disable_trampoline(obj);
     }
 
-    int ret = dc_bpf__load(obj);
+    ret = dc_bpf__load(obj);
     if (ret) {
         fprintf(stderr, "failed to load BPF object: %d\n", ret);
         return -1;
+    } 
+
+    if (!selector) {
+        ret = dc_bpf__attach(obj);
+    } else {
+        ret = ebpf_attach_probes(obj);
     }
-
-    ret = dc_bpf__attach(obj);
-
+    
     if (!ret) {
         fprintf(stdout, "Directory Cache loaded with success\n");
     }
@@ -173,12 +190,17 @@ int main(int argc, char **argv)
         }
     }
 
-    // Adjust memory
     int ret = netdata_ebf_memlock_limit();
     if (ret) {
         fprintf(stderr, "Cannot increase memory: error = %d\n", ret);
         return 1;
     }
+
+    char *lookup_fast = netdata_update_name(function_list[NETDATA_LOOKUP_FAST]);
+    if (!lookup_fast) {
+        return -1;
+    }
+    function_list[NETDATA_LOOKUP_FAST] = lookup_fast;
 
     struct btf *bf = NULL;
     if (!selector) {
@@ -189,6 +211,10 @@ int main(int argc, char **argv)
         }
     }
 
-    return ebpf_dc_tests(selector);
+    ret =  ebpf_dc_tests(selector);
+
+    free(lookup_fast);
+
+    return ret;
 }
 
