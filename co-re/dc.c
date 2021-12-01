@@ -40,6 +40,12 @@ static int ebpf_attach_probes(struct dc_bpf *obj)
     if (ret)
         return -1;
 
+    obj->links.netdata_lookup_fast_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_lookup_fast_kprobe,
+                                                                       false, function_list[NETDATA_D_LOOKUP]);
+    ret = libbpf_get_error(obj->links.netdata_lookup_fast_kprobe);
+    if (ret)
+        return -1;
+
     return 0;
 }
 
