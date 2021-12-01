@@ -1,6 +1,6 @@
 LIBBPF = ../libbpf
 CFLAGS = -Wall -ggdb
-INCLUDES = -I../includes/ -I../libbpf/src/ -I./includes/ -I../libbpf -I../libbpf/include/uapi/
+INCLUDES = -I. -I../includes/ -I$(LIBBPF)/src/ -I./includes/ -I. -I$(LIBBPF)/include/uapi/
 CLANG ?= clang 
 LLVM_STRIP ?= llvm-strip
 OUTPUT = tests/
@@ -27,8 +27,7 @@ APPS = cachestat \
 all: compress
 
 libbpf:
-	cd ../libbpf/src && mkdir -p root build && $(MAKE) BUILD_STATIC_ONLY=1 OBJDIR=build DESTDIR=.. INCLUDEDIR= LIBDIR= UAPIDIR= install \
-	&& cp build/*.a ../../co-re/	
+	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../co-re/ INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
 %.bpf.o: %.bpf.c libbpf
 	$(CLANG) $(INCLUDES) -ggdb -O2 -target bpf -D__TARGET_ARCH_$(ARCH) $(CLANG_BPF_SYS_INCLUDES) -c $(filter %.c,$^) -o $@
@@ -48,9 +47,12 @@ $(APPS): %: %.o
 compress: $(APPS)
 	tar -cf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar includes/*
 	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar ../tools/check-kernel-core.sh; fi
-	xz ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar
+	xz -f ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar
 	( cd ../artifacts; sha256sum netdata_ebpf-CO-RE-$(_LIBC).tar.xz > netdata_ebpf-CO-RE-$(_LIBC).tar.xz.sha256sum )
 
 clean:
-	cd ../libbpf/src/ && make clean && rm -rf build root
-	rm *.o $(OUTPUT)* libbpf.a includes/*
+	rm -rf bpf pkgconfig
+	rm -f ../artifacts/netdata_ebpf-CO-RE-*.tar.xz
+	rm -f ../artifacts/netdata_ebpf-CO-RE-*.tar.xz.sha256sum
+	cd $(LIBBPF)/src/ && make clean
+	rm -f *.o $(OUTPUT)* libbpf.a includes/*
