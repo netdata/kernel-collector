@@ -5,6 +5,10 @@
 
 #define NETDATA_BTF_FILE "/sys/kernel/btf/vmlinux"
 
+#include <unistd.h>
+#include <fcntl.h>
+#include <ctype.h>
+#include <string.h>
 #include <sys/resource.h>
 #include <linux/version.h>
 
@@ -12,6 +16,10 @@
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 #include <bpf/btf.h>
+
+#define NETDATA_CORE_DEFAULT_ERROR "It was not possible to attach JIT code for your kernel, try another\n" \
+                                    "method or use eBPF programs from ../kernel directory.\n "
+#define NETDATA_KALLSYMS "/proc/kallsyms"
 
 enum netdata_user_controller {
     NETDATA_CONTROLLER_APPS_ENABLED,
@@ -156,12 +164,58 @@ static inline int ebpf_read_global_array(int fd, int ebpf_nprocs, uint32_t end)
 
     free(stored);
 
+    // Some testers store only one value, so for every value different of zero
+    // the result will be successful
     if (counter) {
         fprintf(stdout, "Global data stored with success\n");
         return 0;
     }
 
     return 2;
+}
+
+static inline pid_t ebpf_fill_global(int fd)
+{
+    pid_t pid = getpid();
+    uint32_t idx = 0;
+    uint64_t value = 1;
+
+    int ret = bpf_map_update_elem(fd, &idx, &value, 0);
+    if (ret)
+        fprintf(stderr, "Cannot insert value to global table.");
+
+    return pid;
+}
+
+static inline char *netdata_update_name(char *search)
+{
+    char filename[FILENAME_MAX + 1];
+    char data[128];
+    char *ret = NULL;
+    snprintf(filename, FILENAME_MAX, "%s", NETDATA_KALLSYMS);
+    FILE *fp = fopen(filename, "r");
+    if (!fp)
+        return NULL;
+
+    char *parse;
+    size_t length = strlen(search);
+    while ( (parse = fgets(data, 127, fp)) ) {
+        parse += 19;
+        if (!strncmp(search, parse, length) ) {
+            char *end;
+            for (end = parse; isalnum(*end) || *end == '_' || *end == '.'; end++);
+            if (end) {
+                *end = '\0';
+                ret = strdup(parse);
+            }
+
+            break;
+        } 
+    }
+
+    fclose(fp);
+
+    return ret;
 }
 
 #endif /* _NETDATA_TESTS_H_ */
