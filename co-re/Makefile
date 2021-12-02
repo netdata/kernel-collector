@@ -19,6 +19,7 @@ _LIBC ?= glibc
 APPS = cachestat \
        dc \
        filesystem \
+       mdflush \
        mount \
        process \
        shm \
