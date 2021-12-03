@@ -37,6 +37,12 @@ packages:
 - LLVM/Clang; this is because GCC prior to 10.0 cannot compile eBPF code.
 - Kernel headers
 
+#### Initializing Submodules
+
+`libbpf` directory is included as a git submodule and it is necessary to fetch contents with the git command below:
+```bash
+git submodule update --init --recursive
+```
 #### Generating Headers
 
 Kernel headers can be extracted directly from the kernel source doing the
@@ -82,12 +88,12 @@ the Linux Kernel.
 The build environments are:
 
 - `musl`  => `Dockerfile.musl` (_based on Alpine 3.11_)
-- `glibc` => `Dockerfile.glibc` (_based on Ubuntu 20.04_)
+- `glibc` => `Dockerfile.glibc.generic` (_based on Ubuntu 20.04_)
 
 ### glibc
 
 ```sh
-$ docker build -f Dockerfile.glibc -t kernel-collector:glibc ./
+$ docker build -f Dockerfile.glibc.generic -t kernel-collector:glibc ./
 $ docker run --rm -v $PWD:/kernel-collector kernel-collector:glibc
 ```
 
