@@ -39,7 +39,7 @@ packages:
 
 #### Initializing Submodules
 
-`libbpf` directory is included as an git submodule and it is necessary to fetch contents with the git command below;
+`libbpf` directory is included as a git submodule and it is necessary to fetch contents with the git command below:
 ```bash
 cd libbpf
 git submodule update --init --recursive
