@@ -16,7 +16,7 @@
 #include "fd.skel.h"
 
 char *function_list[] = { "do_sys_openat2",
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
                           "close_fd" 
 #else
                           "__close_fd" 
@@ -26,7 +26,8 @@ char *function_list[] = { "do_sys_openat2",
 static inline void ebpf_disable_probes(struct fd_bpf *obj)
 {
     bpf_program__set_autoload(obj->progs.netdata_sys_open_kprobe, false);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
+    bpf_program__set_autoload(obj->progs.netdata_sys_open_kretprobe, false);
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
     bpf_program__set_autoload(obj->progs.netdata___close_fd_kretprobe, false);
     bpf_program__set_autoload(obj->progs.netdata___close_fd_kprobe, false);
     bpf_program__set_autoload(obj->progs.netdata_close_fd_kprobe, false);
@@ -39,7 +40,7 @@ static inline void ebpf_disable_probes(struct fd_bpf *obj)
 
 static inline void ebpf_disable_specific_probes(struct fd_bpf *obj)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
     bpf_program__set_autoload(obj->progs.netdata___close_fd_kretprobe, false);
     bpf_program__set_autoload(obj->progs.netdata___close_fd_kprobe, false);
     bpf_program__set_autoload(obj->progs.netdata___close_fd_kprobe, false);
@@ -59,7 +60,7 @@ static inline void ebpf_disable_trampoline(struct fd_bpf *obj)
 
 static inline void ebpf_disable_specific_trampoline(struct fd_bpf *obj)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
     bpf_program__set_autoload(obj->progs.netdata___do_close_fentry, false);
 #else
     bpf_program__set_autoload(obj->progs.netdata_do_close_fentry, false);
@@ -71,13 +72,56 @@ static void ebpf_set_trampoline_target(struct fd_bpf *obj)
     bpf_program__set_attach_target(obj->progs.netdata_sys_open_fentry, 0,
                                    function_list[NETDATA_FD_OPEN]);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
     bpf_program__set_attach_target(obj->progs.netdata_do_close_fentry, 0,
                                    function_list[NETDATA_FD_CLOSE]);
 #else
     bpf_program__set_attach_target(obj->progs.netdata___do_close_fentry, 0,
                                    function_list[NETDATA_FD_CLOSE]);
 #endif
+}
+
+static int ebpf_attach_probes(struct fd_bpf *obj)
+{
+    obj->links.netdata_sys_open_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_sys_open_kprobe,
+                                                                    false, function_list[NETDATA_FD_OPEN]);
+    int ret = libbpf_get_error(obj->links.netdata_sys_open_kprobe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata_sys_open_kretprobe = bpf_program__attach_kprobe(obj->progs.netdata_sys_open_kretprobe,
+                                                                       true, function_list[NETDATA_FD_OPEN]);
+    ret = libbpf_get_error(obj->links.netdata_sys_open_kretprobe);
+    if (ret)
+        return -1;
+
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
+    obj->links.netdata_close_fd_kretprobe = bpf_program__attach_kprobe(obj->progs.netdata_close_fd_kretprobe,
+                                                                       true, function_list[NETDATA_FD_CLOSE]);
+    ret = libbpf_get_error(obj->links.netdata_close_fd_kretprobe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata_close_fd_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_close_fd_kprobe,
+                                                                    false, function_list[NETDATA_FD_CLOSE]);
+    ret = libbpf_get_error(obj->links.netdata_close_fd_kprobe);
+    if (ret)
+        return -1;
+#else
+    obj->links.netdata___close_fd_kretprobe = bpf_program__attach_kprobe(obj->progs.netdata___close_fd_kretprobe,
+                                                                         true, function_list[NETDATA_FD_CLOSE]);
+    ret = libbpf_get_error(obj->links.netdata___close_fd_kretprobe);
+    if (ret)
+        return -1;
+
+    obj->links.netdata___close_fd_kprobe = bpf_program__attach_kprobe(obj->progs.netdata___close_fd_kprobe,
+                                                                      false, function_list[NETDATA_FD_CLOSE]);
+    ret = libbpf_get_error(obj->links.netdata___close_fd_kprobe);
+    if (ret)
+        return -1;
+#endif
+
+    return 0;
 }
 
 static inline int ebpf_load_and_attach(struct fd_bpf *obj, int selector)
@@ -99,7 +143,10 @@ static inline int ebpf_load_and_attach(struct fd_bpf *obj, int selector)
         return -1;
     }
 
-    ret = fd_bpf__attach(obj);
+    if (!selector)
+        ret = fd_bpf__attach(obj);
+    else
+        ret = ebpf_attach_probes(obj);
 
     if (!ret) {
         fprintf(stdout, "File descriptor loaded with success\n");
@@ -231,6 +278,10 @@ int main(int argc, char **argv)
         fprintf(stderr, "Cannot increase memory: error = %d\n", ret);
         return 1;
     }
+
+#if (MY_LINUX_VERSION_CODE <= KERNEL_VERSION(5, 5, 19))
+    function_list[NETDATA_FD_OPEN] = "do_sys_open";
+#endif
 
     struct btf *bf = NULL;
     if (!selector) {
