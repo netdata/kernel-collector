@@ -41,7 +41,6 @@ packages:
 
 `libbpf` directory is included as a git submodule and it is necessary to fetch contents with the git command below:
 ```bash
-cd libbpf
 git submodule update --init --recursive
 ```
 #### Generating Headers
