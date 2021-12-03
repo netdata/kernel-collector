@@ -4,7 +4,7 @@ KERNEL_DIR = kernel/
 KERNEL_PROGRAM = $(KERNEL_DIR)process_kern.o
 
 KERNEL_VERSION="$(shell if [ -f /usr/src/linux/include/config/kernel.release ]; then cat /usr/src/linux/include/config/kernel.release; else cat /proc/sys/kernel/osrelease; fi)"
-FIRST_KERNEL_VERSION=$(shell sh tools/complement.sh "$(KERNEL_VERSION)")
+FIRST_KERNEL_VERSION=$(shell tools/complement.sh "$(KERNEL_VERSION)")
 
 NETDATA_KERNEL_VERSION=$(shell echo $(KERNEL_VERSION) | tr -s "." "_")
 
