@@ -22,6 +22,7 @@ APPS = cachestat \
        filesystem \
        mdflush \
        mount \
+       oomkill \
        process \
        shm \
        swap \

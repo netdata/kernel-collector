@@ -80,6 +80,12 @@ static inline void ebpf_print_help(char *name, char *info, int has_trampoline) {
                         " probes will be used.\n");
 }
 
+static inline void ebpf_tracepoint_help(char *name) {
+    fprintf(stdout, "%s tests if it is possible to use tracepoints on host\n\n"
+                    "--help       (-h): Prints this help.\n", name);
+}
+
+
 static inline int ebpf_find_function_id(struct btf *bf, char *name)
 {
     const struct btf_type *type = netdata_find_bpf_attach_type(bf);
