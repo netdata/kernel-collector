@@ -18,6 +18,7 @@ _LIBC ?= glibc
 
 APPS = cachestat \
        dc \
+       disk \
        fd \
        filesystem \
        hardirq \
