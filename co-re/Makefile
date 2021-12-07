@@ -20,6 +20,7 @@ APPS = cachestat \
        dc \
        fd \
        filesystem \
+       hardirq \
        mdflush \
        mount \
        oomkill \
