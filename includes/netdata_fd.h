@@ -27,5 +27,12 @@ enum fd_counters {
     NETDATA_FD_COUNTER
 };
 
+enum fd_actions {
+    NETDATA_FD_OPEN,
+    NETDATA_FD_CLOSE,
+
+    NETDATA_FD_ACTIONS
+};
+
 #endif /* _NETDATA_EBPF_FD_H_ */
 
