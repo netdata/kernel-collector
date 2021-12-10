@@ -18,12 +18,16 @@ _LIBC ?= glibc
 
 APPS = cachestat \
        dc \
+       disk \
        fd \
        filesystem \
+       hardirq \
        mdflush \
        mount \
+       oomkill \
        process \
        shm \
+       softirq \
        swap \
        sync \
        #
