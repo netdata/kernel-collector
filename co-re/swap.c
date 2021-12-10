@@ -149,8 +149,8 @@ int ebpf_load_swap(int selector)
                 fprintf(stderr, "Cannot read apps table\n");
         } else
             fprintf(stderr, "Cannot read global table\n");
-     } else 
-         fprintf(stderr, "Cannot read global table\n");
+    } else 
+        fprintf(stderr ,"%s", NETDATA_CORE_DEFAULT_ERROR);
 
     swap_bpf__destroy(obj);
 

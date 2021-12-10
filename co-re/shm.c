@@ -208,6 +208,7 @@ int ebpf_shm_tests(struct btf *bf, int selector)
     if (!ret) {
         int fd = bpf_map__fd(obj->maps.shm_ctrl);
         update_controller_table(fd);
+
         ret = call_syscalls();
         if (!ret) {
             fd = bpf_map__fd(obj->maps.tbl_shm);
@@ -217,7 +218,8 @@ int ebpf_shm_tests(struct btf *bf, int selector)
                 ret = shm_read_apps_array(fd, ebpf_nprocs);
             }
         }
-    }
+    } else
+        fprintf(stderr ,"%s", NETDATA_CORE_DEFAULT_ERROR);
 
     shm_bpf__destroy(obj);
 
