@@ -49,7 +49,7 @@ static inline int netdata_are_apps_enabled()
     return 1;
 }
 
-static inline int netdata_apps_do_sys_openat2(int ret)
+static inline int netdata_apps_do_sys_openat2(long ret)
 {
     struct netdata_fd_stat_t *fill;
     struct netdata_fd_stat_t data = { };
@@ -80,7 +80,7 @@ static inline int netdata_apps_do_sys_openat2(int ret)
     return 0;
 }
 
-static inline void netdata_sys_open_global(int ret)
+static inline void netdata_sys_open_global(long ret)
 {
     if (ret < 0)
         libnetdata_update_global(&tbl_fd_global, NETDATA_KEY_ERROR_DO_SYS_OPEN, 1);
@@ -133,7 +133,7 @@ static inline void netdata_close_global(int ret)
 SEC("kretprobe/do_sys_openat2")
 int BPF_KRETPROBE(netdata_sys_open_kretprobe)
 {
-    int ret = (ssize_t)PT_REGS_RC(ctx);
+    long ret = (long)PT_REGS_RC(ctx);
     netdata_sys_open_global(ret);
 
     return netdata_apps_do_sys_openat2(ret);
@@ -187,28 +187,52 @@ int BPF_KPROBE(netdata___close_fd_kprobe)
  *
  ***********************************************************************************/
 
+SEC("fexit/do_sys_openat2")
+int BPF_PROG(netdata_sys_open_fexit, int dfd, const char *filename, struct open_how *how, long ret)
+{
+    netdata_sys_open_global(ret);
+
+    return netdata_apps_do_sys_openat2(ret);
+}
+
 SEC("fentry/do_sys_openat2")
-int BPF_KPROBE(netdata_sys_open_fentry)
+int BPF_PROG(netdata_sys_open_fentry)
 {
     netdata_sys_open_global(0);
 
     return netdata_apps_do_sys_openat2(0);
 }
 
-SEC("fexit/do_close")
-int BPF_KPROBE(netdata_do_close_fentry)
+SEC("fentry/close_fd")
+int BPF_PROG(netdata_close_fd_fentry)
 {
     netdata_close_global(0);
 
     return netdata_apps_close_fd(0);
 }
 
-SEC("fexit/__do_close")
-int BPF_KPROBE(netdata___do_close_fentry)
+SEC("fexit/close_fd")
+int BPF_PROG(netdata_close_fd_fexit, unsigned fd, int ret)
+{
+    netdata_close_global(ret);
+
+    return netdata_apps_close_fd(ret);
+}
+
+SEC("fentry/__close_fd")
+int BPF_PROG(netdata___close_fd_fentry)
 {
     netdata_close_global(0);
 
     return netdata_apps_close_fd(0);
+}
+
+SEC("fexit/__close_fd")
+int BPF_PROG(netdata___close_fd_fexit, struct files_struct *files, unsigned fd, int ret)
+{
+    netdata_close_global(ret);
+
+    return netdata_apps_close_fd(ret);
 }
 
 char _license[] SEC("license") = "GPL";

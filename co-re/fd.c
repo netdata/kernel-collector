@@ -54,16 +54,21 @@ static inline void ebpf_disable_specific_probes(struct fd_bpf *obj)
 static inline void ebpf_disable_trampoline(struct fd_bpf *obj)
 {
     bpf_program__set_autoload(obj->progs.netdata_sys_open_fentry, false);
-    bpf_program__set_autoload(obj->progs.netdata_do_close_fentry, false);
-    bpf_program__set_autoload(obj->progs.netdata___do_close_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_sys_open_fexit, false);
+    bpf_program__set_autoload(obj->progs.netdata_close_fd_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_close_fd_fexit, false);
+    bpf_program__set_autoload(obj->progs.netdata___close_fd_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata___close_fd_fexit, false);
 }
 
 static inline void ebpf_disable_specific_trampoline(struct fd_bpf *obj)
 {
 #if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
-    bpf_program__set_autoload(obj->progs.netdata___do_close_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata___close_fd_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata___close_fd_fexit, false);
 #else
-    bpf_program__set_autoload(obj->progs.netdata_do_close_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_close_fd_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_close_fd_fexit, false);
 #endif
 }
 
@@ -72,11 +77,18 @@ static void ebpf_set_trampoline_target(struct fd_bpf *obj)
     bpf_program__set_attach_target(obj->progs.netdata_sys_open_fentry, 0,
                                    function_list[NETDATA_FD_OPEN]);
 
+    bpf_program__set_attach_target(obj->progs.netdata_sys_open_fexit, 0,
+                                   function_list[NETDATA_FD_OPEN]);
+
 #if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
-    bpf_program__set_attach_target(obj->progs.netdata_do_close_fentry, 0,
+    bpf_program__set_attach_target(obj->progs.netdata_close_fd_fentry, 0,
+                                   function_list[NETDATA_FD_CLOSE]);
+    bpf_program__set_attach_target(obj->progs.netdata_close_fd_fexit, 0,
                                    function_list[NETDATA_FD_CLOSE]);
 #else
-    bpf_program__set_attach_target(obj->progs.netdata___do_close_fentry, 0,
+    bpf_program__set_attach_target(obj->progs.netdata___close_fd_fentry, 0,
+                                   function_list[NETDATA_FD_CLOSE]);
+    bpf_program__set_attach_target(obj->progs.netdata___close_fd_fexit, 0,
                                    function_list[NETDATA_FD_CLOSE]);
 #endif
 }
