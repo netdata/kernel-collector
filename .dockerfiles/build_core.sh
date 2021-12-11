@@ -6,7 +6,7 @@ build() {
   echo "[XXX]: Building against Kernel 5.15 for libc ${_LIBC} ..."
   (
     cd co-re
-    make
+    make CC=clang
   ) || return 1
 }
 
