@@ -7,6 +7,7 @@ ENV KERNEL_VERSION=4.18.0-348.2.1.el8_5
 
 ENV _LIBC=glibc
 
+# hadolint ignore=DL3040,DL3041
 RUN dnf update -y && \
     dnf groupinstall -y "Development tools" && \
     dnf install -y asciidoc audit-libs-devel bash bc binutils binutils-devel \
