@@ -50,7 +50,7 @@ static void ebpf_set_trampoline_target(struct process_bpf *obj)
                                    "__x64_sys_clone3");
 }
 
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5,3,0))
+#if (MY_LINUX_VERSION_CODE <= KERNEL_VERSION(5,3,0))
 // https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=8f6ccf6159aed1f04c6d179f61f6fb2691261e84
 static inline void ebpf_disable_clone3(struct process_bpf *obj)
 {
@@ -70,7 +70,7 @@ static inline int ebpf_load_and_attach(struct process_bpf *obj, int selector)
         ebpf_disable_tracepoints(obj);
         ebpf_disable_trampoline(obj);
 
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5,9,16))
+#if (MY_LINUX_VERSION_CODE <= KERNEL_VERSION(5,9,16))
     bpf_program__set_autoload(obj->progs.netdata_kernel_clone_probe, false);
 #else
     bpf_program__set_autoload(obj->progs.netdata_do_fork_probe, false);
@@ -80,7 +80,7 @@ static inline int ebpf_load_and_attach(struct process_bpf *obj, int selector)
         ebpf_disable_trampoline(obj);
     }
 
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5,3,0))
+#if (MY_LINUX_VERSION_CODE <= KERNEL_VERSION(5,3,0))
     ebpf_disable_clone3(obj);
 #endif
 

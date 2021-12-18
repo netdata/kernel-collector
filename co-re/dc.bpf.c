@@ -62,25 +62,10 @@ static inline int netdata_common_lookup_fast()
     return 0;
 }
 
-/***********************************************************************************
- *
- *                            DC SECTION(kprobe)
- *
- ***********************************************************************************/
-
-SEC("kprobe/lookup_fast")
-int BPF_KPROBE(netdata_lookup_fast_kprobe)
-{
-    return netdata_common_lookup_fast();
-}
-
-SEC("kretprobe/d_lookup")
-int BPF_KRETPROBE(netdata_d_lookup_kretprobe)
+static inline int netdata_common_d_lookup(long ret)
 {
     netdata_dc_stat_t *fill, data = {};
     libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_SLOW, 1);
-
-    int ret = PT_REGS_RC(ctx);
 
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&dcstat_ctrl ,&key);
@@ -100,7 +85,7 @@ int BPF_KRETPROBE(netdata_d_lookup_kretprobe)
     }
 
     // file not found
-    if (ret == 0) {
+    if (!ret) {
         libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_MISS, 1);
         if (*apps == 1) {
             fill = bpf_map_lookup_elem(&dcstat_pid ,&key);
@@ -118,14 +103,41 @@ int BPF_KRETPROBE(netdata_d_lookup_kretprobe)
 
 /***********************************************************************************
  *
+ *                            DC SECTION(kprobe)
+ *
+ ***********************************************************************************/
+
+SEC("kprobe/lookup_fast")
+int BPF_KPROBE(netdata_lookup_fast_kprobe)
+{
+    return netdata_common_lookup_fast();
+}
+
+SEC("kretprobe/d_lookup")
+int BPF_KRETPROBE(netdata_d_lookup_kretprobe)
+{
+    long ret = PT_REGS_RC(ctx);
+
+    return netdata_common_d_lookup(ret);
+}
+
+/***********************************************************************************
+ *
  *                            DC SECTION(trampoline)
  *
  ***********************************************************************************/
 
 SEC("fentry/lookup_fast")
-int BPF_KPROBE(netdata_lookup_fast_fentry)
+int BPF_PROG(netdata_lookup_fast_fentry)
 {
     return netdata_common_lookup_fast();
+}
+
+SEC("fexit/d_lookup")
+int BPF_PROG(netdata_d_lookup_fexit, const struct dentry *parent, const struct qstr *name, 
+             struct dentry *ret)
+{
+    return netdata_common_d_lookup((long)ret);
 }
 
 char _license[] SEC("license") = "GPL";

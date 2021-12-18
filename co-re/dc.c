@@ -19,17 +19,22 @@ char *function_list[] = { "lookup_fast",
 static inline void ebpf_disable_probes(struct dc_bpf *obj)
 {
     bpf_program__set_autoload(obj->progs.netdata_lookup_fast_kprobe, false);
+    bpf_program__set_autoload(obj->progs.netdata_d_lookup_kretprobe, false);
 }
 
 static inline void ebpf_disable_trampoline(struct dc_bpf *obj)
 {
     bpf_program__set_autoload(obj->progs.netdata_lookup_fast_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_d_lookup_fexit, false);
 }
 
 static void ebpf_set_trampoline_target(struct dc_bpf *obj)
 {
     bpf_program__set_attach_target(obj->progs.netdata_lookup_fast_fentry, 0,
                                    function_list[NETDATA_LOOKUP_FAST]);
+
+    bpf_program__set_attach_target(obj->progs.netdata_d_lookup_fexit, 0,
+                                   function_list[NETDATA_D_LOOKUP]);
 }
 
 static int ebpf_attach_probes(struct dc_bpf *obj)
@@ -41,7 +46,7 @@ static int ebpf_attach_probes(struct dc_bpf *obj)
         return -1;
 
     obj->links.netdata_lookup_fast_kprobe = bpf_program__attach_kprobe(obj->progs.netdata_lookup_fast_kprobe,
-                                                                       false, function_list[NETDATA_D_LOOKUP]);
+                                                                       false, function_list[NETDATA_LOOKUP_FAST]);
     ret = libbpf_get_error(obj->links.netdata_lookup_fast_kprobe);
     if (ret)
         return -1;
@@ -174,7 +179,7 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'h': {
-                          ebpf_print_help(argv[0], "swap", 1);
+                          ebpf_print_help(argv[0], "dc", 1);
                           exit(0);
                       }
             case 'p': {

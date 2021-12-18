@@ -166,7 +166,7 @@ static int ebpf_fcnt_tests(int (*fcnt)(int), enum netdata_sync_enum idx, int sel
         int fd = bpf_map__fd(obj->maps.tbl_sync) ;
         ret = common_fcnt_tests(fd, fcnt);
     } else
-        fprintf(stderr, "Failed to attach BPF program\n");
+        fprintf(stderr ,"%s", NETDATA_CORE_DEFAULT_ERROR);
 
     sync_bpf__destroy(obj);
 

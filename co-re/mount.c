@@ -191,7 +191,8 @@ static int ebpf_mount_tests(int selector)
             int fd = bpf_map__fd(obj->maps.tbl_mount);
             ret = mount_read_array(fd);
         }
-    }
+    } else
+        fprintf(stderr ,"%s", NETDATA_CORE_DEFAULT_ERROR);
 
     mount_bpf__destroy(obj);
 
