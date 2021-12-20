@@ -7,16 +7,20 @@ ENV KERNEL_VERSION=4.18.0-348.2.1.el8_5
 
 ENV _LIBC=glibc
 
+# We use "Development tools" to install:
+# gcc c/c++ compiler, redhat-rpm-config, strace, rpm-build, make, pkgconfig, gettext, automake, strace64, gdb, bison,
+# libtool, autoconf, gcc-c++ compiler, binutils and all dependencies
+
 # hadolint ignore=DL3040,DL3041
 RUN dnf update -y && \
     dnf groupinstall -y "Development tools" && \
     dnf install -y asciidoc audit-libs-devel bash bc binutils binutils-devel \
-                   bison diffutils elfutils elfutils-devel \
-                   elfutils-libelf-devel findutils flex gawk gcc gettext \
-                   gzip hmaccalc hostname java-devel m4 make \
+                   diffutils elfutils elfutils-devel \
+                   elfutils-libelf-devel findutils gawk \
+                   gzip hmaccalc hostname java-devel m4 \
                    module-init-tools ncurses-devel net-tools newt-devel \
                    numactl-devel openssl openssl-devel patch pciutils-devel \
-                   perl perl-ExtUtils-Embed pesign redhat-rpm-config \
+                   perl perl-ExtUtils-Embed pesign \
                    rpm-build sh-utils tar xmlto xz zlib-devel clang llvm
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
