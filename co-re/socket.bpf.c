@@ -75,25 +75,20 @@ struct {
 
 static __always_inline short unsigned int set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
 {
-    //Read Sock
-    struct sock_common sock_common = BPF_CORE_READ(is, sk.__sk_common);
-
     // Read Family
-    short unsigned int family = BPF_CORE_READ(&sock_common, skc_family);
+    short unsigned int family;
+    BPF_CORE_READ_INTO(&family, is, sk.__sk_common.skc_family);
     // Read source and destination IPs
     if ( family == AF_INET ) { //AF_INET
-        nsi->saddr.addr32[0] = BPF_CORE_READ(&sock_common, skc_rcv_saddr);
-        nsi->daddr.addr32[0] = BPF_CORE_READ(&sock_common, skc_daddr);
+        BPF_CORE_READ_INTO(&nsi->saddr.addr32, is, sk.__sk_common.skc_rcv_saddr );
+        BPF_CORE_READ_INTO(&nsi->daddr.addr32, is, sk.__sk_common.skc_daddr );
 
         if (!nsi->saddr.addr32[0] || !nsi->daddr.addr32[0])
             return AF_UNSPEC;
     } else if ( family == AF_INET6 ) {
 #if defined(NETDATA_CONFIG_IPV6)
-        struct in6_addr addr6 = BPF_CORE_READ(&sock_common, skc_v6_rcv_saddr);
-        bpf_probe_read(&nsi->saddr.addr8,  sizeof(__u8)*16, &addr6.in6_u.u6_addr8);
-
-        addr6 = BPF_CORE_READ(&sock_common, skc_v6_daddr);
-        bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, &addr6.in6_u.u6_addr8);
+        BPF_CORE_READ_INTO(&nsi->saddr.addr8, is, sk.__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 );
+        BPF_CORE_READ_INTO(&nsi->daddr.addr8, is, sk.__sk_common.skc_v6_daddr.in6_u.u6_addr8 );
 
         if ( ((!nsi->saddr.addr64[0]) && (!nsi->saddr.addr64[1])) || ((!nsi->daddr.addr64[0]) && (!nsi->daddr.addr64[1])))
             return AF_UNSPEC;
@@ -102,9 +97,9 @@ static __always_inline short unsigned int set_idx_value(netdata_socket_idx_t *ns
         return AF_UNSPEC;
     }
 
-    //Read destination port
-    nsi->dport = BPF_CORE_READ(&sock_common, skc_dport);
-    nsi->sport = BPF_CORE_READ(&sock_common, skc_num);
+    //Read ports
+    BPF_CORE_READ_INTO(&nsi->dport, is, sk.__sk_common.skc_dport);
+    BPF_CORE_READ_INTO(&nsi->sport, is, sk.__sk_common.skc_num);
 
     return family;
 }
