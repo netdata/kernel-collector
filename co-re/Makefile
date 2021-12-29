@@ -27,6 +27,7 @@ APPS = cachestat \
        oomkill \
        process \
        shm \
+       socket \
        softirq \
        swap \
        sync \
