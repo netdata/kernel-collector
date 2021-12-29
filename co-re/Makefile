@@ -31,6 +31,7 @@ APPS = cachestat \
        softirq \
        swap \
        sync \
+       vfs \
        #
 
 all: compress
