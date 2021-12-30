@@ -42,15 +42,16 @@ static __always_inline int netdata_common_vfs_write(__u64 tot, ssize_t ret)
 {
     struct netdata_vfs_stat_t *fill;
     struct netdata_vfs_stat_t data = { };
+
+    libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_WRITE, 1);
+
+    libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_BYTES_VFS_WRITE, tot);
+
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&vfs_ctrl ,&key);
     if (apps)
         if (*apps == 0)
             return 0;
-
-    libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_CALLS_VFS_WRITE, 1);
-
-    libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_BYTES_VFS_WRITE, tot);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     key = (__u32)(pid_tgid >> 32);
