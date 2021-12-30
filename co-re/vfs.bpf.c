@@ -60,9 +60,10 @@ static __always_inline int netdata_common_vfs_write(__u64 tot, ssize_t ret)
     if (fill) {
         libnetdata_update_u32(&fill->write_call, 1) ;
 
-        if (ret < 0)
+        if (ret < 0) {
             libnetdata_update_u32(&fill->write_err, 1) ;
-        else
+            libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITE, 1);
+        } else
             libnetdata_update_u64(&fill->write_bytes, tot);
 
     } else {
@@ -106,6 +107,7 @@ static __always_inline int netdata_common_vfs_writev(__u64 tot, ssize_t ret)
 
         if (ret < 0) {
             libnetdata_update_u32(&fill->writev_err, 1) ;
+            libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITEV, 1);
         } else {
             libnetdata_update_u64(&fill->writev_bytes, tot);
         }
@@ -149,6 +151,7 @@ static __always_inline int netdata_common_vfs_read(__u64 tot, ssize_t ret)
 
         if (ret < 0) {
             libnetdata_update_u32(&fill->read_err, 1) ;
+            libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READ, 1);
         } else {
             libnetdata_update_u64(&fill->read_bytes, tot);
         }
@@ -233,8 +236,10 @@ static __always_inline int netdata_common_vfs_unlink(int ret)
     if (fill) {
         libnetdata_update_u32(&fill->unlink_call, 1) ;
 
-        if (ret < 0)
+        if (ret < 0) {
+            libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_UNLINK, 1);
             libnetdata_update_u32(&fill->unlink_err, 1) ;
+        }
     } else {
         data.pid_tgid = pid_tgid;  
         data.pid = tgid;  
@@ -273,6 +278,7 @@ static __always_inline int netdata_common_vfs_fsync(int ret)
 
         if (ret < 0) {
             libnetdata_update_u32(&fill->fsync_err, 1) ;
+            libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_FSYNC, 1);
         } 
     } else {
         data.pid_tgid = pid_tgid;  
@@ -313,6 +319,7 @@ static __always_inline int netdata_common_vfs_open(int ret)
 
         if (ret < 0) {
             libnetdata_update_u32(&fill->open_err, 1) ;
+            libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_OPEN, 1);
         } 
     } else {
         data.pid_tgid = pid_tgid;  
@@ -353,6 +360,7 @@ static __always_inline int netdata_common_vfs_create(int ret)
 
         if (ret < 0) {
             libnetdata_update_u32(&fill->create_err, 1) ;
+            libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_CREATE, 1);
         } 
     } else {
         data.pid_tgid = pid_tgid;  
