@@ -401,8 +401,6 @@ int BPF_KRETPROBE(netdata_vfs_write_kretprobe)
     __u64 tot = libnetdata_log2l(ret);
 
     ret = (ssize_t)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITE, 1);
 
     return netdata_common_vfs_write(tot, ret);
 }
@@ -423,8 +421,6 @@ int BPF_KRETPROBE(netdata_vfs_writev_kretprobe)
     __u64 tot = libnetdata_log2l(ret);
 
     ret = (ssize_t)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITE, 1);
 
     return netdata_common_vfs_writev(tot, ret);
 }
@@ -445,8 +441,6 @@ int BPF_KRETPROBE(netdata_vfs_read_kretprobe)
     __u64 tot = libnetdata_log2l(ret);
 
     ret = (ssize_t)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READ, 1);
 
     return netdata_common_vfs_read(tot, ret);
 }
@@ -467,8 +461,6 @@ int BPF_KRETPROBE(netdata_vfs_readv_kretprobe)
     __u64 tot = libnetdata_log2l(ret);
 
     ret = (ssize_t)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READV, 1);
 
     return netdata_common_vfs_readv(tot, ret);
 }
@@ -483,8 +475,6 @@ SEC("kretprobe/vfs_unlink")
 int BPF_KRETPROBE(netdata_vfs_unlink_kretprobe)
 {
     int ret = (int)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_UNLINK, 1);
 
     return netdata_common_vfs_unlink(ret);
 }
@@ -499,8 +489,6 @@ SEC("kretprobe/vfs_fsync")
 int BPF_KRETPROBE(netdata_vfs_fsync_kretprobe)
 {
     int ret = (int)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_FSYNC, 1);
 
     return netdata_common_vfs_fsync(ret);
 }
@@ -515,8 +503,6 @@ SEC("kretprobe/vfs_open")
 int BPF_KRETPROBE(netdata_vfs_open_kretprobe)
 {
     int ret = (int)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_OPEN, 1);
 
     return netdata_common_vfs_open(ret);
 }
@@ -531,8 +517,6 @@ SEC("kretprobe/vfs_create")
 int BPF_KRETPROBE(netdata_vfs_create_kretprobe)
 {
     int ret = (int)PT_REGS_RC(ctx);
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_CREATE, 1);
 
     return netdata_common_vfs_create(ret);
 }
@@ -560,9 +544,6 @@ int BPF_PROG(netdata_vfs_write_fexit, struct file *file, const char *buf, size_t
     else
         tot = 0;
 
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITEV, 1);
-
     return netdata_common_vfs_write(tot, ret);
 }
 
@@ -583,10 +564,6 @@ int BPF_PROG(netdata_vfs_writev_fexit, struct file *file, const char *buf, size_
     else
         tot = 0;
 
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITEV, 1);
-
-
     return netdata_common_vfs_writev(tot, ret);
 }
 
@@ -606,10 +583,6 @@ int BPF_PROG(netdata_vfs_read_fexit, struct file *file, const char *buf, size_t 
         tot = libnetdata_log2l(ret);
     else
         tot = 0;
-
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READ, 1);
-
 
     return netdata_common_vfs_read(tot, ret);
 }
@@ -632,10 +605,6 @@ int BPF_PROG(netdata_vfs_readv_fexit, struct file *file, const struct iovec *vec
     else
         tot = 0;
 
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READV, 1);
-
-
     return netdata_common_vfs_readv(tot, ret);
 }
 
@@ -653,9 +622,6 @@ int BPF_PROG(netdata_vfs_unlink_fexit, struct user_namespace *mnt_userns, struct
 // KERNEL OLDER THAN 5.12.0             
 int BPF_PROG(netdata_vfs_unlink_fexit,struct inode *dir, struct dentry *dentry, struct inode **delegated_inode, int ret)
 {
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_UNLINK, 1);
-
     return netdata_common_vfs_unlink(ret);
 }
 */
@@ -669,9 +635,6 @@ int BPF_PROG(netdata_vfs_fsync_fentry)
 SEC("fexit/vfs_fsync")
 int BPF_PROG(netdata_vfs_fsync_fexit, struct file *file, int datasync, int ret)
 {
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_FSYNC, 1);
-
     return netdata_common_vfs_fsync(ret);
 }
 
@@ -684,9 +647,6 @@ int BPF_PROG(netdata_vfs_open_fentry)
 SEC("fexit/vfs_open")
 int BPF_PROG(netdata_vfs_open_fexit, const struct path *path, struct file *file, int ret)
 {
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_OPEN, 1);
-
     return netdata_common_vfs_open(ret);
 }
 
@@ -705,9 +665,6 @@ int BPF_PROG(netdata_vfs_create_fexit, struct user_namespace *mnt_userns, struct
 int BPF_PROG(netdata_vfs_create_fexit, struct inode *dir, struct dentry *dentry, umode_t mode,
 	     bool want_excl, int ret)
 {
-    if (ret < 0)
-        libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_CREATE, 1);
-
     return netdata_common_vfs_create(ret);
 }
 */
