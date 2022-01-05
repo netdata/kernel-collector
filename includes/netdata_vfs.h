@@ -68,5 +68,18 @@ enum vfs_counters {
     NETDATA_VFS_COUNTER
 };
 
+enum netdata_vfs_calls_name {
+    NETDATA_VFS_WRITE,
+    NETDATA_VFS_WRITEV,
+    NETDATA_VFS_READ,
+    NETDATA_VFS_READV,
+    NETDATA_VFS_UNLINK,
+    NETDATA_VFS_FSYNC,
+    NETDATA_VFS_OPEN,
+    NETDATA_VFS_CREATE,
+
+    NETDATA_VFS_END_LIST
+};
+
 #endif /* _NETDATA_VFS_H_ */
 
