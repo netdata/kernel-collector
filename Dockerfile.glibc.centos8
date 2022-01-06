@@ -13,7 +13,7 @@ ENV _LIBC=glibc
 
 # hadolint ignore=DL3040,DL3041
 RUN dnf update -y && \
-    dnf install -y gcc make gcc-c++ libtool rpm-build-libs automake autoconf && \
+    dnf install -y gcc make gcc-c++ libtool rpm-build-libs bison && \
     dnf install -y asciidoc audit-libs-devel bash bc binutils binutils-devel \
                    diffutils elfutils elfutils-devel \
                    elfutils-libelf-devel findutils gawk \
