@@ -13,7 +13,7 @@ ENV _LIBC=glibc
 
 # hadolint ignore=DL3040,DL3041
 RUN dnf update -y && \
-    dnf groupinstall -y "Development tools" && \
+    dnf install -y gcc make gcc-c++ libtool rpm-build-libs && \
     dnf install -y asciidoc audit-libs-devel bash bc binutils binutils-devel \
                    diffutils elfutils elfutils-devel \
                    elfutils-libelf-devel findutils gawk \
