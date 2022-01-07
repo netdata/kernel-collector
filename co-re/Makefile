@@ -1,6 +1,6 @@
 LIBBPF = ../libbpf
 CFLAGS = -Wall -ggdb
-INCLUDES = -I. -I../includes/ -I$(LIBBPF)/src/ -I./includes/ -I. -I$(LIBBPF)/include/uapi/
+INCLUDES = -I../.local_libbpf/ -I../includes/ -I$(LIBBPF)/src/ -I./includes/ -I. -I$(LIBBPF)/include/uapi/
 CLANG ?= clang 
 LLVM_STRIP ?= llvm-strip
 OUTPUT = tests/
@@ -37,7 +37,7 @@ APPS = cachestat \
 all: compress
 
 libbpf:
-	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../co-re/ INCLUDEDIR= LIBDIR= UAPIDIR= install \
+	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
 %.bpf.o: %.bpf.c libbpf
 	$(CLANG) $(INCLUDES) -ggdb -O2 -target bpf -D__TARGET_ARCH_$(ARCH) $(CLANG_BPF_SYS_INCLUDES) -c $(filter %.c,$^) -o $@
@@ -52,7 +52,7 @@ $(patsubst %,%.o,$(APPS)): %.o: %.skel.h
 	$(CC) $(CFLAGS) -DMY_LINUX_VERSION_CODE=$(RUNNING_VERSION_CODE) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
 $(APPS): %: %.o 
-	$(CC) $(CFLAGS) -L. $^ -lelf -lz -lbpf -o $(OUTPUT)$@
+	$(CC) $(CFLAGS) -L../.local_libbpf $^ -lelf -lz -lbpf -o $(OUTPUT)$@
 
 compress: $(APPS)
 	tar -cf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar includes/*
