@@ -61,7 +61,6 @@ compress: $(APPS)
 	( cd ../artifacts; sha256sum netdata_ebpf-CO-RE-$(_LIBC).tar.xz > netdata_ebpf-CO-RE-$(_LIBC).tar.xz.sha256sum )
 
 clean:
-	rm -rf bpf pkgconfig
 	rm -f ../artifacts/netdata_ebpf-CO-RE-*.tar.xz
 	rm -f ../artifacts/netdata_ebpf-CO-RE-*.tar.xz.sha256sum
 	cd $(LIBBPF)/src/ && make clean
