@@ -899,7 +899,7 @@ static void ebpf_help()
                     "--log-path         Filename to write log information. When this option is not given,\n"
                     "                   software will use stderr.\n\n"
                     "--content          Test content stored inside hash tables.\n"
-                    "--iteration        Number of iterations when content is read, default value is 1.\n"
+                    "--iteration        Number of iterations when content is read, default value is 1.\n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
                     "--btrfs            Latency for btrfs.\n"
@@ -937,7 +937,7 @@ static void ebpf_help()
 static uint64_t ebpf_set_common_flag()
 {
     return NETDATA_FLAG_ALL &
-                             ~(NETDATA_FLAG_FS | NETDATA_FLAG_LOAD_BINARY | NETDATA_FLAG_MDFLUSH);
+                             ~(NETDATA_FLAG_FS | NETDATA_FLAG_LOAD_BINARY | NETDATA_FLAG_MDFLUSH | NETDATA_FLAG_CONTENT);
 }
 
 /**
@@ -1158,7 +1158,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv)
 
     // When user does not specify any flag, we will use common value
     if (!(flags & (NETDATA_FLAG_ALL & ~(NETDATA_FLAG_CONTENT))))
-        flags = ebpf_set_common_flag();
+        flags |= ebpf_set_common_flag();
 
     return flags;
 }
