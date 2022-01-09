@@ -9,14 +9,6 @@
 
 
 /**
- * The next magic number is got doing the following math:
- *  294960 = 4*65536 + 11*256 + 0
- *
- *  For more details, please, read /usr/include/linux/version.h
- */
-#define NETDATA_MINIMUM_EBPF_KERNEL 264960
-
-/**
  * The RedHat magic number was got doing:
  *
  * 1797 = 7*256 + 5
@@ -32,53 +24,33 @@
 #define NETDATA_RH_8 2048
 
 /**
- *  Kernel 5.15
+ *  Kernel Version
  *
- *  331520 = 5*65536 + 15*256
+ *  Kernel versions are calculated using the following formula:
+ *
+ *  VERSION = LINUX_VERSION_MAJOR*65536 + LINUX_VERSION_PATCHLEVEL*256 + LINUX_VERSION_SUBLEVEL
+ *
+ *  Where LINUX_VERSION_MAJOR, LINUX_VERSION_PATCHLEVEL, and LINUX_VERSION_SUBLEVEL are extracted
+ *  from /usr/include/linux/version.h.
+ *
+ *  LINUX_VERSION_SUBLEVEL has the maximum value 255, but linux can have more SUBLEVELS.
+ *
  */
-#define NETDATA_EBPF_KERNEL_5_15 331520
+enum netdata_ebpf_kernel_versions {
+    NETDATA_EBPF_KERNEL_4_11 = 264960,  //  264960 = 4 * 65536 + 15 * 256
+    NETDATA_EBPF_KERNEL_4_15 = 265984,  //  265984 = 4 * 65536 + 15 * 256
+    NETDATA_EBPF_KERNEL_4_17 = 266496,  //  266496 = 4 * 65536 + 17 * 256
+    NETDATA_EBPF_KERNEL_5_0  = 327680,  //  327680 = 5 * 65536 +  0 * 256
+    NETDATA_EBPF_KERNEL_5_10 = 330240,  //  330240 = 5 * 65536 + 10 * 256
+    NETDATA_EBPF_KERNEL_5_11 = 330496,  //  330240 = 5 * 65536 + 11 * 256
+    NETDATA_EBPF_KERNEL_5_15 = 331520   //  331520 = 5 * 65536 + 15 * 256
+};
 
 /**
- *  Kernel 5.11
- *
- *  330240 = 5*65536 + 11*256
+ * Minimum value has relationship with libbpf support.
  */
-#define NETDATA_EBPF_KERNEL_5_11 330496
+#define NETDATA_MINIMUM_EBPF_KERNEL NETDATA_EBPF_KERNEL_4_11
 
-/**
- *  Kernel 5.10
- *
- *  330240 = 5*65536 + 10*256
- */
-#define NETDATA_EBPF_KERNEL_5_10 330240
-
-/**
- *  Kernel 5.0
- *
- *  327680 = 5*65536 +256*0
- */
-#define NETDATA_EBPF_KERNEL_5_0 327680
-
-/**
- *  Kernel 4.17
- *
- *  266496 = 4*65536 + 17*256
- */
-#define NETDATA_EBPF_KERNEL_4_17 266496
-
-/**
- *  Kernel 4.15
- *
- *  265984 = 4*65536 + 15*256
- */
-#define NETDATA_EBPF_KERNEL_4_15 265984
-
-/**
- *  Kernel 4.11
- *
- *  264960 = 4*65536 + 15*256
- */
-#define NETDATA_EBPF_KERNEL_4_11 264960
 
 enum netdata_kernel_flag {
     NETDATA_V3_10 = 1 << 0,
