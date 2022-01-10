@@ -62,7 +62,7 @@ NETDATA_APPS= btrfs \
 	      zfs \
 	      #
 
-all: $(NETDATA_APPS) tester
+all: $(NETDATA_APPS)
 
 libbpf:
 	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
