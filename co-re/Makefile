@@ -64,4 +64,5 @@ clean:
 	rm -f ../artifacts/netdata_ebpf-CO-RE-*.tar.xz
 	rm -f ../artifacts/netdata_ebpf-CO-RE-*.tar.xz.sha256sum
 	cd $(LIBBPF)/src/ && make clean
-	rm -f *.o $(OUTPUT)* libbpf.a includes/*
+	cd $(OUTPUT) && find . -type f ! -name '*.sh' ! -name '.git*'  -delete
+	rm -f *.o includes/*
