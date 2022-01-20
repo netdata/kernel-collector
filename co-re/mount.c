@@ -246,6 +246,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+
     struct btf *bf = NULL;
     if (!selector) {
         bf = netdata_parse_btf_file((const char *)NETDATA_BTF_FILE);

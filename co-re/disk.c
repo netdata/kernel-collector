@@ -126,6 +126,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+
     return ebpf_disk_tests();
 }
 

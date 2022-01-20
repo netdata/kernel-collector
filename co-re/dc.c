@@ -207,6 +207,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+
     char *lookup_fast = netdata_update_name(function_list[NETDATA_LOOKUP_FAST]);
     if (!lookup_fast) {
         return -1;
