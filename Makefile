@@ -25,10 +25,14 @@ all: $(KERNEL_PROGRAM)
 $(KERNEL_PROGRAM):
 	cd $(KERNEL_DIR) && $(MAKE) all;
 
+tester:
+	cd $(KERNEL_DIR) && $(MAKE) tester
+
 clean:
 	rm -f *.o;
 	cd $(KERNEL_DIR) && $(MAKE) clean;
 	rm -f artifacts/*
+	rm -rf .local_libbpf
 
 install:
 	cp *netdata_ebpf_process.$(VER_MAJOR).$(VER_MINOR).o /usr/libexec/netdata/plugins.d/

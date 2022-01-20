@@ -64,6 +64,9 @@ NETDATA_APPS= btrfs \
 
 all: $(NETDATA_APPS)
 
+libbpf:
+	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
+
 %_kern.o: %_kern.c
 	if [ -w $(KERNELSOURCE)/include/generated/autoconf.h ]; then  if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' $(KERNELSOURCE)/include/generated/autoconf.h; fi ; fi
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
@@ -94,5 +97,10 @@ all: $(NETDATA_APPS)
 
 $(NETDATA_APPS): %: %_kern.o
 
+tester: libbpf
+	$(CC) -I../.local_libbpf -I$(LIBBPF)/src -I$(LIBBPF)/include -I$(LIBBPF)/include/uapi -L../.local_libbpf -o legacy_test tester.c -lbpf -lz -lelf
+
 clean:
+	cd $(LIBBPF)/src && make clean
 	rm -f *.o *.ll
+	if [ -f legacy_test ] ; then rm legacy_test; fi
