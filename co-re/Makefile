@@ -52,7 +52,7 @@ $(patsubst %,%.o,$(APPS)): %.o: %.skel.h
 	$(CC) $(CFLAGS) -DMY_LINUX_VERSION_CODE=$(RUNNING_VERSION_CODE) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
 $(APPS): %: %.o 
-	$(CC) $(CFLAGS) -L../.local_libbpf $^ -lelf -lz -lbpf -o $(OUTPUT)$@
+	$(CC) $(CFLAGS) -L../.local_libbpf $^ -lbpf -lelf -lz -o $(OUTPUT)$@
 
 compress: $(APPS)
 	tar -cf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar includes/*
