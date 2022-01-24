@@ -11,8 +11,8 @@ KERNEL_VERSION="$(shell cat /proc/sys/kernel/osrelease)"
 FIRST_KERNEL_VERSION=$(shell sh ../tools/complement.sh "$(KERNEL_VERSION)")
 VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
 VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
-VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
-RUNNING_VERSION_CODE=$(shell echo $$(( $(VER_MAJOR) * 65536 + $(VER_MINOR) * 256 + $(VER_PATCH) )) )
+VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3 | cut -d\- -f1)
+RUNNING_VERSION_CODE=$(shell echo $$(( $(VER_MAJOR) * 65536 + $(VER_MINOR) * 256 + $(VER_MINOR))) )
 
 _LIBC ?= glibc
 
