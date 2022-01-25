@@ -35,6 +35,20 @@ VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
 
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
+# Kernel newer than 5.14.256 ( 331520 = 5 * 65536 + 15 * 256)
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 331520 ; echo $$?),0)
+NETDATA_APPS= cachestat \
+	      #
+# Kernel newer than 5.10.256 ( 330496 = 5 * 65536 + 11 * 256)
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330496 ; echo $$?),0)
+NETDATA_APPS= fd \
+	      #
+# Kernel newer than 5.9.256  ( 330240 = 5 * 65536 + 10 * 256)
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330496 ; echo $$?),0)
+NETDATA_APPS= btrfs \
+	      process \
+	      #
+else
 NETDATA_APPS= btrfs \
 	      cachestat \
 	      dc \
@@ -61,6 +75,7 @@ NETDATA_APPS= btrfs \
 	      xfs \
 	      zfs \
 	      #
+endif
 
 all: $(NETDATA_APPS)
 
