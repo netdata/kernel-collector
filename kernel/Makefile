@@ -35,6 +35,33 @@ VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
 
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
+NETDATA_ALL_APPS= btrfs \
+    		  cachestat \
+    		  dc \
+    		  disk \
+    		  ext4 \
+    		  fd \
+    		  fdatasync \
+    		  fsync \
+    		  hardirq \
+    		  mdflush \
+		  mount \
+    		  msync \
+    		  nfs \
+    		  oomkill \
+    		  process \
+    		  shm \
+    		  socket \
+    		  softirq \
+    		  sync \
+    		  syncfs \
+    		  sync_file_range \
+    		  swap \
+    		  vfs \
+    		  xfs \
+    		  zfs \
+    		  #
+
 # Kernel newer than 5.14.256 ( 331520 = 5 * 65536 + 15 * 256)
 ifeq ($(shell test $(CURRENT_KERNEL) -ge 331520 ; echo $$?),0)
 NETDATA_APPS= cachestat \
@@ -49,32 +76,7 @@ NETDATA_APPS= btrfs \
 	      process \
 	      #
 else
-NETDATA_APPS= btrfs \
-	      cachestat \
-	      dc \
-	      disk \
-	      ext4 \
-	      fd \
-	      fdatasync \
-	      fsync \
-	      hardirq \
-	      mdflush \
-	      mount \
-	      msync \
-	      nfs \
-	      oomkill \
-	      process \
-	      shm \
-	      socket \
-	      softirq \
-	      sync \
-	      syncfs \
-	      sync_file_range \
-	      swap \
-	      vfs \
-	      xfs \
-	      zfs \
-	      #
+NETDATA_APPS= ${NETDATA_ALL_APPS}
 endif
 
 all: $(NETDATA_APPS)
