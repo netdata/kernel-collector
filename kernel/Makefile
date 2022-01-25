@@ -81,6 +81,8 @@ endif
 
 all: $(NETDATA_APPS)
 
+dev: ${NETDATA_ALL_APPS}
+
 libbpf:
 	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
@@ -113,6 +115,8 @@ libbpf:
 	/bin/bash rename_binaries.sh "$(VER_MAJOR)" "$(VER_MINOR)" "$@"
 
 $(NETDATA_APPS): %: %_kern.o
+
+${NETDATA_ALL_APPS}: %: %_kern.o
 
 tester: libbpf
 	$(CC) -I../.local_libbpf -I$(LIBBPF)/src -I$(LIBBPF)/include -I$(LIBBPF)/include/uapi -L../.local_libbpf -o legacy_test tester.c -lbpf -lz -lelf
