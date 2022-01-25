@@ -15,3 +15,5 @@ co-re/tests/*
 kernel/legacy_test
 .local_libbpf/bpf
 .local_libbpf/pkgconfig
+!co-re/tests/*.sh
+

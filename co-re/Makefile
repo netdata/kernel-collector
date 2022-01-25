@@ -11,8 +11,8 @@ KERNEL_VERSION="$(shell cat /proc/sys/kernel/osrelease)"
 FIRST_KERNEL_VERSION=$(shell sh ../tools/complement.sh "$(KERNEL_VERSION)")
 VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
 VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
-VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
-RUNNING_VERSION_CODE=$(shell echo $$(( $(VER_MAJOR) * 65536 + $(VER_MINOR) * 256 + $(VER_PATCH) )) )
+VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3 | cut -d\- -f1)
+RUNNING_VERSION_CODE=$(shell echo $$(( $(VER_MAJOR) * 65536 + $(VER_MINOR) * 256 + $(VER_PATCH))) )
 
 _LIBC ?= glibc
 
@@ -52,7 +52,7 @@ $(patsubst %,%.o,$(APPS)): %.o: %.skel.h
 	$(CC) $(CFLAGS) -DMY_LINUX_VERSION_CODE=$(RUNNING_VERSION_CODE) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
 $(APPS): %: %.o 
-	$(CC) $(CFLAGS) -L../.local_libbpf $^ -lelf -lz -lbpf -o $(OUTPUT)$@
+	$(CC) $(CFLAGS) -L../.local_libbpf $^ -lbpf -lelf -lz -o $(OUTPUT)$@
 
 compress: $(APPS)
 	tar -cf ../artifacts/netdata_ebpf-CO-RE-$(_LIBC).tar includes/*
@@ -64,4 +64,5 @@ clean:
 	rm -f ../artifacts/netdata_ebpf-CO-RE-*.tar.xz
 	rm -f ../artifacts/netdata_ebpf-CO-RE-*.tar.xz.sha256sum
 	cd $(LIBBPF)/src/ && make clean
-	rm -f *.o $(OUTPUT)* libbpf.a includes/*
+	cd $(OUTPUT) && find . -type f ! -name '*.sh' ! -name '.git*'  -delete
+	rm -f *.o includes/*

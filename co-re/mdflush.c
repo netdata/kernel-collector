@@ -157,6 +157,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+
     char *md_flush_request = netdata_update_name(function_list[NETDATA_MD_FLUSH_REQUEST]);
     if (!md_flush_request) {
         fprintf(stderr, "Module `md` is not loaded, so it is not possible to monitor calls for md_flush_request.\n");

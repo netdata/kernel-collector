@@ -358,6 +358,8 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+
     if (!selector) {
         ret = ebpf_load_btf_file(fs);
         if (!ret) {

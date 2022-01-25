@@ -273,6 +273,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "Cannot increase memory: error = %d\n", ret);
         return 1;
     }
+
+    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
     
     struct btf *bf = NULL;
     if (!selector) {

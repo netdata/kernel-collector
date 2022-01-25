@@ -291,6 +291,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
+
 #if (MY_LINUX_VERSION_CODE <= KERNEL_VERSION(5, 5, 19))
     function_list[NETDATA_FD_OPEN] = "do_sys_open";
 #endif
