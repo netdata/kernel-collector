@@ -71,7 +71,7 @@ else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330496 ; echo $$?),0)
 NETDATA_APPS= fd \
 	      #
 # Kernel newer than 5.9.256  ( 330240 = 5 * 65536 + 10 * 256)
-else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330496 ; echo $$?),0)
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330240 ; echo $$?),0)
 NETDATA_APPS= btrfs \
 	      process \
 	      #
