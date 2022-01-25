@@ -45,7 +45,7 @@ NETDATA_ALL_APPS= btrfs \
     		  fsync \
     		  hardirq \
     		  mdflush \
-		  mount \
+    		  mount \
     		  msync \
     		  nfs \
     		  oomkill \
