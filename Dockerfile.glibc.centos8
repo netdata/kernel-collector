@@ -1,26 +1,31 @@
-FROM centos:8.1.1911 AS build
+FROM rockylinux/rockylinux:8.5 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=4.18.0-147.5.1.el8_1
+ENV KERNEL_VERSION=4.18.0-348.2.1.el8_5
 
 ENV _LIBC=glibc
 
-RUN yum update -y && \
-    yum groupinstall -y "Development tools" && \
-    yum install -y asciidoc audit-libs-devel bash bc binutils binutils-devel \
-                   bison diffutils elfutils elfutils-devel \
-                   elfutils-libelf-devel findutils flex gawk gcc gettext \
-                   gzip hmaccalc hostname java-devel m4 make \
+# We use "Development tools" to install:
+# gcc c/c++ compiler, redhat-rpm-config, strace, rpm-build, make, pkgconfig, gettext, automake, strace64, gdb, bison,
+# libtool, autoconf, gcc-c++ compiler, binutils and all dependencies
+
+# hadolint ignore=DL3040,DL3041
+RUN dnf update -y && \
+    dnf install -y gcc make gcc-c++ libtool rpm-build-libs bison && \
+    dnf install -y asciidoc audit-libs-devel bash bc binutils binutils-devel \
+                   diffutils elfutils elfutils-devel \
+                   elfutils-libelf-devel findutils gawk \
+                   gzip hmaccalc hostname java-devel m4 \
                    module-init-tools ncurses-devel net-tools newt-devel \
                    numactl-devel openssl openssl-devel patch pciutils-devel \
-                   perl perl-ExtUtils-Embed pesign redhat-rpm-config \
+                   perl perl-ExtUtils-Embed pesign \
                    rpm-build sh-utils tar xmlto xz zlib-devel clang llvm
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i http://vault.centos.org/8.1.1911/BaseOS/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
+    rpm -i https://download.rockylinux.org/pub/rocky/8/BaseOS/source/tree/Packages/k/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
 
 RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
