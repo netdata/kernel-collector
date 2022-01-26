@@ -22,6 +22,9 @@ all: $(KERNEL_PROGRAM)
 	xz artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)-$(_LIBC).tar
 	( cd artifacts; sha256sum netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)-$(_LIBC).tar.xz > netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)-$(_LIBC).tar.xz.sha256sum )
 
+dev:
+	cd $(KERNEL_DIR) && $(MAKE) dev;
+
 $(KERNEL_PROGRAM):
 	cd $(KERNEL_DIR) && $(MAKE) all;
 

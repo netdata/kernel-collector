@@ -35,34 +35,53 @@ VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
 
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
-NETDATA_APPS= btrfs \
-	      cachestat \
-	      dc \
-	      disk \
-	      ext4 \
-	      fd \
-	      fdatasync \
-	      fsync \
-	      hardirq \
-	      mdflush \
-	      mount \
-	      msync \
-	      nfs \
-	      oomkill \
-	      process \
-	      shm \
-	      socket \
-	      softirq \
-	      sync \
-	      syncfs \
-	      sync_file_range \
-	      swap \
-	      vfs \
-	      xfs \
-	      zfs \
+NETDATA_ALL_APPS= btrfs \
+    		  cachestat \
+    		  dc \
+    		  disk \
+    		  ext4 \
+    		  fd \
+    		  fdatasync \
+    		  fsync \
+    		  hardirq \
+    		  mdflush \
+    		  mount \
+    		  msync \
+    		  nfs \
+    		  oomkill \
+    		  process \
+    		  shm \
+    		  socket \
+    		  softirq \
+    		  sync \
+    		  syncfs \
+    		  sync_file_range \
+    		  swap \
+    		  vfs \
+    		  xfs \
+    		  zfs \
+    		  #
+
+# Kernel newer than 5.14.256 ( 331520 = 5 * 65536 + 15 * 256)
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 331520 ; echo $$?),0)
+NETDATA_APPS= cachestat \
 	      #
+# Kernel newer than 5.10.256 ( 330496 = 5 * 65536 + 11 * 256)
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330496 ; echo $$?),0)
+NETDATA_APPS= fd \
+	      #
+# Kernel newer than 5.9.256  ( 330240 = 5 * 65536 + 10 * 256)
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330240 ; echo $$?),0)
+NETDATA_APPS= btrfs \
+	      process \
+	      #
+else
+NETDATA_APPS= ${NETDATA_ALL_APPS}
+endif
 
 all: $(NETDATA_APPS)
+
+dev: ${NETDATA_ALL_APPS}
 
 libbpf:
 	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
@@ -96,6 +115,8 @@ libbpf:
 	/bin/bash rename_binaries.sh "$(VER_MAJOR)" "$(VER_MINOR)" "$@"
 
 $(NETDATA_APPS): %: %_kern.o
+
+${NETDATA_ALL_APPS}: %: %_kern.o
 
 tester: libbpf
 	$(CC) -I../.local_libbpf -I$(LIBBPF)/src -I$(LIBBPF)/include -I$(LIBBPF)/include/uapi -L../.local_libbpf -o legacy_test tester.c -lbpf -lz -lelf
