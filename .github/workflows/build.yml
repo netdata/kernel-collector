@@ -12,6 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         kernel_version:
+          - '5.16.4'
           - '5.15.4'
           - '5.15.0'
           - '5.11.2'
