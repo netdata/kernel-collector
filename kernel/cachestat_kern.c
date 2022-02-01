@@ -121,17 +121,26 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,16,0))
+// When kernel 5.16.0 was released, __set_page_dirty became a static inline function,
+// so we are callging directly the __folio_mark_dirty.
+SEC("kprobe/__folio_mark_dirty")
+#else
 // When kernel 5.15.0 was released the function account_page_dirtied became static
 // https://elixir.bootlin.com/linux/v5.15/source/mm/page-writeback.c#L2441
 // as consequence of this, we are monitoring the function from caller.
 SEC("kprobe/__set_page_dirty")
+#endif
 int netdata_set_page_dirty(struct pt_regs* ctx)
 {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,16,0))
     struct page *page = (struct page *)PT_REGS_PARM1(ctx) ;
     struct address_space *mapping =  _(page->mapping);
 
     if (!mapping)
         return 0;
+#endif
 
     netdata_cachestat_t *fill, data = {};
     libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
