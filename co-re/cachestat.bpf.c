@@ -149,6 +149,14 @@ int BPF_KPROBE(netdata_mark_page_accessed_kprobe)
     return netdata_common_page_accessed();
 }
 
+// When kernel 5.16.0 was released the function __set_page_dirty became static
+// and a new function was created.
+SEC("kprobe/__folio_mark_dirty")
+int BPF_KPROBE(netdata_folio_mark_dirty_kprobe)
+{
+    return netdata_common_page_dirtied();
+}
+
 // When kernel 5.15.0 was released the function account_page_dirtied became static
 // https://elixir.bootlin.com/linux/v5.15/source/mm/page-writeback.c#L2441
 // as consequence of this, we are monitoring the function from caller.
@@ -192,6 +200,14 @@ SEC("fentry/mark_page_accessed")
 int BPF_PROG(netdata_mark_page_accessed_fentry)
 {
     return netdata_common_page_accessed();
+}
+
+// When kernel 5.16.0 was released the function __set_page_dirty became static
+// and a new function was created.
+SEC("fentry/__folio_mark_dirty")
+int BPF_PROG(netdata_folio_mark_dirty_fentry)
+{
+    return netdata_common_page_dirtied();
 }
 
 // When kernel 5.15.0 was released the function account_page_dirtied became static
