@@ -19,7 +19,9 @@
 
 char *syscalls[] = { "add_to_page_cache_lru",
                      "mark_page_accessed",
-#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,16,0))
+                     "__folio_mark_dirty",
+#elif (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
                      "__set_page_dirty",
 #else
                      "account_page_dirtied",
@@ -31,6 +33,7 @@ static inline void netdata_ebpf_disable_probe(struct cachestat_bpf *obj)
 {
     bpf_program__set_autoload(obj->progs.netdata_add_to_page_cache_lru_kprobe, false);
     bpf_program__set_autoload(obj->progs.netdata_mark_page_accessed_kprobe, false);
+    bpf_program__set_autoload(obj->progs.netdata_folio_mark_dirty_kprobe, false);
     bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_kprobe, false);
     bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_kprobe, false);
     bpf_program__set_autoload(obj->progs.netdata_mark_buffer_dirty_kprobe, false);
@@ -38,9 +41,14 @@ static inline void netdata_ebpf_disable_probe(struct cachestat_bpf *obj)
 
 static inline void netdata_ebpf_disable_specific_probe(struct cachestat_bpf *obj)
 {
-#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,16,0))
+    bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_kprobe, false);
+    bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_kprobe, false);
+#elif (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+    bpf_program__set_autoload(obj->progs.netdata_folio_mark_dirty_kprobe, false);
     bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_kprobe, false);
 #else
+    bpf_program__set_autoload(obj->progs.netdata_folio_mark_dirty_kprobe, false);
     bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_kprobe, false);
 #endif
 }
@@ -49,6 +57,7 @@ static inline void netdata_ebpf_disable_trampoline(struct cachestat_bpf *obj)
 {
     bpf_program__set_autoload(obj->progs.netdata_add_to_page_cache_lru_fentry, false);
     bpf_program__set_autoload(obj->progs.netdata_mark_page_accessed_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_folio_mark_dirty_fentry, false);
     bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_fentry, false);
     bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_fentry, false);
     bpf_program__set_autoload(obj->progs.netdata_mark_buffer_dirty_fentry, false);
@@ -56,9 +65,14 @@ static inline void netdata_ebpf_disable_trampoline(struct cachestat_bpf *obj)
 
 static inline void netdata_ebpf_disable_specific_trampoline(struct cachestat_bpf *obj)
 {
-#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+#if (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,16,0))
+    bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_fentry, false);
+    bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_fentry, false);
+#elif (MY_LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
+    bpf_program__set_autoload(obj->progs.netdata_folio_mark_dirty_fentry, false);
     bpf_program__set_autoload(obj->progs.netdata_account_page_dirtied_fentry, false);
 #else
+    bpf_program__set_autoload(obj->progs.netdata_folio_mark_dirty_fentry, false);
     bpf_program__set_autoload(obj->progs.netdata_set_page_dirty_fentry, false);
 #endif
 }
@@ -71,7 +85,10 @@ static inline void netdata_set_trampoline_target(struct cachestat_bpf *obj)
     bpf_program__set_attach_target(obj->progs.netdata_mark_page_accessed_fentry, 0,
                                    syscalls[NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED]);
 
-#if (MY_LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
+#if (MY_LINUX_VERSION_CODE > KERNEL_VERSION(5,16,0))
+    bpf_program__set_attach_target(obj->progs.netdata_folio_mark_dirty_fentry, 0,
+                                   syscalls[NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED]);
+#elif (MY_LINUX_VERSION_CODE > KERNEL_VERSION(5,15,0))
     bpf_program__set_attach_target(obj->progs.netdata_set_page_dirty_fentry, 0,
                                    syscalls[NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED]);
 #else

@@ -62,8 +62,12 @@ NETDATA_ALL_APPS= btrfs \
     		  zfs \
     		  #
 
+# Kernel newer than 5.15.256 ( 331776 = 5 * 65536 + 16 * 256)
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 331776 ; echo $$?),0)
+NETDATA_APPS= cachestat \
+	      #
 # Kernel newer than 5.14.256 ( 331520 = 5 * 65536 + 15 * 256)
-ifeq ($(shell test $(CURRENT_KERNEL) -ge 331520 ; echo $$?),0)
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 331520 ; echo $$?),0)
 NETDATA_APPS= cachestat \
 	      #
 # Kernel newer than 5.10.256 ( 330496 = 5 * 65536 + 11 * 256)
