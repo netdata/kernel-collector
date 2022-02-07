@@ -251,8 +251,6 @@ static inline void update_socket_table(struct pt_regs* ctx,
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
-        if (protocol == IPPROTO_UDP)
-            bpf_map_delete_elem(tbl, &idx);
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
@@ -260,6 +258,10 @@ static inline void update_socket_table(struct pt_regs* ctx,
 
         bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
     }
+
+    // TO-DO: When Network Viewer is available, we cannot discard UDP like this.
+    if (protocol == IPPROTO_UDP)
+        bpf_map_delete_elem(tbl, &idx);
 }
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
