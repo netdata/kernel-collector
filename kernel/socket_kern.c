@@ -252,7 +252,7 @@ static inline void update_socket_table(struct pt_regs* ctx,
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
         if (protocol == IPPROTO_UDP)
-            val->removeme = 1;
+            bpf_map_delete_elem(tbl, &idx);
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
@@ -449,8 +449,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
     tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
-        //The socket information needs to be removed after read on user ring
-        val->removeme = 1;
+        bpf_map_delete_elem(tbl, &idx);
     }
 
     return 0;
