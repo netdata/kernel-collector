@@ -266,6 +266,19 @@ static inline void update_socket_table(struct pt_regs* ctx,
 }
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
+static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
+#else
+static inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
+#endif
+{
+    netdata_bandwidth_t data = { };
+    data.pid = tgid;
+    data.first = bpf_ktime_get_ns();
+
+    bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
+}
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
 #else
 static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
@@ -288,6 +301,9 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
 
     b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
     if (b) {
+        if (b->pid != tgid)
+            ebpf_socket_reset_bandwidth(pid, tgid);
+
         b->ct = bpf_ktime_get_ns();
 
         if (sent)
