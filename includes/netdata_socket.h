@@ -20,10 +20,9 @@ typedef struct netdata_socket {
     __u64 sent_bytes;
     __u64 first; //First timestamp
     __u64 ct;   //Current timestamp
-    __u16 retransmit; //It is never used with UDP
-    __u8 protocol;
-    __u8 removeme;
-    __u32 reserved;
+    __u32 retransmit; //It is never used with UDP
+    __u16 protocol;
+    __u16 reserved;
 } netdata_socket_t;
 
 typedef struct netdata_bandwidth {
