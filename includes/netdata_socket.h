@@ -37,6 +37,7 @@ typedef struct netdata_bandwidth {
     __u64 retransmit;
     __u64 call_udp_sent;
     __u64 call_udp_received;
+    __u64 close;
 } netdata_bandwidth_t;
 
 // Index used together previous structure

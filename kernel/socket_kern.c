@@ -349,6 +349,43 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
     }
 }
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
+static __always_inline void update_pid_cleanup(__u64 close)
+#else
+static inline void update_pid_cleanup(__u64 close)
+#endif
+{
+    netdata_bandwidth_t *b;
+    netdata_bandwidth_t data = { };
+
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return;
+    } else
+        return;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+
+    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
+    if (b) {
+        if (b->pid != tgid)
+            ebpf_socket_reset_bandwidth(pid, tgid);
+
+        libnetdata_update_u64(&b->close, 1);
+    } else {
+        data.pid = tgid;
+        data.first = bpf_ktime_get_ns();
+        data.ct = data.first;
+        data.close = 1;
+
+        bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
+    }
+}
+
 /************************************************************************************
  *
  *                                 General Socket Section
@@ -459,6 +496,8 @@ int netdata_tcp_close(struct pt_regs* ctx)
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLOSE, 1);
+
+    update_pid_cleanup(1);
 
     family =  set_idx_value(&idx, is);
     if (!family)
