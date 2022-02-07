@@ -249,17 +249,20 @@ static inline void update_socket_table(struct pt_regs* ctx,
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
+
+        if (protocol == IPPROTO_UDP)
+            bpf_map_delete_elem(tbl, &idx);
     } else {
+        // This will be present while we do not have network viewer.
+        if (protocol == IPPROTO_UDP && received)
+            return;
+
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
         update_socket_stats(&data, sent, received, retransmitted);
 
         bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
     }
-
-    // TO-DO: When Network Viewer is available, we cannot discard UDP like this.
-    if (protocol == IPPROTO_UDP)
-        bpf_map_delete_elem(tbl, &idx);
 }
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
@@ -489,9 +492,9 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     }
 
     bpf_map_delete_elem(&tbl_nv_udp, &pid_tgid);
-    update_socket_table(ctx, 0, 0, 1, (__u16)IPPROTO_UDP);
-
     __u64 received = (__u64) PT_REGS_RC(ctx);
+    update_socket_table(ctx, 0, received, 1, (__u16)IPPROTO_UDP);
+
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_RECVMSG, received);
 
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
@@ -524,7 +527,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     sent = (size_t)PT_REGS_PARM3(ctx);
 #endif
 
-    update_socket_table(ctx, 0, 0, 1, IPPROTO_UDP);
+    update_socket_table(ctx, sent, 0, 1, (__u16)IPPROTO_UDP);
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
 
