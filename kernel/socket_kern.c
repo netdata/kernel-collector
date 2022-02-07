@@ -211,9 +211,7 @@ static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 
         libnetdata_update_u64(&ptr->recv_bytes, received);
     }
 
-    // We can use update_u64, it was overwritten
-    // the values
-    ptr->retransmit += retransmitted;
+    libnetdata_update_u32(&ptr->retransmit, retransmitted);
 }
 
 // Use __always_inline instead inline to keep compatiblity with old kernels
