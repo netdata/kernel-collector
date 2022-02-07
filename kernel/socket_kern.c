@@ -273,6 +273,14 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return;
+    } else
+        return;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
@@ -382,10 +390,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
 
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps)
-        if (*apps == 1)
-            update_pid_bandwidth((__u64)sent, 0, IPPROTO_TCP);
+    update_pid_bandwidth((__u64)sent, 0, IPPROTO_TCP);
 
     return 0;
 }
@@ -398,10 +403,7 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 
     update_socket_table(ctx, 0, 0, 1, (__u16)IPPROTO_TCP);
 
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps)
-        if (*apps == 1)
-            update_pid_bandwidth(0, 0, IPPROTO_TCP);
+    update_pid_bandwidth(0, 0, IPPROTO_TCP);
 
     return 0;
 }
@@ -425,10 +427,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     update_socket_table(ctx, 0, (__u64)copied, 1, (__u16)IPPROTO_TCP);
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
 
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps)
-        if (*apps == 1)
-            update_pid_bandwidth(0, received, IPPROTO_TCP);
+    update_pid_bandwidth(0, received, IPPROTO_TCP);
 
     return 0;
 }
@@ -497,10 +496,7 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_RECVMSG, received);
 
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps)
-        if (*apps == 1)
-            update_pid_bandwidth(0, received, IPPROTO_UDP);
+    update_pid_bandwidth(0, received, IPPROTO_UDP);
 
     return 0;
 }
@@ -537,10 +533,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     }
 #endif
 
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps)
-        if (*apps == 1)
-            update_pid_bandwidth((__u64) sent, 0, IPPROTO_UDP);
+    update_pid_bandwidth((__u64) sent, 0, IPPROTO_UDP);
 
     return 0;
 }
