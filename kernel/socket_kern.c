@@ -266,9 +266,9 @@ static inline void update_socket_table(struct pt_regs* ctx,
 }
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline void update_pid_stats(__u64 sent, __u64 received, __u8 protocol)
+static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
 #else
-static inline void update_pid_stats(__u64 sent, __u64 received, __u8 protocol)
+static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
 #endif
 {
     netdata_bandwidth_t *b;
@@ -385,7 +385,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
     if (apps)
         if (*apps == 1)
-            update_pid_stats((__u64)sent, 0, IPPROTO_TCP);
+            update_pid_bandwidth((__u64)sent, 0, IPPROTO_TCP);
 
     return 0;
 }
@@ -401,7 +401,7 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
     if (apps)
         if (*apps == 1)
-            update_pid_stats(0, 0, IPPROTO_TCP);
+            update_pid_bandwidth(0, 0, IPPROTO_TCP);
 
     return 0;
 }
@@ -428,7 +428,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
     if (apps)
         if (*apps == 1)
-            update_pid_stats(0, received, IPPROTO_TCP);
+            update_pid_bandwidth(0, received, IPPROTO_TCP);
 
     return 0;
 }
@@ -500,7 +500,7 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
     if (apps)
         if (*apps == 1)
-            update_pid_stats(0, received, IPPROTO_UDP);
+            update_pid_bandwidth(0, received, IPPROTO_UDP);
 
     return 0;
 }
@@ -540,7 +540,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
     if (apps)
         if (*apps == 1)
-            update_pid_stats((__u64) sent, 0, IPPROTO_UDP);
+            update_pid_bandwidth((__u64) sent, 0, IPPROTO_UDP);
 
     return 0;
 }
