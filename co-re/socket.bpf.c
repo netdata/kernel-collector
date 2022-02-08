@@ -129,8 +129,8 @@ static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sen
 static __always_inline void update_socket_table(struct inet_sock *is,
                                                 __u64 sent,
                                                 __u64 received,
-                                                __u16 retransmitted,
-                                                __u8 protocol)
+                                                __u32 retransmitted,
+                                                __u16 protocol)
 {
     __u16 family;
     void *tbl;
@@ -238,7 +238,7 @@ static __always_inline int common_tcp_send_message(struct inet_sock *is, size_t 
         return 0;
     }
 
-    update_socket_table(is, sent, 0, 0, IPPROTO_TCP);
+    update_socket_table(is, sent, 0, 0, (__u16)IPPROTO_TCP);
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
 
     update_pid_table((__u64)sent, 0, IPPROTO_TCP);
@@ -255,7 +255,7 @@ static __always_inline int common_udp_send_message(struct inet_sock *is, size_t 
         return 0;
     }
 
-    update_socket_table(is, 0, 0, 1, IPPROTO_UDP);
+    update_socket_table(is, sent, 0, 0, (__u16)IPPROTO_UDP);
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
 
@@ -285,7 +285,7 @@ static inline int netdata_common_tcp_retransmit(struct inet_sock *is)
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_TCP_RETRANSMIT, 1);
 
-    update_socket_table(is, 0, 0, 1, IPPROTO_TCP);
+    update_socket_table(is, 0, 0, 1, (__u16)IPPROTO_TCP);
 
     update_pid_table(0, 0, IPPROTO_TCP);
 
@@ -301,7 +301,7 @@ static inline int netdata_common_tcp_cleanup_rbuf(int copied, struct inet_sock *
         return 0;
     }
 
-    update_socket_table(is, 0, (__u64)copied, 1, IPPROTO_TCP);
+    update_socket_table(is, 0, (__u64)copied, 1, (__u16)IPPROTO_TCP);
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
 
@@ -408,9 +408,9 @@ int BPF_KRETPROBE(netdata_udp_recvmsg_kretprobe)
     struct inet_sock *is = (struct inet_sock *)((struct sock *)PT_REGS_PARM1(ctx));
 
     bpf_map_delete_elem(&tbl_nv_udp, &pid_tgid);
-    update_socket_table(is, 0, 0, 1, IPPROTO_TCP);
-
     __u64 received = (__u64) PT_REGS_RC(ctx);
+    update_socket_table(is, 0, received, 0, (__u16)IPPROTO_UDP);
+
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_RECVMSG, received);
 
     update_pid_table(0, received, IPPROTO_UDP);
