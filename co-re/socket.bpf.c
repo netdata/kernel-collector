@@ -355,7 +355,10 @@ static inline int netdata_common_tcp_close(struct inet_sock *is)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
-    update_pid_cleanup();
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps)
+        if (*apps == 1)
+            update_pid_cleanup();
 
     family =  set_idx_value(&idx, is);
     if (!family)
