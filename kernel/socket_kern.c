@@ -350,9 +350,9 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
 }
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline void update_pid_cleanup(__u64 close)
+static __always_inline void update_pid_cleanup()
 #else
-static inline void update_pid_cleanup(__u64 close)
+static inline void update_pid_cleanup()
 #endif
 {
     netdata_bandwidth_t *b;
@@ -497,7 +497,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
-    update_pid_cleanup(1);
+    update_pid_cleanup();
 
     family =  set_idx_value(&idx, is);
     if (!family)
