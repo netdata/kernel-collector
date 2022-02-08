@@ -194,9 +194,9 @@ static inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *i
 
 // Update time and bytes sent and received
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
+static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u32 retransmitted)
 #else
-static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
+static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u32 retransmitted)
 #endif
 {
     ptr->ct = bpf_ktime_get_ns();
