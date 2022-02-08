@@ -163,7 +163,7 @@ static __always_inline void update_socket_table(struct inet_sock *is,
     }
 }
 
-static __always_inline void update_pid_stats(__u64 sent, __u64 received, __u8 protocol)
+static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
@@ -226,7 +226,7 @@ static __always_inline void update_pid_table(__u64 sent, __u64 received, __u8 pr
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
     if (apps)
         if (*apps == 1)
-            update_pid_stats((__u64)sent, received, protocol);
+            update_pid_bandwidth((__u64)sent, received, protocol);
 }
 
 static __always_inline int common_tcp_send_message(struct inet_sock *is, size_t sent, int ret)
