@@ -104,7 +104,7 @@ static __always_inline short unsigned int set_idx_value(netdata_socket_idx_t *ns
     return family;
 }
 
-static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u16 retransmitted)
+static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u32 retransmitted)
 {
     ptr->ct = bpf_ktime_get_ns();
 
@@ -118,8 +118,7 @@ static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sen
         libnetdata_update_u64(&ptr->recv_bytes, received);
     }
 
-    // 16 bit cannot be used with __sync_fetch_and_add
-    ptr->retransmit += retransmitted;
+    libnetdata_update_u32(&ptr->ptr->retransmit, retransmitted);
 }
 
 // Use __always_inline instead inline to keep compatiblity with old kernels
@@ -357,6 +356,7 @@ static inline int netdata_common_tcp_close(struct inet_sock *is)
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
     update_pid_cleanup();
+
     family =  set_idx_value(&idx, is);
     if (!family)
         return 0;
