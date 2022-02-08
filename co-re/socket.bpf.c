@@ -163,6 +163,15 @@ static __always_inline void update_socket_table(struct inet_sock *is,
     }
 }
 
+static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
+{
+    netdata_bandwidth_t data = { };
+    data.pid = tgid;
+    data.first = bpf_ktime_get_ns();
+
+    bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
+}
+
 static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
 {
     netdata_bandwidth_t *b;
@@ -174,6 +183,9 @@ static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u
 
     b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
     if (b) {
+        if (b->pid != tgid)
+            ebpf_socket_reset_bandwidth(pid, tgid);
+
         b->ct = bpf_ktime_get_ns();
 
         if (sent)
