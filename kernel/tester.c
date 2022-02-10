@@ -230,7 +230,7 @@ static int ebpf_has_kernel_version(int version, int rhf)
  */
 static char *ebpf_select_kernel_name(uint32_t selector)
 {
-    static char *kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.15" };
+    static char *kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.15", "5.16" };
 
     return kernel_names[selector];
 }
@@ -251,7 +251,9 @@ static int ebpf_select_max_index(int is_rhf, uint32_t kver)
         if (kver >= NETDATA_EBPF_KERNEL_4_11)
             return 3;
     } else { // Kernels from kernel.org
-        if (kver >= NETDATA_EBPF_KERNEL_5_15)
+        if (kver >= NETDATA_EBPF_KERNEL_5_16)
+            return 8;
+        else if (kver >= NETDATA_EBPF_KERNEL_5_15)
             return 7;
         else if (kver >= NETDATA_EBPF_KERNEL_5_11)
             return 6;
