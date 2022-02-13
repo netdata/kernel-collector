@@ -1,10 +1,11 @@
 #define KBUILD_MODNAME "fsync_netdata"
-#include <linux/bpf.h>
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+#include <uapi/linux/bpf.h>
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
 #else
+#include <linux/bpf.h>
 #include "netdata_bpf_helpers.h"
 #endif
 #include "netdata_ebpf.h"
