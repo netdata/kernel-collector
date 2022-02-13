@@ -8,7 +8,6 @@ EXTRA_CFLAGS += -fno-stack-protector
 
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated/uapi
-LINUXINCLUDE += -I$(KERNELSOURCE)/include
 LINUXINCLUDE += -I$(KERNELSOURCE)/include/generated/uapi
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/uapi
@@ -18,7 +17,6 @@ LINUXINCLUDE += -I$(KERNELSOURCE)
 
 LINUXINCLUDE += -I$(LIBBPF)/src
 LINUXINCLUDE += -I$(LIBBPF)/include
-LINUXINCLUDE += -I$(LIBBPF)/include/uapi
 LINUXINCLUDE += -include $(KERNELSOURCE)/include/linux/kconfig.h
 LINUXINCLUDE += -I../includes
 
