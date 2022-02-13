@@ -15,18 +15,18 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, int);
     __type(value, __u8);
     __uint(max_entries, NETDATA_OOMKILL_MAX_ENTRIES);
 } tbl_oomkill SEC(".maps");
 #else
 struct bpf_map_def SEC("maps") tbl_oomkill = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(int),
     .value_size = sizeof(__u8),
     .max_entries = NETDATA_OOMKILL_MAX_ENTRIES

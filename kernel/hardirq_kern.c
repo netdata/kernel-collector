@@ -18,7 +18,11 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, hardirq_key_t);
     __type(value, hardirq_val_t);
     __uint(max_entries, NETDATA_HARDIRQ_MAX_IRQS);
@@ -33,11 +37,7 @@ struct {
 
 #else
 struct bpf_map_def SEC("maps") tbl_hardirq = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(hardirq_key_t),
     .value_size = sizeof(hardirq_val_t),
     .max_entries = NETDATA_HARDIRQ_MAX_IRQS

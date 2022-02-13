@@ -26,7 +26,11 @@ struct {
 } tbl_ext4 SEC(".maps");
 
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, __u32);
     __type(value, __u64);
     __uint(max_entries,  4192);
@@ -42,11 +46,7 @@ struct bpf_map_def SEC("maps") tbl_ext4 = {
 };
 
 struct bpf_map_def SEC("maps") tmp_ext4 = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries = 4192

@@ -22,7 +22,11 @@ struct {
 } cstat_global  SEC(".maps");
 
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, __u32);
     __type(value, netdata_cachestat_t);
     __uint(max_entries, PID_MAX_DEFAULT);
@@ -45,11 +49,7 @@ struct bpf_map_def SEC("maps") cstat_global = {
 };
 
 struct bpf_map_def SEC("maps") cstat_pid = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(netdata_cachestat_t),
     .max_entries = PID_MAX_DEFAULT

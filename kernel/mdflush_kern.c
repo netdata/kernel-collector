@@ -15,7 +15,11 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, mdflush_key_t);
     __type(value, mdflush_val_t);
     __uint(max_entries, 1024);
@@ -24,11 +28,7 @@ struct {
 #else
 
 struct bpf_map_def SEC("maps") tbl_mdflush = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(mdflush_key_t),
     .value_size = sizeof(mdflush_val_t),
     .max_entries = 1024
