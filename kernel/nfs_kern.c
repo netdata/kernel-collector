@@ -1,7 +1,7 @@
 #define KBUILD_MODNAME "nfs_netdata"
 #include <linux/genhd.h>
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 #include <uapi/linux/bpf.h>
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
@@ -17,7 +17,7 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
