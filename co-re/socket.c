@@ -324,7 +324,7 @@ int ebpf_socket_tests(int selector)
 
         netdata_socket_idx_t common_idx = { .saddr.addr64 = { 1, 1 }, .sport = 1, .daddr.addr64 = {1 , 1}, .dport = 1 };
         netdata_socket_t values = { .recv_packets = 1, .sent_packets = 1, .recv_bytes = 1, .sent_bytes = 1,
-                                    .first = 123456789, .ct = 123456790, .retransmit = 1, .protocol = 6, .removeme = 0,
+                                    .first = 123456789, .ct = 123456790, .retransmit = 1, .protocol = 6,
                                     .reserved = 1 }; 
         pid_t my_pid = ebpf_update_tables(obj, &common_idx, &values);
 
