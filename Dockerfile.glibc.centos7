@@ -25,7 +25,7 @@ RUN yum install -y centos-release-scl && \
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i http://vault.centos.org/7.9.2009/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
+    rpm -i https://vault.centos.org/7.9.2009/updates/Source/SPackages/kernel-${KERNEL_VERSION}.src.rpm 2>&1
 
 RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \

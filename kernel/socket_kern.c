@@ -1,5 +1,4 @@
 #define KBUILD_MODNAME "socket_netdata"
-#include <linux/bpf.h>
 #include <linux/if_ether.h>
 #include <linux/in.h>
 #include <linux/ip.h>
@@ -10,10 +9,12 @@
 #include <linux/udp.h>
 #include <linux/version.h>
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+#include <uapi/linux/bpf.h>
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
 #else
+#include <linux/bpf.h>
 #include "netdata_bpf_helpers.h"
 #endif
 #include "netdata_ebpf.h"
@@ -24,9 +25,13 @@
  *
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,4,14))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, __u32);
     __type(value, netdata_bandwidth_t);
     __uint(max_entries, PID_MAX_DEFAULT);
@@ -40,21 +45,33 @@ struct {
 } tbl_global_sock SEC(".maps");
 
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, netdata_socket_idx_t);
     __type(value, netdata_socket_t);
     __uint(max_entries, 65536);
 } tbl_conn_ipv4 SEC(".maps");
 
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, netdata_socket_idx_t);
     __type(value, netdata_socket_t);
     __uint(max_entries, 65536);
 } tbl_conn_ipv6 SEC(".maps");
 
 struct {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
+    __uint(type, BPF_MAP_TYPE_HASH);
+#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+#endif
     __type(key, __u64);
     __type(value, void *);
     __uint(max_entries, 8192);
@@ -77,11 +94,7 @@ struct {
 #else
 
 struct bpf_map_def SEC("maps") tbl_bandwidth = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(__u32),
     .value_size = sizeof(netdata_bandwidth_t),
     .max_entries = 65536
@@ -95,33 +108,21 @@ struct bpf_map_def SEC("maps") tbl_global_sock = {
 };
 
 struct bpf_map_def SEC("maps") tbl_conn_ipv4 = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(netdata_socket_idx_t),
     .value_size = sizeof(netdata_socket_t),
     .max_entries = 65536
 };
 
 struct bpf_map_def SEC("maps") tbl_conn_ipv6 = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(netdata_socket_idx_t),
     .value_size = sizeof(netdata_socket_t),
     .max_entries = 65536
 };
 
 struct bpf_map_def SEC("maps") tbl_nv_udp = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
     .key_size = sizeof(__u64),
     .value_size = sizeof(void *),
     .max_entries = 8192
