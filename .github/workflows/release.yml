@@ -55,10 +55,10 @@ jobs:
           ls -lah artifacts
           test -f artifacts/netdata_ebpf-*.tar.xz
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2
         if: success()
         with:
-          name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
+          name: artifacts
           path: artifacts
 
   create-release:
@@ -66,108 +66,30 @@ jobs:
     needs: build-artifacts
     runs-on: ubuntu-latest
     steps:
-      - name: Set release_tag
-        run: |
-          echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          # TODO: Generate ChagneLog here for Release Description
-          body: |
-            # Release ${{ env.RELEASE_TAG }}
-
-            <!--- Summary of Release -->
-
-            ## Release Notes
-
-            <!--- Release Notes -->
-          draft: true
-          prerelease: false
-      - name: Write upload_url
-        run: |
-          mkdir -p upload_url
-          echo '${{ steps.create_release.outputs.upload_url }}' > upload_url/upload_url.txt
-      - name: Upload upload_url
-        uses: actions/upload-artifact@v1
-        with:
-          name: upload_url
-          path: upload_url
-
-  package-upload:
-    name: Package & Upload
-    needs: create-release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download upload_url
-        uses: actions/download-artifact@v1
-        with:
-          name: upload_url
-      - name: Set upload_url
-        run: |
-          echo "UPLOAD_URL=$(cat upload_url/upload_url.txt)" >> $GITHUB_ENV
-      - name: Set release_tag
-        run: |
-          echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Download all Artifacts
         uses: actions/download-artifact@v2
         with:
+          name: artifacts
           path: artifacts
-      - name: Display Artifacts
-        run: ls -R
-        working-directory: artifacts
-      - name: Package Release Assets
+      - name: Set release_tag
         run: |
-          mkdir -p packages/netdata-kernel-collector-static-${RELEASE_TAG}
-          mkdir -p packages/netdata-kernel-collector-glibc-${RELEASE_TAG}
-          mkdir -p packages/netdata-kernel-collector-musl-${RELEASE_TAG}
+          echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      - name: Consolidate Artifacts
+        run: |
+          mkdir -p final-artifacts
           for libc in static glibc musl; do
+            mkdir -p "packages/netdata-ebpf-co-re-${libc}-${RELEASE_TAG}"
             for dir in artifacts/artifacts-*-"$libc"; do
-              tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -xvf "$dir"/*.tar.xz
+              tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -xvf artifacts/*-"${libc}"*.tar.xz
             done
-            tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -Jcvf packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG}.tar.xz ./
+            tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -Jcvf final-artifacts/netdata-kernel-collector-"$libc"-${RELEASE_TAG}.tar.xz ./
           done
-          cd packages && sha256sum *.tar.xz > sha256sums.txt
-      - name: Display Release Assets
-        run: ls -R
-        working-directory: packages
-      - name: Upload Release Assets (static)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          cd final-artifacts && sha256sum *.tar.xz > sha256sums.txt
+      - name: Create Release
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: packages/netdata-kernel-collector-static-${{ env.RELEASE_TAG }}.tar.xz
-          asset_name: netdata-kernel-collector-static-${{ env.RELEASE_TAG }}.tar.xz
-          asset_content_type: application/x-gtar
-      - name: Upload Release Assets (glibc)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: packages/netdata-kernel-collector-glibc-${{ env.RELEASE_TAG }}.tar.xz
-          asset_name: netdata-kernel-collector-glibc-${{ env.RELEASE_TAG }}.tar.xz
-          asset_content_type: application/x-gtar
-      - name: Upload Release Assets (musl)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: packages/netdata-kernel-collector-musl-${{ env.RELEASE_TAG }}.tar.xz
-          asset_name: netdata-kernel-collector-musl-${{ env.RELEASE_TAG }}.tar.xz
-          asset_content_type: application/x-gtar
-      - name: Upload Release Assets (sha256sums)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: packages/sha256sums.txt
-          asset_name: sha256sums.txt
-          asset_content_type: text/plain
+          allowUpdates: false
+          artifactErrorsFailBuild: true
+          artifacts: 'final-artifacts/*'
+          draft: true
+          token: ${{ secrets.NETDATABOT_GITHUB_TOKEN }}
