@@ -79,12 +79,13 @@ jobs:
           mkdir -p final-artifacts
           for libc in static glibc musl; do
             mkdir -p "packages/netdata-ebpf-co-re-${libc}-${RELEASE_TAG}"
-            for dir in artifacts/artifacts-*-"$libc"; do
-              tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -xvf artifacts/*-"${libc}"*.tar.xz
+            # shellcheck disable=SC2034
+            for dir in artifacts/artifacts-*-"${libc}"; do
+              tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -xvf artifacts/*-"${libc}"*.tar.xz
             done
-            tar -C packages/netdata-kernel-collector-"$libc"-${RELEASE_TAG} -Jcvf final-artifacts/netdata-kernel-collector-"$libc"-${RELEASE_TAG}.tar.xz ./
+            tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
           done
-          cd final-artifacts && sha256sum *.tar.xz > sha256sums.txt
+          cd final-artifacts && sha256sum ./*.tar.xz > sha256sums.txt
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
