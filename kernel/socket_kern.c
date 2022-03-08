@@ -79,9 +79,9 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u16);
-    __type(value, __u8);
-    __uint(max_entries, 65536);
+    __type(key, netdata_passive_connection_idx_t);
+    __type(value, netdata_passive_connection_t);
+    __uint(max_entries, 1024);
 } tbl_lports SEC(".maps");
 
 struct {
@@ -130,9 +130,9 @@ struct bpf_map_def SEC("maps") tbl_nv_udp = {
 
 struct bpf_map_def SEC("maps") tbl_lports = {
     .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u16),
-    .value_size = sizeof(__u8),
-    .max_entries =  65536
+    .key_size = sizeof(netdata_passive_connection_idx_t),
+    .value_size = sizeof(netdata_passive_connection_t),
+    .max_entries =  1024
 };
 
 struct bpf_map_def SEC("maps") socket_ctrl = {
@@ -396,17 +396,41 @@ static inline void update_pid_cleanup()
 SEC("kretprobe/inet_csk_accept")
 int netdata_inet_csk_accept(struct pt_regs* ctx)
 {
-    struct sock *sk = (struct sock*)PT_REGS_RC(ctx);
+    netdata_passive_connection_t data = { };
+    netdata_passive_connection_idx_t idx = { };
+    struct sock *sk = (struct sock *)PT_REGS_RC(ctx);
+    u16 protocol;
     if (!sk)
         return 0;
 
-    __u16 dport;
-    bpf_probe_read(&dport, sizeof(u16), &sk->__sk_common.skc_num);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
+    protocol = 0;
+    bpf_probe_read(&protocol, sizeof(u16), &sk->sk_protocol);
+#else
+    protocol = (u16) select_protocol(sk);
+#endif
 
-    __u8 *value = (__u8 *)bpf_map_lookup_elem(&tbl_lports, &dport);
-    if (!value) {
-        __u8 value = 1;
-        bpf_map_update_elem(&tbl_lports, &dport, &value, BPF_ANY);
+    if (protocol != IPPROTO_TCP && protocol != IPPROTO_UDP)
+        return 0;
+
+    idx.protocol = protocol;
+    bpf_probe_read(&idx.port, sizeof(u16), &sk->__sk_common.skc_num);
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 tgid = (__u32)(pid_tgid);
+    __u32 pid = (__u32)(pid_tgid >> 32);
+
+    netdata_passive_connection_t *value = (netdata_passive_connection_t *)bpf_map_lookup_elem(&tbl_lports, &idx);
+    if (value) {
+        // Update PID, because process can die.
+        value->tgid = tgid;
+        value->pid = pid;
+        libnetdata_update_u64(&value->counter, 1);
+    } else {
+        data.tgid = tgid;
+        data.pid = pid;
+        data.counter = 1;
+        bpf_map_update_elem(&tbl_lports, &idx, &data, BPF_ANY);
     }
 
     return 0;
