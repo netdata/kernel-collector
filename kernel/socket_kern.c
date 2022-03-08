@@ -351,9 +351,9 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
 }
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline void update_pid_cleanup()
+static __always_inline void update_pid_cleanup(__u64 drop, __u64 close)
 #else
-static inline void update_pid_cleanup()
+static inline void update_pid_cleanup(__u64 drop, __u64 close)
 #endif
 {
     netdata_bandwidth_t *b;
@@ -376,12 +376,18 @@ static inline void update_pid_cleanup()
         if (b->pid != tgid)
             ebpf_socket_reset_bandwidth(pid, tgid);
 
-        libnetdata_update_u64(&b->close, 1);
+        if (drop)
+            libnetdata_update_u64(&b->drop, 1);
+        else
+            libnetdata_update_u64(&b->close, 1);
     } else {
         data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
-        data.close = 1;
+        if (drop)
+            data.drop = 1;
+        else
+            data.close = 1;
 
         bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
     }
@@ -522,7 +528,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLOSE, 1);
 
-    update_pid_cleanup();
+    update_pid_cleanup(0, 1);
 
     family =  set_idx_value(&idx, is);
     if (!family)
