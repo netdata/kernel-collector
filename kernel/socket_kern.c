@@ -393,6 +393,78 @@ static inline void update_pid_cleanup(__u64 drop, __u64 close)
     }
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
+static __always_inline u8 select_protocol(struct sock *sk)
+#else
+static inline u8 select_protocol(struct sock *sk)
+#endif
+{
+    u8 protocol = 0;
+
+    int gso_max_segs_offset = offsetof(struct sock, sk_gso_max_segs);
+    int sk_lingertime_offset = offsetof(struct sock, sk_lingertime);
+
+    if (sk_lingertime_offset - gso_max_segs_offset == 4)
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        bpf_probe_read(&protocol, sizeof(u8), (void *)((long)&sk->sk_gso_max_segs) - 3);
+    else
+        bpf_probe_read(&protocol, sizeof(u8), (void *)((long)&sk->sk_wmem_queued) - 3);
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        bpf_probe_read(&protocol, sizeof(u8), (void *)((long)&sk->sk_gso_max_segs) - 1);
+    else
+        bpf_probe_read(&protocol, sizeof(u8), (void *)((long)&sk->sk_wmem_queued) - 1);
+#endif
+
+    return protocol;
+}
+#endif // Kernel version 5.6.0
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
+static __always_inline void update_pid_connection(__u8 version)
+#else
+static inline void update_pid_connection(__u8 version)
+#endif
+{
+    netdata_bandwidth_t *stored;
+    netdata_bandwidth_t data = { };
+
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return;
+    } else
+        return;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    key = (__u32)(pid_tgid >> 32);
+
+    stored = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &key);
+    if (stored) {
+        if (stored->pid != tgid)
+            ebpf_socket_reset_bandwidth(key, tgid);
+
+        stored->ct = bpf_ktime_get_ns();
+
+        if (version == 4)
+            libnetdata_update_u32(&stored->ipv4_connect, 1);
+        else
+            libnetdata_update_u32(&stored->ipv6_connect, 1);
+    } else {
+        data.pid = tgid;
+        data.first = bpf_ktime_get_ns();
+        data.ct = data.first;
+        if (version == 4)
+            data.ipv4_connect = 1;
+        else
+            data.ipv6_connect = 1;
+
+        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
+    }
+}
+
 /************************************************************************************
  *
  *                                 General Socket Section
@@ -568,6 +640,49 @@ int netdata_tcp_drop(struct pt_regs* ctx)
 
     return 0;
 }
+
+#if NETDATASEL < 2
+SEC("kretprobe/tcp_v4_connect")
+#else
+SEC("kprobe/tcp_v4_connect")
+#endif
+int netdata_tcp_v4_connect(struct pt_regs* ctx)
+{
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CONNECT_IPV4, 1);
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_CONNECT_IPV4, 1);
+        return 0;
+    }
+#endif
+
+    update_pid_connection(4);
+
+    return 0;
+}
+
+#if NETDATASEL < 2
+SEC("kretprobe/tcp_v6_connect")
+#else
+SEC("kprobe/tcp_v6_connect")
+#endif
+int netdata_tcp_v6_connect(struct pt_regs* ctx)
+{
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CONNECT_IPV6, 1);
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_CONNECT_IPV6, 1);
+        return 0;
+    }
+#endif
+
+    update_pid_connection(6);
+
+    return 0;
+}
+
 
 /************************************************************************************
  *
