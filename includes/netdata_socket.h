@@ -38,6 +38,9 @@ typedef struct netdata_bandwidth {
     __u64 call_udp_sent;
     __u64 call_udp_received;
     __u64 close;
+    __u64 drop;
+    __u32 ipv4_connect;
+    __u32 ipv6_connect;
 } netdata_bandwidth_t;
 
 // Index used together previous structure
@@ -47,6 +50,17 @@ typedef struct netdata_socket_idx {
     union netdata_ip daddr;
     __u16 dport;
 } netdata_socket_idx_t;
+
+typedef struct netdata_passive_connection {
+    __u32 tgid;
+    __u32 pid;
+    __u64 counter;
+} netdata_passive_connection_t;
+
+typedef struct netdata_passive_connection_idx {
+    __u16 protocol;
+    __u16 port;
+} netdata_passive_connection_idx_t;
 
 enum socket_counters {
     NETDATA_KEY_CALLS_TCP_SENDMSG,
@@ -69,6 +83,14 @@ enum socket_counters {
 
     NETDATA_KEY_TCP_RETRANSMIT,
 
+    NETDATA_KEY_TCP_DROP,
+
+    NETDATA_KEY_CALLS_TCP_CONNECT_IPV4,
+    NETDATA_KEY_ERROR_TCP_CONNECT_IPV4,
+
+    NETDATA_KEY_CALLS_TCP_CONNECT_IPV6,
+    NETDATA_KEY_ERROR_TCP_CONNECT_IPV6,
+
     // Keep this as last and don't skip numbers as it is used as element counter
     NETDATA_SOCKET_COUNTER
 };
@@ -81,6 +103,9 @@ enum socket_functions {
     NETDATA_FCNT_UDP_RECEVMSG,
     NETDATA_FCNT_TCP_SENDMSG,
     NETDATA_FCNT_UDP_SENDMSG,
+    NETDATA_FCNT_TCP_DROP,
+    NETDATA_FCNT_TCP_V4_CONNECT,
+    NETDATA_FCNT_TCP_V6_CONNECT,
 
     NETDATA_SOCKET_FCNT_END
 };
