@@ -765,5 +765,43 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     return 0;
 }
 
+/************************************************************************************
+ *
+ *                           CLEAN UP SECTION
+ *
+ ***********************************************************************************/
+
+/**
+ * Release task socket
+ *
+ * To remove the socket when it is not more necessary help us to reduce the default
+ * size used with our tables.
+ *
+ * When a process close to fast that apps.plugin or cgroup.plugin cannot detect,
+ * we will not show information for them, but we will have global information. So to remove
+ * socket information it is not so hard.
+ */
+SEC("kprobe/release_task")
+int netdata_release_task_socket(struct pt_regs* ctx)
+{
+    netdata_bandwidth_t *removeme;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return 0;
+    } else
+        return 0;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    key = (__u32)(pid_tgid >> 32);
+    removeme = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &key);
+    if (removeme) {
+        bpf_map_delete_elem(&tbl_bandwidth, &key);
+    }
+
+    return 0;
+}
+
 char _license[] SEC("license") = "GPL";
 
