@@ -774,12 +774,11 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 /**
  * Release task socket
  *
- * To remove the socket when it is not more necessary help us to reduce the default
+ * Removing a socket when it's no longer needed helps us reduce the default
  * size used with our tables.
  *
- * When a process close to fast that apps.plugin or cgroup.plugin cannot detect,
- * we will not show information for them, but we will have global information. So to remove
- * socket information it is not so hard.
+ * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
+ * the information about the process, so it is safe to remove the information about the socket.
  */
 SEC("kprobe/release_task")
 int netdata_release_task_socket(struct pt_regs* ctx)
