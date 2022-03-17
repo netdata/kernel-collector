@@ -615,32 +615,6 @@ int netdata_tcp_close(struct pt_regs* ctx)
     return 0;
 }
 
-SEC("kprobe/__kfree_skb")
-int netdata_tcp_drop(struct pt_regs* ctx)
-{
-    struct sk_buff *skb = (struct sk_buff *) PT_REGS_PARM1(ctx);
-    struct sock *sk = _(skb->sk);
-    if (!sk)
-        return 0;
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
-    u16 protocol = 0;
-    bpf_probe_read(&protocol, sizeof(u16), &sk->sk_protocol);
-#else
-    u16 protocol = (u16) select_protocol(sk);
-#endif
-
-    // We want to monitor calls for static function tcp_drop
-    if (protocol != IPPROTO_TCP)
-        return 0;
-
-    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_TCP_DROP, 1);
-
-    update_pid_cleanup(1, 0);
-
-    return 0;
-}
-
 #if NETDATASEL < 2
 SEC("kretprobe/tcp_v4_connect")
 #else
