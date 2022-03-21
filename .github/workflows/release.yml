@@ -76,11 +76,10 @@ jobs:
           echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Consolidate Artifacts
         run: |
-          ls -rl artifacts/
           mkdir -p final-artifacts
           for libc in static glibc musl; do
             mkdir -p "packages/netdata-ebpf-co-re-${libc}-${RELEASE_TAG}"
-            for pkg in artifacts/artifacts/netdata-*_*-${libc}.tar.xz; do
+            for pkg in artifacts/netdata_ebpf-*_*-${libc}.tar.xz; do
               tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -xvf "${pkg}"
             done
             tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
