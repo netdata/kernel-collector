@@ -3,7 +3,7 @@ FROM rockylinux/rockylinux:8.5 AS build
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=4.18.0-348.12.2.el8_5
+ENV KERNEL_VERSION=4.18.0-348.20.1.el8_5
 
 ENV _LIBC=glibc
 
