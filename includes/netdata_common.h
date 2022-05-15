@@ -3,25 +3,14 @@
 #ifndef _NETDATA_COMMON_
 #define _NETDATA_COMMON_ 1
 
+#include "netdata_defs.h"
+
 struct netdata_error_report_t {
     char comm[TASK_COMM_LEN];
     __u32 pid;
 
     int type;
     int err;
-};
-
-enum netdata_controller {
-    NETDATA_CONTROLLER_APPS_ENABLED,
-    NETDATA_CONTROLLER_APPS_LEVEL,
-
-    NETDATA_CONTROLLER_END
-};
-
-enum netdata_apps_level {
-    NETDATA_APPS_LEVEL_REAL_PARENT,
-    NETDATA_APPS_LEVEL_PARENT,
-    NETDATA_APPS_LEVEL_ALL,
 };
 
 // Use __always_inline instead inline to keep compatiblity with old kernels

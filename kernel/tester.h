@@ -4,6 +4,8 @@
 #include <libbpf.h>
 #include <bpf.h>
 
+#include "../includes/netdata_defs.h"
+
 #define VERSION_STRING_LEN 256
 #define NETDATA_EBPF_PROGRAM_LEN  VERSION_STRING_LEN
 
@@ -136,7 +138,8 @@ enum netdata_thread_OPT {
     NETDATA_OPT_NETDATA_PATH,
     NETDATA_OPT_LOG_PATH,
     NETDATA_OPT_CONTENT,
-    NETDATA_OPT_ITERATION
+    NETDATA_OPT_ITERATION,
+    NETDATA_OPT_PID
 };
 
 typedef struct ebpf_specify_name {

@@ -87,6 +87,7 @@ char *log_path = NULL;
 long nprocesses;
 FILE *stdlog = NULL;
 int end_iteration = 1;
+enum netdata_apps_level map_level = NETDATA_APPS_LEVEL_REAL_PARENT ;
 
 /****************************************************************************************************
  *
@@ -764,10 +765,9 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         const struct bpf_map_def *def = bpf_map__def(map);
 
         unsigned int i, end = def->max_entries;
-        // We always enable values for these tests.
-        uint32_t value = 1;
+        uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level};
         for (i = 0; i < end; i++) {
-             int ret = bpf_map_update_elem(fd, &i, &value, 0);
+             int ret = bpf_map_update_elem(fd, &i, &values[i], 0);
                 if (ret)
                     fprintf(stdlog, "\"error\" : \"Add key(%u) for controller table failed.\",", i);
         }
@@ -901,7 +901,8 @@ static void ebpf_help()
                     "--log-path         Filename to write log information. When this option is not given,\n"
                     "                   software will use stderr.\n\n"
                     "--content          Test content stored inside hash tables.\n"
-                    "--iteration        Number of iterations when content is read, default value is 1.\n\n"
+                    "--iteration        Number of iterations when content is read, default value is 1.\n"
+                    "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, and 2 - All PID \n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
                     "--btrfs            Latency for btrfs.\n"
@@ -988,6 +989,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv)
         {"log-path",           required_argument,    0,  0 },
         {"content",            no_argument,          0,  0 },
         {"iteration",          required_argument,    0,  0 },
+        {"pid",                required_argument,    0,  0 },
 
         // this must be always the last option
         {0,                no_argument, 0, 0}
@@ -1153,6 +1155,18 @@ uint64_t ebpf_parse_arguments(int argc, char **argv)
                     }
 
                     end_iteration = value;
+                    break;
+                }
+            case NETDATA_OPT_PID:
+                {
+                    int value = (int)strtol(optarg, NULL, 10);
+                    if (value < NETDATA_APPS_LEVEL_REAL_PARENT || value > NETDATA_APPS_LEVEL_ALL) {
+                        fprintf(stdlog, "\"Error\" : \"Value given (%d) is not valid, resetting to default 0 (Real Parent).\",\n",
+                                value);
+                        value = NETDATA_APPS_LEVEL_REAL_PARENT;
+                    }
+
+                    map_level = value;
                     break;
                 }
         }

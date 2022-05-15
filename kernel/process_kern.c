@@ -128,9 +128,6 @@ int netdata_tracepoint_sched_process_exit(struct netdata_sched_process_exit *ptr
         libnetdata_update_u32(&fill->exit_call, 1) ;
     }
 
-    //MUST COPY THIS TO KEY
-    //bpf_map_delete_elem(&tbl_pid_stats, &task->pid);
-
     return 0;
 }
 
