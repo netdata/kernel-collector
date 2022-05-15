@@ -78,9 +78,18 @@ struct bpf_map_def SEC("maps") process_ctrl = {
 
 static inline struct netdata_pid_stat_t *netdata_get_pid_stat(__u32 *store_pid)
 {
-    __u32 pid;
+    __u32 pid, key = NETDATA_CONTROLLER_APPS_LEVEL;
 
-    pid = netdata_get_real_parent_pid();
+    __u32 *level = bpf_map_lookup_elem(&process_ctrl ,&key);
+    if (level) {
+        if (*level == NETDATA_APPS_LEVEL_REAL_PARENT)
+            pid = netdata_get_real_parent_pid();
+        else if (*level == NETDATA_APPS_LEVEL_PARENT)
+            pid = netdata_get_parent_pid();
+        else
+            pid = netdata_get_real_parent_pid();
+    } else
+        pid = netdata_get_real_parent_pid();
 
     *store_pid = pid;
 

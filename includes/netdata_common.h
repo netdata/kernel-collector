@@ -13,8 +13,15 @@ struct netdata_error_report_t {
 
 enum netdata_controller {
     NETDATA_CONTROLLER_APPS_ENABLED,
+    NETDATA_CONTROLLER_APPS_LEVEL,
 
     NETDATA_CONTROLLER_END
+};
+
+enum netdata_apps_level {
+    NETDATA_APPS_LEVEL_REAL_PARENT,
+    NETDATA_APPS_LEVEL_PARENT,
+    NETDATA_APPS_LEVEL_ALL,
 };
 
 // Use __always_inline instead inline to keep compatiblity with old kernels
