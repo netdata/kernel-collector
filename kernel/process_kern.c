@@ -87,7 +87,7 @@ static inline struct netdata_pid_stat_t *netdata_get_pid_stat(__u32 *store_pid)
         else if (*level == NETDATA_APPS_LEVEL_PARENT)
             pid = netdata_get_parent_pid();
         else
-            pid = netdata_get_real_parent_pid();
+            pid = netdata_get_current_pid();
     } else
         pid = netdata_get_real_parent_pid();
 

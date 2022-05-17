@@ -591,6 +591,21 @@ error_td:
 }
 
 /**
+ * Values Accumulator
+ *
+ * Count data not filled and filled.
+ *
+ * @param values is the structure where variables are set.
+ */
+static inline void ebpf_values_accumulator(ebpf_table_data_t *values)
+{
+    if (!memcmp(values->value, values->def_value, values->value_length))
+        values->zero++;
+    else
+        values->filled++;
+}
+
+/**
  * Read Table
  *
  * Read values from specified table.
@@ -606,23 +621,23 @@ static void ebpf_read_generic_table(ebpf_table_data_t *values, int fd)
     // Reset completely the keys
     memset(values->key, 0, values->key_length);
     memset(values->next_key, 0, values->key_length);
+    memset(values->value, 0, values->value_length);
 
     // Go trough all keys stored inside the eBPF maps
     while (!bpf_map_get_next_key(fd, values->key, values->next_key)) {
         if (!bpf_map_lookup_elem(fd, values->next_key, values->value)) {
-            if (!memcmp(values->value, values->def_value, values->value_length))
-                zero++;
-            else
-                filled++;
+            ebpf_values_accumulator(values);
         }
 
         // Copy the next key for the current key
         memcpy(values->key, values->next_key, values->key_length);
+
+        memset(values->value, 0, values->value_length);
     }
 
-    // Store final result
-    values->filled = filled;
-    values->zero = zero;
+    if (!bpf_map_lookup_elem(fd, values->key, values->value)) {
+        ebpf_values_accumulator(values);
+    }
 }
 
 /**
@@ -676,11 +691,13 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
     uint32_t value = 0;
     uint32_t zero = 0; 
 
-    uint32_t read[nprocesses];
-    if (bpf_map_lookup_elem(fd, values->key, read)) {
-        zero = 1;
-    } else {
-        value = 1;
+    uint32_t key, read[nprocesses];
+    for (key = 0; key < NETDATA_CONTROLLER_END; key++) {
+        if (bpf_map_lookup_elem(fd, &key, read)) {
+            zero++;
+        } else {
+            value++;
+        }
     }
     fprintf(stdlog,
             "                                    "
@@ -768,8 +785,8 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level};
         for (i = 0; i < end; i++) {
              int ret = bpf_map_update_elem(fd, &i, &values[i], 0);
-                if (ret)
-                    fprintf(stdlog, "\"error\" : \"Add key(%u) for controller table failed.\",", i);
+             if (ret)
+                 fprintf(stdlog, "\"error\" : \"Add key(%u) for controller table failed.\",", i);
         }
     }
 }
