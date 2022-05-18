@@ -722,11 +722,12 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
     bpf_object__for_each_map(map, obj) {
         const char *name = bpf_map__name(map);
         int fd = bpf_map__fd(map);
-        const struct bpf_map_def *def = bpf_map__def(map);
         enum bpf_map_type type = bpf_map__type(map);
 
         ebpf_table_data_t *values;
-        values = ebpf_allocate_tables(def->key_size, def->value_size);
+        uint32_t key_size = bpf_map__key_size(map);
+        uint32_t value_size = bpf_map__value_size(map);
+        values = ebpf_allocate_tables(key_size, value_size);
         if (values) {
             // Write header
            fprintf(stdlog,
@@ -734,7 +735,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
                    "                       \"Type\" : %u,\n"
                    "                       \"FD\" : %d,\n" 
                    "                       \"Data\" : [\n",
-                   name, def->key_size, def->value_size, type, fd);
+                   name, key_size, value_size, type, fd);
 
            // Read data and fill vector
             if (!ctrl || (ctrl && (strcmp(ctrl, name)))) {
@@ -779,9 +780,8 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
             continue;
 
         int fd = bpf_map__fd(map);
-        const struct bpf_map_def *def = bpf_map__def(map);
 
-        unsigned int i, end = def->max_entries;
+        unsigned int i, end = bpf_map__max_entries(map);
         uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level};
         for (i = 0; i < end; i++) {
              int ret = bpf_map_update_elem(fd, &i, &values[i], 0);
