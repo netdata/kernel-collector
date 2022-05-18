@@ -21,12 +21,6 @@
                                     "method or use eBPF programs from ../kernel directory.\n "
 #define NETDATA_KALLSYMS "/proc/kallsyms"
 
-enum netdata_user_controller {
-    NETDATA_CONTROLLER_APPS_ENABLED,
-
-    NETDATA_CONTROLLER_END
-};
-
 // Use __always_inline instead inline to keep compatiblity with old kernels
 
 static inline int netdata_ebf_memlock_limit(void)

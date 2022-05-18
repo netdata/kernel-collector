@@ -3,18 +3,14 @@
 #ifndef _NETDATA_COMMON_
 #define _NETDATA_COMMON_ 1
 
+#include "netdata_defs.h"
+
 struct netdata_error_report_t {
     char comm[TASK_COMM_LEN];
     __u32 pid;
 
     int type;
     int err;
-};
-
-enum netdata_controller {
-    NETDATA_CONTROLLER_APPS_ENABLED,
-
-    NETDATA_CONTROLLER_END
 };
 
 // Use __always_inline instead inline to keep compatiblity with old kernels
@@ -156,6 +152,40 @@ Netdata's Agent team for inclusion in Netdata.
     unsigned short __length = _data_loc >> 16;                                \
     bpf_probe_read((void *)_dst, __length, (char *)_arg + __offset);          \
 } while (0)
+
+// Get real parent PID
+static inline __u32 netdata_get_real_parent_pid()
+{
+    __u32 ppid;
+    struct task_struct *task, *real_parent;
+
+    task = (struct task_struct *)bpf_get_current_task();
+    real_parent = _(task->real_parent);
+    bpf_probe_read(&ppid, sizeof(__u32), &real_parent->tgid);
+
+    return ppid;
+}
+
+static inline __u32 netdata_get_parent_pid()
+{
+    __u32 ppid;
+    struct task_struct *task, *parent;
+
+    task = (struct task_struct *)bpf_get_current_task();
+    parent = _(task->parent);
+    bpf_probe_read(&ppid, sizeof(__u32), &parent->tgid);
+
+    return ppid;
+}
+
+static inline __u32 netdata_get_current_pid()
+{
+    __u32 pid;
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    pid = (__u32)(pid_tgid >> 32);
+
+    return pid;
+}
 
 #endif /* _NETDATA_COMMON_ */
 
