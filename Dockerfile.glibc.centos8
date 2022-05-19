@@ -1,9 +1,9 @@
-FROM rockylinux/rockylinux:8.5 AS build
+FROM almalinux:8 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=4.18.0-372.9.1.el8
+ENV KERNEL_VERSION=4.18.0-348.23.1.el8_5
 
 ENV _LIBC=glibc
 
@@ -25,7 +25,7 @@ RUN dnf update -y && \
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i https://download.rockylinux.org/pub/rocky/8/BaseOS/source/tree/Packages/k/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
+    rpm -i https://repo.almalinux.org/almalinux/8.5/BaseOS/Source/Packages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
 
 RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
