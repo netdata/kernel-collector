@@ -82,9 +82,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    fill = bpf_map_lookup_elem(&cstat_pid ,&key);
+    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->add_to_page_cache_lru, 1);
     } else {
@@ -107,9 +105,7 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    fill = bpf_map_lookup_elem(&cstat_pid ,&key);
+    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->mark_page_accessed, 1);
     } else {
@@ -151,9 +147,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    fill = bpf_map_lookup_elem(&cstat_pid ,&key);
+    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->account_page_dirtied, 1);
     } else {
@@ -176,9 +170,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    fill = bpf_map_lookup_elem(&cstat_pid ,&key);
+    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->account_page_dirtied, 1);
     } else {
@@ -202,9 +194,7 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    fill = bpf_map_lookup_elem(&cstat_pid ,&key);
+    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->mark_buffer_dirty, 1);
     } else {
