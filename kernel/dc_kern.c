@@ -85,9 +85,7 @@ int netdata_lookup_fast(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    fill = bpf_map_lookup_elem(&dcstat_pid ,&key);
+    fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->references, 1);
     } else {
@@ -112,9 +110,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
         return 0;
 
     if (*apps == 1) {
-        __u64 pid_tgid = bpf_get_current_pid_tgid();
-        key = (__u32)(pid_tgid >> 32);
-        fill = bpf_map_lookup_elem(&dcstat_pid ,&key);
+        fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
         if (fill) {
             libnetdata_update_u64(&fill->slow, 1);
         } else {
@@ -127,7 +123,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
     if (ret == 0) {
         libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_MISS, 1);
         if (*apps == 1) {
-            fill = bpf_map_lookup_elem(&dcstat_pid ,&key);
+            fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
             if (fill) {
                 libnetdata_update_u64(&fill->missed, 1);
             } else {
@@ -139,6 +135,36 @@ int netdata_d_lookup(struct pt_regs* ctx)
 
     return 0;
 }
+
+/**
+ * Release task
+ *
+ * Removing a pid when it's no longer needed helps us reduce the default
+ * size used with our tables.
+ *
+ * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
+ * the information about the process, so it is safe to remove the information about the table.
+ */
+SEC("kprobe/release_task")
+int netdata_release_task_dc(struct pt_regs* ctx)
+{
+    netdata_cachestat_t *removeme;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&dcstat_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return 0;
+    } else
+        return 0;
+
+    removeme = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+    if (removeme) {
+        bpf_map_delete_elem(&dcstat_pid, &key);
+    }
+
+    return 0;
+}
+
 
 char _license[] SEC("license") = "GPL";
 

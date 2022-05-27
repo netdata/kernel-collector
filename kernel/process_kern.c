@@ -76,26 +76,6 @@ struct bpf_map_def SEC("maps") process_ctrl = {
  *
  ***********************************************************************************/
 
-static inline struct netdata_pid_stat_t *netdata_get_pid_stat(__u32 *store_pid)
-{
-    __u32 pid, key = NETDATA_CONTROLLER_APPS_LEVEL;
-
-    __u32 *level = bpf_map_lookup_elem(&process_ctrl ,&key);
-    if (level) {
-        if (*level == NETDATA_APPS_LEVEL_REAL_PARENT)
-            pid = netdata_get_real_parent_pid();
-        else if (*level == NETDATA_APPS_LEVEL_PARENT)
-            pid = netdata_get_parent_pid();
-        else
-            pid = netdata_get_current_pid();
-    } else
-        pid = netdata_get_real_parent_pid();
-
-    *store_pid = pid;
-
-    return bpf_map_lookup_elem(&tbl_pid_stats ,&pid);
-}
-
 static inline void netdata_fill_common_process_data(struct netdata_pid_stat_t *data)
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
@@ -123,7 +103,7 @@ int netdata_tracepoint_sched_process_exit(struct netdata_sched_process_exit *ptr
         if (*apps == 0)
             return 0;
 
-    fill = netdata_get_pid_stat(&key);
+    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         libnetdata_update_u32(&fill->exit_call, 1) ;
     }
@@ -143,7 +123,7 @@ int netdata_release_task(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    fill = netdata_get_pid_stat(&key);
+    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         libnetdata_update_u32(&fill->release_call, 1) ;
     }
@@ -165,7 +145,7 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
         if (*apps == 0)
             return 0;
 
-    fill = netdata_get_pid_stat(&key);
+    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->create_process, 1) ;
@@ -200,7 +180,7 @@ int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr
         if (*apps == 0)
             return 0;
 
-    fill = netdata_get_pid_stat(&key);
+    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->create_process, 1);
@@ -254,7 +234,7 @@ int netdata_fork(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    fill = netdata_get_pid_stat(&key);
+    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
 
@@ -304,7 +284,7 @@ int netdata_sys_clone(struct pt_regs *ctx)
         if (*apps == 0)
             return 0;
 
-    fill = netdata_get_pid_stat(&key);
+    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
 
