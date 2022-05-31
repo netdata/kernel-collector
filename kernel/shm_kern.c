@@ -76,9 +76,7 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
         }
     }
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u64(&fill->get, 1);
     } else {
@@ -105,9 +103,7 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
         }
     }
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u64(&fill->at, 1);
     } else {
@@ -134,9 +130,7 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
         }
     }
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u64(&fill->dt, 1);
     } else {
@@ -163,9 +157,7 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
         }
     }
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u64(&fill->ctl, 1);
     } else {
