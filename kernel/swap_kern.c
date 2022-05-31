@@ -87,7 +87,7 @@ int netdata_swap_readpage(struct pt_regs* ctx)
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     key = (__u32)(pid_tgid >> 32);
-    netdata_swap_access_t *fill = bpf_map_lookup_elem(&tbl_pid_swap ,&key);
+    netdata_swap_access_t *fill = netdata_get_pid_structure(&key, &swap_ctrl, &tbl_pid_swap);
     if (fill) {
         libnetdata_update_u64(&fill->read, 1);
     } else {
@@ -111,9 +111,7 @@ int netdata_swap_writepage(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_swap_access_t *fill = bpf_map_lookup_elem(&tbl_pid_swap ,&key);
+    netdata_swap_access_t *fill = netdata_get_pid_structure(&key, &swap_ctrl, &tbl_pid_swap);
     if (fill) {
         libnetdata_update_u64(&fill->write, 1);
     } else {
