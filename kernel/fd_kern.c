@@ -72,6 +72,21 @@ struct bpf_map_def SEC("maps") fd_ctrl = {
 #endif
 
 /************************************************************************************
+ *
+ *                                Local Function Section
+ *
+ ***********************************************************************************/
+
+static inline void netdata_fill_common_fd_data(struct netdata_fd_stat_t *data)
+{
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+
+    data->pid_tgid = pid_tgid;
+    data->pid = tgid;
+}
+
+/************************************************************************************
  *     
  *                                   Probe Section
  *     
@@ -111,11 +126,7 @@ int netdata_sys_open(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_fd_pid ,&key);
+    fill = netdata_get_pid_structure(&key, &fd_ctrl, &tbl_fd_pid);
     if (fill) {
         libnetdata_update_u32(&fill->open_call, 1) ;
 
@@ -125,8 +136,7 @@ int netdata_sys_open(struct pt_regs* ctx)
         } 
 #endif
     } else {
-        data.pid_tgid = pid_tgid;  
-        data.pid = tgid;  
+        netdata_fill_common_fd_data(&data);
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -179,10 +189,7 @@ int netdata_close(struct pt_regs* ctx)
         if (*apps == 0)
             return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    fill = bpf_map_lookup_elem(&tbl_fd_pid ,&key);
+    fill = netdata_get_pid_structure(&key, &fd_ctrl, &tbl_fd_pid);
     if (fill) {
         libnetdata_update_u32(&fill->close_call, 1) ;
 
@@ -192,8 +199,7 @@ int netdata_close(struct pt_regs* ctx)
         } 
 #endif
     } else {
-        data.pid_tgid = pid_tgid;  
-        data.pid = tgid;  
+        netdata_fill_common_fd_data(&data);
         data.close_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
