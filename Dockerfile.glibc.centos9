@@ -1,0 +1,46 @@
+FROM almalinux:9 AS build
+
+ARG ARCH=x86
+ENV ARCH=$ARCH
+
+ENV KERNEL_VERSION=5.14.0-70.17.1.el9_0
+
+ENV _LIBC=glibc
+
+# We use "Development tools" to install:
+# gcc c/c++ compiler, redhat-rpm-config, strace, rpm-build, make, pkgconfig, gettext, automake, strace64, gdb, bison,
+# libtool, autoconf, gcc-c++ compiler, binutils and all dependencies
+
+# hadolint ignore=DL3040,DL3041
+RUN dnf update -y && \
+    dnf install -y gcc make gcc-c++ libtool rpm-build-libs bison && \
+    dnf install -y asciidoc audit-libs-devel bash bc binutils binutils-devel \
+                   diffutils elfutils elfutils-devel \
+                   elfutils-libelf-devel findutils gawk \
+                   gzip hmaccalc hostname java-devel m4 \
+                   module-init-tools ncurses-devel net-tools newt-devel \
+                   numactl-devel openssl openssl-devel patch pciutils-devel \
+                   perl perl-ExtUtils-Embed pesign \
+                   rpm-build sh-utils tar xmlto xz zlib-devel clang llvm
+
+RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+    echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
+    rpm -i https://repo.almalinux.org/vault/9.0/BaseOS/Source/Packages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
+
+RUN cd ~/rpmbuild/SOURCES && \
+    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+    mkdir -p /usr/src/kernels
+
+RUN cd /usr/src && \
+    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+
+COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
+COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
+RUN /patch_kernel.sh
+
+WORKDIR /kernel-collector
+
+COPY .dockerfiles/build.sh /build.sh
+COPY . .
+
+CMD ["/build.sh"]
