@@ -1,5 +1,8 @@
 #define KBUILD_MODNAME "nfs_netdata"
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
 #include <linux/genhd.h>
+#endif
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 #include <uapi/linux/bpf.h>
