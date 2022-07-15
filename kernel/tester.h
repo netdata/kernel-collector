@@ -45,6 +45,7 @@ enum netdata_ebpf_kernel_versions {
     NETDATA_EBPF_KERNEL_5_0  = 327680,  //  327680 = 5 * 65536 +  0 * 256
     NETDATA_EBPF_KERNEL_5_10 = 330240,  //  330240 = 5 * 65536 + 10 * 256
     NETDATA_EBPF_KERNEL_5_11 = 330496,  //  330240 = 5 * 65536 + 11 * 256
+    NETDATA_EBPF_KERNEL_5_14 = 331264,  //  331264 = 5 * 65536 + 14 * 256
     NETDATA_EBPF_KERNEL_5_15 = 331520,  //  331520 = 5 * 65536 + 15 * 256
     NETDATA_EBPF_KERNEL_5_16 = 331776   //  331776 = 5 * 65536 + 16 * 256
 };
@@ -63,8 +64,9 @@ enum netdata_kernel_flag {
     NETDATA_V5_4  = 1 << 4,
     NETDATA_V5_10 = 1 << 5,
     NETDATA_V5_11 = 1 << 6,
-    NETDATA_V5_15 = 1 << 7,
-    NETDATA_V5_16 = 1 << 8
+    NETDATA_V5_14 = 1 << 7,
+    NETDATA_V5_15 = 1 << 8,
+    NETDATA_V5_16 = 1 << 9
 };
 
 enum netdata_kernel_counter {
@@ -75,6 +77,7 @@ enum netdata_kernel_counter {
     NETDATA_5_4,
     NETDATA_5_10,
     NETDATA_5_11,
+    NETDATA_5_14,
     NETDATA_5_15,
     NETDATA_5_16,
 
