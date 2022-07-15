@@ -23,11 +23,11 @@ RUN dnf update -y && \
                    perl perl-ExtUtils-Embed pesign \
                    rpm-build rsync tar xmlto xz zlib-devel clang llvm
 
-RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
-    echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
+RUN mkdir -p /root/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+    echo '%_topdir %(echo $HOME)/rpmbuild' > /root/.rpmmacros && \
     rpm -i https://repo.almalinux.org/vault/9.0/BaseOS/Source/Packages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
 
-RUN cd ~/rpmbuild/SOURCES && \
+RUN cd /root/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
     mkdir -p /usr/src/kernels
 
