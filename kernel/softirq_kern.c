@@ -1,6 +1,5 @@
 #define KBUILD_MODNAME "softirq_netdata"
 #include <linux/ptrace.h>
-#include <linux/genhd.h>
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 #include <uapi/linux/bpf.h>
