@@ -27,12 +27,10 @@ RUN mkdir -p /root/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > /root/.rpmmacros && \
     rpm -i https://repo.almalinux.org/vault/9.0/BaseOS/Source/Packages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
 
-RUN cd /root/rpmbuild/SOURCES && \
-    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+RUN tar -xf /root/rpmbuild/SOURCES/linux-${KERNEL_VERSION}.tar.xz -C /root/rpmbuild/SOURCES && \
     mkdir -p /usr/src/kernels
 
-RUN cd /usr/src && \
-    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+RUN ln -s /root/rpmbuild/SOURCES/linux-${KERNEL_VERSION} /usr/src/linux
 
 COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
