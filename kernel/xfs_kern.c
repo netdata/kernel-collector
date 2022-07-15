@@ -1,6 +1,9 @@
 #define KBUILD_MODNAME "xfs_netdata"
 #include <linux/ptrace.h>
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
 #include <linux/genhd.h>
+#endif
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 #include <uapi/linux/bpf.h>
