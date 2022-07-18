@@ -16,6 +16,7 @@ jobs:
         kernel_version:
           - '5.16.18'
           - '5.15.27'
+          - '5.14.0'
           - '5.11.19'
           - '5.10.109'
           - '5.4.188'
@@ -42,6 +43,8 @@ jobs:
           submodules: true
       - name: Run build.sh
         run: |
+          if [ ${{ matrix.kernel_version }} = "5.14.0" ]; then
+            os=centos9
           if [ ${{ matrix.kernel_version }} = "4.18.0" ]; then
             os=centos8
           elif [ ${{ matrix.kernel_version }} = "3.10.0" ]; then

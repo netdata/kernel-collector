@@ -3,7 +3,7 @@ FROM alpine:3.16 AS build
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ARG LOCAL_KERNEL_VERSION=4.18.0-372.16.1.el8_6
+ARG LOCAL_KERNEL_VERSION=5.14.0-70.17.1.el9_0
 
 ENV _LIBC=static
 
@@ -15,7 +15,7 @@ RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
 # hadolint ignore=DL3003,SC3009
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo "%_topdir %(echo $HOME)/rpmbuild" > ~/.rpmmacros && \
-    wget -q https://repo.almalinux.org/vault/8.6/BaseOS/Source/Packages/kernel-${LOCAL_KERNEL_VERSION}.src.rpm && \
+    wget -q https://repo.almalinux.org/vault/9.0/BaseOS/Source/Packages/kernel-${LOCAL_KERNEL_VERSION}.src.rpm && \
     rpm -i kernel-${LOCAL_KERNEL_VERSION}.src.rpm && \
     cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${LOCAL_KERNEL_VERSION}.tar.xz && \

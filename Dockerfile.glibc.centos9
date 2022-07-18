@@ -1,9 +1,9 @@
-FROM almalinux:8 AS build
+FROM almalinux:9 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=4.18.0-372.16.1.el8_6
+ENV KERNEL_VERSION=5.14.0-70.17.1.el9_0
 
 ENV _LIBC=glibc
 
@@ -21,18 +21,16 @@ RUN dnf update -y && \
                    module-init-tools ncurses-devel net-tools newt-devel \
                    numactl-devel openssl openssl-devel patch pciutils-devel \
                    perl perl-ExtUtils-Embed pesign \
-                   rpm-build sh-utils tar xmlto xz zlib-devel clang llvm
+                   rpm-build rsync tar xmlto xz zlib-devel clang llvm
 
-RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
-    echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i https://repo.almalinux.org/vault/8.6/BaseOS/Source/Packages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
+RUN mkdir -p /root/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
+    echo '%_topdir %(echo $HOME)/rpmbuild' > /root/.rpmmacros && \
+    rpm -i https://repo.almalinux.org/vault/9.0/BaseOS/Source/Packages/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
 
-RUN cd ~/rpmbuild/SOURCES && \
-    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+RUN tar -xf /root/rpmbuild/SOURCES/linux-${KERNEL_VERSION}.tar.xz -C /root/rpmbuild/SOURCES && \
     mkdir -p /usr/src/kernels
 
-RUN cd /usr/src && \
-    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+RUN ln -s /root/rpmbuild/SOURCES/linux-${KERNEL_VERSION} /usr/src/linux
 
 COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh

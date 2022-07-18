@@ -18,6 +18,7 @@ select_kernel_version() {
 
     VER5_16_0="005016"
     VER5_15_0="005015"
+    VER5_14_0="005014"
     VER5_11_0="005011"
     VER5_10_0="005010"
     VER4_18_0="004018"
@@ -34,6 +35,8 @@ select_kernel_version() {
         KSELECTED="5.16";
     elif [ "${KVER}" -ge "${VER5_15_0}" ]; then
         KSELECTED="5.15";
+    elif [ "${KVER}" -ge "${VER5_14_0}" ]; then
+        KSELECTED="5.14";
     elif [ "${KVER}" -ge "${VER5_11_0}" ]; then
         KSELECTED="5.11";
     elif [ "${KVER}" -ge "${VER5_10_0}" ]; then
