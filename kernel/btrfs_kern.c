@@ -1,6 +1,8 @@
 #define KBUILD_MODNAME "btrfs_netdata"
-#include <linux/genhd.h>
 #include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
+#include <linux/genhd.h>
+#endif
 // Condition added because struct kiocb was moved when 4.1.0 was released
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0))
 #include <linux/aio.h>
