@@ -45,7 +45,7 @@ jobs:
         run: |
           if [ ${{ matrix.kernel_version }} = "5.14.0" ]; then
             os=centos9
-          if [ ${{ matrix.kernel_version }} = "4.18.0" ]; then
+          elif [ ${{ matrix.kernel_version }} = "4.18.0" ]; then
             os=centos8
           elif [ ${{ matrix.kernel_version }} = "3.10.0" ]; then
             os=centos7
