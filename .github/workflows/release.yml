@@ -82,6 +82,7 @@ jobs:
           mkdir -p final-artifacts
           for libc in static glibc musl; do
             for pkg in artifacts/netdata_ebpf-*_*-${libc}.tar.xz; do
+              mkdir -p "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"
               tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -xvf "${pkg}"
             done
             tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
