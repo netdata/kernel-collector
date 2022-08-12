@@ -62,18 +62,6 @@ enum netdata_modes {
     NETDATA_MODE_TRACEPOINT
 };
 
-static inline void ebpf_print_help(char *name, char *info, int has_trampoline) {
-    fprintf(stdout, "%s tests if it is possible to monitor %s on host\n\n"
-                    "The following options are available:\n\n"
-                    "--help       (-h): Prints this help.\n"
-                    "--probe      (-p): Use probe and do no try to use trampolines (fentry/fexit).\n"
-                    "--tracepoint (-r): Use tracepoint.\n"
-                    , name, info);
-    if (has_trampoline)
-        fprintf(stdout, "--trampoline (-t): Try to use trampoline(fentry/fexit). If this is not possible" 
-                        " probes will be used.\n");
-}
-
 static inline void ebpf_tracepoint_help(char *name) {
     fprintf(stdout, "%s tests if it is possible to use tracepoints on host\n\n"
                     "--help       (-h): Prints this help.\n", name);
