@@ -589,7 +589,7 @@ int netdata_vfs_create(struct pt_regs* ctx)
 SEC("kprobe/release_task")
 int netdata_release_task_vfs(struct pt_regs* ctx)
 {
-    netdata_cachestat_t *removeme;
+    struct netdata_vfs_stat_t *removeme;
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&vfs_ctrl ,&key);
     if (apps) {

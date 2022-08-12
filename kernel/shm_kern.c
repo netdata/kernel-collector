@@ -180,7 +180,7 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
 SEC("kprobe/release_task")
 int netdata_release_task_shm(struct pt_regs* ctx)
 {
-    netdata_cachestat_t *removeme;
+    netdata_shm_t *removeme;
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&shm_ctrl ,&key);
     if (apps) {

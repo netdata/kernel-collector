@@ -148,7 +148,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
 SEC("kprobe/release_task")
 int netdata_release_task_dc(struct pt_regs* ctx)
 {
-    netdata_cachestat_t *removeme;
+    netdata_dc_stat_t *removeme;
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&dcstat_ctrl ,&key);
     if (apps) {
