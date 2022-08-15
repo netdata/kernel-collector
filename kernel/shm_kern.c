@@ -76,9 +76,7 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
         }
     }
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u64(&fill->get, 1);
     } else {
@@ -105,9 +103,7 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
         }
     }
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u64(&fill->at, 1);
     } else {
@@ -134,9 +130,7 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
         }
     }
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u64(&fill->dt, 1);
     } else {
@@ -163,9 +157,7 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
         }
     }
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    netdata_shm_t *fill = bpf_map_lookup_elem(&tbl_pid_shm, &key);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u64(&fill->ctl, 1);
     } else {
@@ -176,4 +168,34 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
     return 0;
 }
 
+/**
+ * Release task
+ *
+ * Removing a pid when it's no longer needed helps us reduce the default
+ * size used with our tables.
+ *
+ * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
+ * the information about the process, so it is safe to remove the information about the table.
+ */
+SEC("kprobe/release_task")
+int netdata_release_task_shm(struct pt_regs* ctx)
+{
+    netdata_shm_t *removeme;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&shm_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return 0;
+    } else
+        return 0;
+
+    removeme = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
+    if (removeme) {
+        bpf_map_delete_elem(&tbl_pid_shm, &key);
+    }
+
+    return 0;
+}
+
 char _license[] SEC("license") = "GPL";
+
