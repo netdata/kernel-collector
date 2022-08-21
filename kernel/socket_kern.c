@@ -267,13 +267,13 @@ static inline void update_socket_table(struct pt_regs* ctx,
 }
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
+static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid)
 #else
-static inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
+static inline void ebpf_socket_reset_bandwidth(__u32 pid)
 #endif
 {
     netdata_bandwidth_t data = { };
-    data.pid = tgid;
+    data.pid = pid;
     data.first = bpf_ktime_get_ns();
 
     bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
@@ -290,20 +290,13 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return;
-    } else
+    if (!apps || (apps && *apps == 0))
         return;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-
-    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
+    b = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
     if (b) {
-        if (b->pid != tgid)
-            ebpf_socket_reset_bandwidth(pid, tgid);
+        if (b->pid != key)
+            ebpf_socket_reset_bandwidth(key);
 
         b->ct = bpf_ktime_get_ns();
 
@@ -325,7 +318,7 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
                 libnetdata_update_u64((sent) ? &b->call_udp_sent : &b->call_udp_received, 1);
         } 
     } else {
-        data.pid = tgid;
+        data.pid = key;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         data.bytes_sent = sent;
@@ -346,7 +339,7 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
             }
         }
 
-        bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
     }
 }
 
@@ -361,27 +354,20 @@ static inline void update_pid_cleanup(__u64 drop, __u64 close)
 
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return;
-    } else
+    if (!apps || (apps && *apps == 0))
         return;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-
-    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
+    b = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
     if (b) {
-        if (b->pid != tgid)
-            ebpf_socket_reset_bandwidth(pid, tgid);
+        if (b->pid != key)
+            ebpf_socket_reset_bandwidth(key);
 
         if (drop)
             libnetdata_update_u64(&b->drop, 1);
         else
             libnetdata_update_u64(&b->close, 1);
     } else {
-        data.pid = tgid;
+        data.pid = key;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         if (drop)
@@ -389,7 +375,7 @@ static inline void update_pid_cleanup(__u64 drop, __u64 close)
         else
             data.close = 1;
 
-        bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
     }
 }
 
@@ -431,20 +417,13 @@ static inline void update_pid_connection(__u8 version)
 
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return;
-    } else
+    if (!stored || (apps && *apps == 0))
         return;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    key = (__u32)(pid_tgid >> 32);
-
-    stored = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &key);
+    stored = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
     if (stored) {
-        if (stored->pid != tgid)
-            ebpf_socket_reset_bandwidth(key, tgid);
+        if (stored->pid != key)
+            ebpf_socket_reset_bandwidth(key);
 
         stored->ct = bpf_ktime_get_ns();
 
@@ -453,7 +432,7 @@ static inline void update_pid_connection(__u8 version)
         else
             libnetdata_update_u32(&stored->ipv6_connect, 1);
     } else {
-        data.pid = tgid;
+        data.pid = key;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         if (version == 4)
