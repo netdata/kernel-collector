@@ -55,7 +55,7 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
+    { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
       .flags = NETDATA_FLAG_PROCESS, .name = "process", .update_names = NULL, .ctrl_table = "process_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SHM, .name = "shm", .update_names = NULL, .ctrl_table = "shm_ctrl" },
@@ -965,10 +965,11 @@ static uint64_t ebpf_set_common_flag()
  *
  * @param argc is the number of arguments
  * @param argv vector with values.
+ * @param kver is the current kernel version
  *
  * @return It returns the flags used during the simulation.
  */
-uint64_t ebpf_parse_arguments(int argc, char **argv)
+uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
 {
     uint64_t flags = 0;
     int option_index = 0;
@@ -1187,6 +1188,9 @@ uint64_t ebpf_parse_arguments(int argc, char **argv)
         }
     }
 
+    if (kver < NETDATA_EBPF_KERNEL_4_14)
+        flags &= ~NETDATA_FLAG_OOMKILL;
+
     // When user does not specify any flag, we will use common value
     if (!(flags & (NETDATA_FLAG_ALL & ~(NETDATA_FLAG_CONTENT))))
         flags |= ebpf_set_common_flag();
@@ -1250,7 +1254,7 @@ int main(int argc, char **argv)
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
 
-    uint64_t flags = ebpf_parse_arguments(argc, argv);
+    uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel);
 
     // Start JSON output
     fprintf(stdlog, "{");
