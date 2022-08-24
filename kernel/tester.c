@@ -196,28 +196,6 @@ int ebpf_get_redhat_release()
 }
 
 /**
- * Has Kernel Version
- *
- * Verify whether the current host hast a kernel version necessary to run the eBPF programs.
- *
- * We do not test all possible kernels that run eBPF, instad we test the versions that we can
- * use the current libbpf.
- *
- * @param version is the kernel version
- * @param rhf     is the Red Hat Family
- *
- * @return it returns 1 when kernel version is compatible with eBPF and 0 otherwise.
- */
-static int ebpf_has_kernel_version(int version, int rhf)
-{
-    // Kernel 4.11.0 or RH > 7.5
-    // return (version >= NETDATA_MINIMUM_EBPF_KERNEL || rhf >= NETDATA_MINIMUM_RH_VERSION);
-
-    // We are using RH 8 instead 7, because current libbpf is not compatible with RH 7.x family
-    return (version >= NETDATA_MINIMUM_EBPF_KERNEL || rhf >= NETDATA_RH_8);
-}
-
-/**
  * Kernel Name
  *
  * Select kernel name used by eBPF programs
@@ -727,11 +705,20 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
     bpf_object__for_each_map(map, obj) {
         const char *name = bpf_map__name(map);
         int fd = bpf_map__fd(map);
+        ebpf_table_data_t *values;
+        uint32_t key_size;
+        uint32_t value_size;
+#ifdef LIBBPF_MAJOR_VERSION
         enum bpf_map_type type = bpf_map__type(map);
 
-        ebpf_table_data_t *values;
-        uint32_t key_size = bpf_map__key_size(map);
-        uint32_t value_size = bpf_map__value_size(map);
+        key_size = bpf_map__key_size(map);
+        value_size = bpf_map__value_size(map);
+#else
+        const struct bpf_map_def *def = bpf_map__def(map);
+        int type = def->type;
+        key_size = def->key_size;
+        value_size = def->value_size;
+#endif
         values = ebpf_allocate_tables(key_size, value_size);
         if (values) {
             // Write header
@@ -786,7 +773,13 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
 
         int fd = bpf_map__fd(map);
 
-        unsigned int i, end = bpf_map__max_entries(map);
+        unsigned int i, end;
+#ifdef LIBBPF_MAJOR_VERSION
+        end = bpf_map__max_entries(map);
+#else
+        const struct bpf_map_def *def = bpf_map__def(map);
+        end = def->max_entries;
+#endif
         uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level};
         for (i = 0; i < end; i++) {
              int ret = bpf_map_update_elem(fd, &i, &values[i], 0);
@@ -835,7 +828,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, int maps, c
     ebpf_attach_t load;
     int errors = ebpf_attach_programs(&load, obj, total, names);
 
-    if (maps) {
+    if (!errors && maps) {
         if (ctrl) {
             ebpf_fill_ctrl(obj, ctrl);
         }
@@ -1261,10 +1254,6 @@ int main(int argc, char **argv)
 
     // Start JSON output
     fprintf(stdlog, "{");
-
-    if (!ebpf_has_kernel_version(my_kernel, is_rhf)) {
-        return ebpf_write_error_exit("Cannot run on current kernel version", 1);
-    }
 
     if (ebpf_memlock_limit()) {
         return ebpf_write_error_exit("Cannot adjust memory limit.", 2);
