@@ -59,7 +59,11 @@ struct bpf_map_def SEC("maps") shm_ctrl = {
 };
 #endif
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+SEC("ksyscall/shmget")
+#else
 SEC("kprobe/" NETDATA_SYSCALL(shmget))
+#endif
 int netdata_syscall_shmget(struct pt_regs *ctx)
 {
     netdata_shm_t data = {};
@@ -86,7 +90,11 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
     return 0;
 }
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+SEC("ksyscall/shmat")
+#else
 SEC("kprobe/" NETDATA_SYSCALL(shmat))
+#endif
 int netdata_syscall_shmat(struct pt_regs *ctx)
 {
     netdata_shm_t data = {};
@@ -113,7 +121,11 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
     return 0;
 }
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+SEC("ksyscall/shmdt")
+#else
 SEC("kprobe/" NETDATA_SYSCALL(shmdt))
+#endif
 int netdata_syscall_shmdt(struct pt_regs *ctx)
 {
     netdata_shm_t data = {};
@@ -140,7 +152,11 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
     return 0;
 }
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+SEC("ksyscall/shmctl")
+#else
 SEC("kprobe/" NETDATA_SYSCALL(shmctl))
+#endif
 int netdata_syscall_shmctl(struct pt_regs *ctx)
 {
     netdata_shm_t data = {};

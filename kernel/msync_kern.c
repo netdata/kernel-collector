@@ -40,7 +40,11 @@ struct bpf_map_def SEC("maps") tbl_msync = {
  *
  ***********************************************************************************/
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+SEC("ksyscall/msync")
+#else
 SEC("kprobe/" NETDATA_SYSCALL(msync))
+#endif
 int netdata_syscall_sync(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_msync, NETDATA_KEY_SYNC_CALL, 1);
