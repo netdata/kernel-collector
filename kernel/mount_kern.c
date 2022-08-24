@@ -37,10 +37,18 @@ struct bpf_map_def SEC("maps") tbl_mount = {
  *
  ***********************************************************************************/
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+#if NETDATASEL < 2
+SEC("kretsyscall/mount")
+#else
+SEC("ksyscall/mount")
+#endif /* NETDATASEL < 2 */
+#else
 #if NETDATASEL < 2
 SEC("kretprobe/" NETDATA_SYSCALL(mount))
 #else
 SEC("kprobe/" NETDATA_SYSCALL(mount))
+#endif /* NETDATASEL < 2 */
 #endif
 int netdata_syscall_mount(struct pt_regs* ctx)
 {
@@ -54,10 +62,18 @@ int netdata_syscall_mount(struct pt_regs* ctx)
     return 0;
 }
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+#if NETDATASEL < 2
+SEC("kretsyscall/umount")
+#else
+SEC("ksyscall/umount")
+#endif /* NETDATASEL < 2 */
+#else
 #if NETDATASEL < 2
 SEC("kretprobe/" NETDATA_SYSCALL(umount))
 #else
 SEC("kprobe/" NETDATA_SYSCALL(umount))
+#endif /* NETDATASEL < 2 */
 #endif
 int netdata_syscall_umount(struct pt_regs* ctx)
 {
