@@ -290,7 +290,7 @@ static inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protoco
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (!apps || (apps && *apps == 0))
+    if (!apps || *apps == 0)
         return;
 
     b = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
@@ -354,7 +354,7 @@ static inline void update_pid_cleanup(__u64 drop, __u64 close)
 
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (!apps || (apps && *apps == 0))
+    if (!apps || *apps == 0)
         return;
 
     b = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
@@ -417,7 +417,7 @@ static inline void update_pid_connection(__u8 version)
 
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (!stored || (apps && *apps == 0))
+    if (!apps || *apps == 0)
         return;
 
     stored = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
