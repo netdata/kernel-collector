@@ -18,5 +18,5 @@ KVER=$(parse_kernel_version "${1}" "${2}")
 VER3_10_0="003010"
 
 if [ "${KVER}" -eq "${VER3_10_0}" ]; then
-    git fetch --all && git checkout netdata-patch
+    git remote update && git fetch && git checkout --track origin/netdata-patch
 fi
