@@ -3,10 +3,9 @@
 set -e
 
 build() {
-  RHK="3.10.0-1160.76.1.el7"
   echo "[XXX]: Preparing kernel headers for ${KERNEL_VERSION}..."
   (
-    if [ "${KERNEL_VERSION}" !=  "${RHK}" ]; then
+    if [ "${KERNEL_VERSION}" !=  "3.10.0-1160.76.1.el7" ]; then
        make defconfig -C /usr/src/linux
     else
        make silentoldconfig -C /usr/src/linux
@@ -17,9 +16,6 @@ build() {
   ) || return 1
   echo "[XXX]: Building against Kernel ${KERNEL_VERSION} for libc ${_LIBC} ..."
   (
-    if [ "${KERNEL_VERSION}" == "${RHK}" ]; then
-        cd libbpf && git fetch origin && git checkout netdata-patch && cd ..
-    fi
     if [ "${DEBUG:-0}" -eq 1 ]; then
       echo "[XXX]: Building with debug symbols ..."
       make CFLAGS='-fno-stack-protector -I /usr/src/linux/usr/include' EXTRA_CFLAGS='-g -fno-stack-protector'
