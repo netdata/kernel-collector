@@ -39,6 +39,7 @@ COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
 RUN /patch_kernel.sh
 
 WORKDIR /kernel-collector
+RUN ./change_libbpf.sh "3" "10"
 
 COPY .dockerfiles/build.sh /build.sh
 COPY . .
