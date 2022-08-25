@@ -18,5 +18,5 @@ KVER=$(parse_kernel_version "${1}" "${2}")
 VER3_10_0="003010"
 
 if [ "${KVER}" -eq "${VER3_10_0}" ]; then
-    cd /kernel-collector && git submodule update --init --recursive && cd libbpf && git fetch origin && git checkout netdata-patch && cd ..
+    git fetch origin && git checkout netdata-patch
 fi
