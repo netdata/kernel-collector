@@ -91,6 +91,7 @@ all: $(NETDATA_APPS)
 dev: ${NETDATA_ALL_APPS}
 
 libbpf:
+	/bin/bash change_libbpf.sh "$(VER_MAJOR)" "$(VER_MINOR)"
 	cd $(LIBBPF)/src && $(MAKE) CC=clang BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
 %_kern.o: %_kern.c libbpf
@@ -126,7 +127,6 @@ $(NETDATA_APPS): %: %_kern.o
 ${NETDATA_ALL_APPS}: %: %_kern.o
 
 tester: libbpf
-	/bin/bash change_libbpf.sh "$(VER_MAJOR)" "$(VER_MINOR)"
 	$(CC) -I../.local_libbpf -I$(LIBBPF)/src -I$(LIBBPF)/include -I$(LIBBPF)/include/uapi -L../.local_libbpf -o legacy_test tester.c -lbpf -lz -lelf
 
 clean:
