@@ -15,6 +15,7 @@
 #include <linux/bpf.h>
 #endif
 #include "bpf_tracing.h"
+#include "bpf_endian.h"
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
@@ -187,7 +188,7 @@ static inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *i
     //Read destination port
     bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
     bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
-    nsi->sport = ntohs(nsi->sport);
+    nsi->sport = bpf_ntohs(nsi->sport);
 
     return family;
 }
