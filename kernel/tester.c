@@ -1188,12 +1188,14 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         }
     }
 
-    if (kver < NETDATA_EBPF_KERNEL_4_14)
-        flags &= ~NETDATA_FLAG_OOMKILL;
-
     // When user does not specify any flag, we will use common value
     if (!(flags & (NETDATA_FLAG_ALL & ~(NETDATA_FLAG_CONTENT))))
         flags |= ebpf_set_common_flag();
+
+    // The necessary tracepoint was made in kernel 4.14, so we cannot
+    // test before this version
+    if (kver < NETDATA_EBPF_KERNEL_4_14)
+        flags &= ~NETDATA_FLAG_OOMKILL;
 
     return flags;
 }
