@@ -319,8 +319,6 @@ static inline __u32 update_pid_bandwidth(netdata_bandwidth_t *data, __u64 sent, 
 
         return 0;
     } else {
-        //netdata_bandwidth_t data = { };
-
         data->pid = key;
         data->first = data->ct = bpf_ktime_get_ns();
         data->bytes_sent = sent;
@@ -328,6 +326,7 @@ static inline __u32 update_pid_bandwidth(netdata_bandwidth_t *data, __u64 sent, 
 
 /*      When we try to load on kernel older than 4.17 this algorithm is not loaded.
  *      We are keeping it here for we do not forget.
+        netdata_bandwidth_t data = { };
         if (protocol == IPPROTO_TCP) {
             if (sent) {
                 data.call_tcp_sent = 1;
