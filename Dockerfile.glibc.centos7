@@ -1,9 +1,9 @@
-FROM centos:7.7.1908 AS build
+FROM centos:7.9.2009 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=3.10.0-1160.2.1.el7
+ENV KERNEL_VERSION=3.10.0-1160.76.1.el7
 
 ENV _LIBC=glibc
 
@@ -39,6 +39,8 @@ COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
 RUN /patch_kernel.sh
 
 WORKDIR /kernel-collector
+#COPY .dockerfiles/change_libbpf.sh /change_libbpf.sh
+#RUN /change_libbpf.sh "3" "10"
 
 COPY .dockerfiles/build.sh /build.sh
 COPY . .

@@ -55,7 +55,7 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
+    { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
       .flags = NETDATA_FLAG_PROCESS, .name = "process", .update_names = NULL, .ctrl_table = "process_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SHM, .name = "shm", .update_names = NULL, .ctrl_table = "shm_ctrl" },
@@ -193,28 +193,6 @@ int ebpf_get_redhat_release()
     } else {
         return -1;
     }
-}
-
-/**
- * Has Kernel Version
- *
- * Verify whether the current host hast a kernel version necessary to run the eBPF programs.
- *
- * We do not test all possible kernels that run eBPF, instad we test the versions that we can
- * use the current libbpf.
- *
- * @param version is the kernel version
- * @param rhf     is the Red Hat Family
- *
- * @return it returns 1 when kernel version is compatible with eBPF and 0 otherwise.
- */
-static int ebpf_has_kernel_version(int version, int rhf)
-{
-    // Kernel 4.11.0 or RH > 7.5
-    // return (version >= NETDATA_MINIMUM_EBPF_KERNEL || rhf >= NETDATA_MINIMUM_RH_VERSION);
-
-    // We are using RH 8 instead 7, because current libbpf is not compatible with RH 7.x family
-    return (version >= NETDATA_MINIMUM_EBPF_KERNEL || rhf >= NETDATA_RH_8);
 }
 
 /**
@@ -727,11 +705,20 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
     bpf_object__for_each_map(map, obj) {
         const char *name = bpf_map__name(map);
         int fd = bpf_map__fd(map);
+        ebpf_table_data_t *values;
+        uint32_t key_size;
+        uint32_t value_size;
+#ifdef LIBBPF_MAJOR_VERSION
         enum bpf_map_type type = bpf_map__type(map);
 
-        ebpf_table_data_t *values;
-        uint32_t key_size = bpf_map__key_size(map);
-        uint32_t value_size = bpf_map__value_size(map);
+        key_size = bpf_map__key_size(map);
+        value_size = bpf_map__value_size(map);
+#else
+        const struct bpf_map_def *def = bpf_map__def(map);
+        int type = def->type;
+        key_size = def->key_size;
+        value_size = def->value_size;
+#endif
         values = ebpf_allocate_tables(key_size, value_size);
         if (values) {
             // Write header
@@ -786,7 +773,13 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
 
         int fd = bpf_map__fd(map);
 
-        unsigned int i, end = bpf_map__max_entries(map);
+        unsigned int i, end;
+#ifdef LIBBPF_MAJOR_VERSION
+        end = bpf_map__max_entries(map);
+#else
+        const struct bpf_map_def *def = bpf_map__def(map);
+        end = def->max_entries;
+#endif
         uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level};
         for (i = 0; i < end; i++) {
              int ret = bpf_map_update_elem(fd, &i, &values[i], 0);
@@ -835,7 +828,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, int maps, c
     ebpf_attach_t load;
     int errors = ebpf_attach_programs(&load, obj, total, names);
 
-    if (maps) {
+    if (!errors && maps) {
         if (ctrl) {
             ebpf_fill_ctrl(obj, ctrl);
         }
@@ -972,10 +965,11 @@ static uint64_t ebpf_set_common_flag()
  *
  * @param argc is the number of arguments
  * @param argv vector with values.
+ * @param kver is the current kernel version
  *
  * @return It returns the flags used during the simulation.
  */
-uint64_t ebpf_parse_arguments(int argc, char **argv)
+uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
 {
     uint64_t flags = 0;
     int option_index = 0;
@@ -1198,6 +1192,11 @@ uint64_t ebpf_parse_arguments(int argc, char **argv)
     if (!(flags & (NETDATA_FLAG_ALL & ~(NETDATA_FLAG_CONTENT))))
         flags |= ebpf_set_common_flag();
 
+    // The necessary tracepoint was made in kernel 4.14, so we cannot
+    // test before this version
+    if (kver < NETDATA_EBPF_KERNEL_4_14)
+        flags &= ~NETDATA_FLAG_OOMKILL;
+
     return flags;
 }
 
@@ -1257,14 +1256,10 @@ int main(int argc, char **argv)
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
 
-    uint64_t flags = ebpf_parse_arguments(argc, argv);
+    uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel);
 
     // Start JSON output
     fprintf(stdlog, "{");
-
-    if (!ebpf_has_kernel_version(my_kernel, is_rhf)) {
-        return ebpf_write_error_exit("Cannot run on current kernel version", 1);
-    }
 
     if (ebpf_memlock_limit()) {
         return ebpf_write_error_exit("Cannot adjust memory limit.", 2);

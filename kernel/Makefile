@@ -2,6 +2,7 @@ CLANG = clang
 LLC = llc
 KERNELSOURCE = /usr/src/linux
 LIBBPF = ../libbpf
+LIBBPF_HEADERS = ../.local_libbpf
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 EXTRA_CFLAGS += -fno-stack-protector
@@ -17,6 +18,7 @@ LINUXINCLUDE += -I$(KERNELSOURCE)
 
 LINUXINCLUDE += -I$(LIBBPF)/src
 LINUXINCLUDE += -I$(LIBBPF)/include
+LINUXINCLUDE += -I$(LIBBPF_HEADERS)/
 LINUXINCLUDE += -include $(KERNELSOURCE)/include/linux/kconfig.h
 LINUXINCLUDE += -I../includes
 
@@ -89,9 +91,10 @@ all: $(NETDATA_APPS)
 dev: ${NETDATA_ALL_APPS}
 
 libbpf:
-	cd $(LIBBPF)/src && $(MAKE) BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
+	# -fPIE added to be compatible with olders clang/gcc
+	cd $(LIBBPF)/src && /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR) && $(MAKE) CC=clang CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
-%_kern.o: %_kern.c
+%_kern.o: %_kern.c libbpf
 	if [ -w $(KERNELSOURCE)/include/generated/autoconf.h ]; then  if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' $(KERNELSOURCE)/include/generated/autoconf.h; fi ; fi
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \

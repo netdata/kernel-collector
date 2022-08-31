@@ -2,12 +2,11 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 #include <uapi/linux/bpf.h>
-#include "bpf_helpers.h"
-#include "bpf_tracing.h"
 #else
 #include <linux/bpf.h>
-#include "netdata_bpf_helpers.h"
 #endif
+#include "bpf_tracing.h"
+#include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -38,7 +37,11 @@ struct bpf_map_def SEC("maps") tbl_syncfr = {
  *
  ***********************************************************************************/
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+SEC("ksyscall/sync_file_range")
+#else
 SEC("kprobe/" NETDATA_SYSCALL(sync_file_range))
+#endif
 int netdata_syscall_sync(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_syncfr, NETDATA_KEY_SYNC_CALL, 1);

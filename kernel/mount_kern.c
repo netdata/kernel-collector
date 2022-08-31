@@ -2,12 +2,11 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 #include <uapi/linux/bpf.h>
-#include "bpf_helpers.h"
-#include "bpf_tracing.h"
 #else
 #include <linux/bpf.h>
-#include "netdata_bpf_helpers.h"
 #endif
+#include "bpf_tracing.h"
+#include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
 /************************************************************************************
@@ -38,10 +37,18 @@ struct bpf_map_def SEC("maps") tbl_mount = {
  *
  ***********************************************************************************/
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+#if NETDATASEL < 2
+SEC("kretsyscall/mount")
+#else
+SEC("ksyscall/mount")
+#endif /* NETDATASEL < 2 */
+#else
 #if NETDATASEL < 2
 SEC("kretprobe/" NETDATA_SYSCALL(mount))
 #else
 SEC("kprobe/" NETDATA_SYSCALL(mount))
+#endif /* NETDATASEL < 2 */
 #endif
 int netdata_syscall_mount(struct pt_regs* ctx)
 {
@@ -55,10 +62,18 @@ int netdata_syscall_mount(struct pt_regs* ctx)
     return 0;
 }
 
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
+#if NETDATASEL < 2
+SEC("kretsyscall/umount")
+#else
+SEC("ksyscall/umount")
+#endif /* NETDATASEL < 2 */
+#else
 #if NETDATASEL < 2
 SEC("kretprobe/" NETDATA_SYSCALL(umount))
 #else
 SEC("kprobe/" NETDATA_SYSCALL(umount))
+#endif /* NETDATASEL < 2 */
 #endif
 int netdata_syscall_umount(struct pt_regs* ctx)
 {
