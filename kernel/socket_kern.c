@@ -235,12 +235,31 @@ SEC("kprobe/tcp_sendmsg")
 #endif
 int netdata_tcp_sendmsg(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
+
+    size_t sent;
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_SENDMSG, 1);
+        return 0;
+    }
+
+    sent = (size_t) ret;
+#else
+    sent = (size_t)PT_REGS_PARM3(ctx);
+#endif
+
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
+
     return 0;
 }
 
 SEC("kprobe/tcp_retransmit_skb")
 int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_TCP_RETRANSMIT, 1);
+
     return 0;
 }
 
@@ -248,12 +267,29 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 SEC("kprobe/tcp_cleanup_rbuf")
 int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLEANUP_RBUF, 1);
+
+    int copied = (int)PT_REGS_PARM2(ctx);
+    if (copied < 0) {
+        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_CLEANUP_RBUF, 1);
+        return 0;
+    }
+
+    __u64 received = (__u64) PT_REGS_PARM2(ctx);
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
+
     return 0;
 }
 
 SEC("kprobe/tcp_close")
 int netdata_tcp_close(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLOSE, 1);
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+    // Safety test only, in theory this is unecessary
+    if (!is)
+        return 0;
+
     return 0;
 }
 
@@ -264,6 +300,16 @@ SEC("kprobe/tcp_v4_connect")
 #endif
 int netdata_tcp_v4_connect(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CONNECT_IPV4, 1);
+
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_CONNECT_IPV4, 1);
+        return 0;
+    }
+#endif
+
     return 0;
 }
 
@@ -274,6 +320,15 @@ SEC("kprobe/tcp_v6_connect")
 #endif
 int netdata_tcp_v6_connect(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CONNECT_IPV6, 1);
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_CONNECT_IPV6, 1);
+        return 0;
+    }
+#endif
+
     return 0;
 }
 
@@ -287,12 +342,31 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
 SEC("kprobe/udp_recvmsg")
 int trace_udp_recvmsg(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_UDP_RECVMSG, 1);
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    struct sock *sk = (struct sock*)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
+    bpf_map_update_elem(&tbl_nv_udp, &pid_tgid, &sk, BPF_ANY);
+
     return 0;
 }
 
 SEC("kretprobe/udp_recvmsg")
 int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 {
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    struct sock **skpp = bpf_map_lookup_elem(&tbl_nv_udp, &pid_tgid);
+    if (skpp == 0)
+        return 0;
+
+    bpf_map_delete_elem(&tbl_nv_udp, &pid_tgid);
+    __u64 received = (__u64) PT_REGS_RC(ctx);
+
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_RECVMSG, received);
+
     return 0;
 }
 
@@ -304,6 +378,22 @@ SEC("kprobe/udp_sendmsg")
 #endif
 int trace_udp_sendmsg(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_UDP_SENDMSG, 1);
+
+    size_t sent;
+#if NETDATASEL < 2
+    int ret = (int)PT_REGS_RC(ctx);
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_UDP_SENDMSG, 1);
+        sent = 0;
+    } else
+        sent = (size_t)ret;
+#else
+    sent = (size_t)PT_REGS_PARM3(ctx);
+#endif
+
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
+
     return 0;
 }
 
