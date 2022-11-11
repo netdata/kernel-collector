@@ -144,6 +144,123 @@ struct bpf_map_def SEC("maps") socket_ctrl = {
 
 #endif
 
+/************************************************************************************
+ *
+ *                                 General Socket Section
+ *
+ ***********************************************************************************/
+
+SEC("kretprobe/inet_csk_accept")
+int netdata_inet_csk_accept(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+/************************************************************************************
+ *
+ *                                 TCP Section
+ *
+ ***********************************************************************************/
+
+#if NETDATASEL < 2
+SEC("kretprobe/tcp_sendmsg")
+#else
+SEC("kprobe/tcp_sendmsg")
+#endif
+int netdata_tcp_sendmsg(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+SEC("kprobe/tcp_retransmit_skb")
+int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+// https://elixir.bootlin.com/linux/v5.6.14/source/net/ipv4/tcp.c#L1528
+SEC("kprobe/tcp_cleanup_rbuf")
+int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+SEC("kprobe/tcp_close")
+int netdata_tcp_close(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+#if NETDATASEL < 2
+SEC("kretprobe/tcp_v4_connect")
+#else
+SEC("kprobe/tcp_v4_connect")
+#endif
+int netdata_tcp_v4_connect(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+#if NETDATASEL < 2
+SEC("kretprobe/tcp_v6_connect")
+#else
+SEC("kprobe/tcp_v6_connect")
+#endif
+int netdata_tcp_v6_connect(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+/************************************************************************************
+ *
+ *                                 UDP Section
+ *
+ ***********************************************************************************/
+
+// https://elixir.bootlin.com/linux/v5.6.14/source/net/ipv4/udp.c#L1726
+SEC("kprobe/udp_recvmsg")
+int trace_udp_recvmsg(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+SEC("kretprobe/udp_recvmsg")
+int trace_udp_ret_recvmsg(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+// https://elixir.bootlin.com/linux/v5.6.14/source/net/ipv4/udp.c#L965
+#if NETDATASEL < 2
+SEC("kretprobe/udp_sendmsg")
+#else
+SEC("kprobe/udp_sendmsg")
+#endif
+int trace_udp_sendmsg(struct pt_regs* ctx)
+{
+    return 0;
+}
+
+/************************************************************************************
+ *
+ *                           CLEAN UP SECTION
+ *
+ ***********************************************************************************/
+
+/**
+ * Release task socket
+ *
+ * Removing a socket when it's no longer needed helps us reduce the default
+ * size used with our tables.
+ *
+ * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
+ * the information about the process, so it is safe to remove the information about the socket.
+ */
+SEC("kprobe/release_task")
+int netdata_release_task_socket(struct pt_regs* ctx)
+{
+    return 0;
+}
 
 char _license[] SEC("license") = "GPL";
 
