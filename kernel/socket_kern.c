@@ -150,6 +150,101 @@ struct bpf_map_def SEC("maps") socket_ctrl = {
  *
  ***********************************************************************************/
 
+static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
+{
+    __u16 family;
+
+    // Read Family
+    bpf_probe_read(&family, sizeof(u16), &is->sk.__sk_common.skc_family);
+    // Read source and destination IPs
+    if ( family == AF_INET ) { //AF_INET
+        bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr);
+        bpf_probe_read(&nsi->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
+
+        if (!nsi->saddr.addr32[0] || !nsi->daddr.addr32[0])
+            return AF_UNSPEC;
+    }
+    // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
+#if IS_ENABLED(CONFIG_IPV6)
+    else if ( family == AF_INET6 ) {
+        struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr;
+        bpf_probe_read(&nsi->saddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+
+        addr6 = &is->sk.sk_v6_daddr;
+        bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+
+        if ( ((!nsi->saddr.addr64[0]) && (!nsi->saddr.addr64[1])) || ((!nsi->daddr.addr64[0]) && (!nsi->daddr.addr64[1])))
+            return AF_UNSPEC;
+    }
+#endif
+    else {
+        return AF_UNSPEC;
+    }
+
+    //Read destination port
+    bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
+    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
+    nsi->sport = ntohs(nsi->sport);
+
+    return family;
+}
+
+// Update time and bytes sent and received
+static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u32 retransmitted)
+{
+    ptr->ct = bpf_ktime_get_ns();
+
+    if (sent) {
+        libnetdata_update_u64(&ptr->sent_packets, 1);
+        libnetdata_update_u64(&ptr->sent_bytes, sent);
+    }
+
+    if (received) {
+        libnetdata_update_u64(&ptr->recv_packets, 1);
+        libnetdata_update_u64(&ptr->recv_bytes, received);
+    }
+
+    libnetdata_update_u32(&ptr->retransmit, retransmitted);
+}
+
+
+// Use __always_inline instead inline to keep compatiblity with old kernels
+// https://docs.cilium.io/en/v1.8/bpf/
+static __always_inline  void update_socket_table(struct pt_regs* ctx,
+                                                __u64 sent,
+                                                __u64 received,
+                                                __u32 retransmitted)
+{
+    __u16 family;
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+    void *tbl;
+    netdata_socket_idx_t idx = { };
+
+    // Safety condition
+    if (!is)
+        return;
+
+    family = set_idx_value(&idx, is);
+    if (!family)
+        return;
+
+    tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
+
+    netdata_socket_t *val;
+    netdata_socket_t data = { };
+
+    val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
+    if (val) {
+        update_socket_stats(val, sent, received, retransmitted);
+    } else {
+        data.first = bpf_ktime_get_ns();
+        data.protocol = IPPROTO_TCP;
+        update_socket_stats(&data, sent, received, retransmitted);
+
+        bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
+    }
+}
+
 static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
 {
     netdata_bandwidth_t data = { };
@@ -321,6 +416,8 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 
     update_pid_bandwidth((__u64)sent, 0, IPPROTO_TCP);
 
+    update_socket_table(ctx, sent, 0, 0);
+
     return 0;
 }
 
@@ -330,6 +427,8 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_TCP_RETRANSMIT, 1);
 
     update_pid_bandwidth(0, 0, IPPROTO_TCP);
+
+    update_socket_table(ctx, 0, 0, 1);
 
     return 0;
 }
@@ -350,6 +449,8 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
 
     update_pid_bandwidth(0, received, IPPROTO_TCP);
+
+    update_socket_table(ctx, 0, (__u64)copied, 1);
 
     return 0;
 }
