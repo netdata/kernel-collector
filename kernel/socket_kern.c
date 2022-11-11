@@ -259,6 +259,17 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 SEC("kprobe/release_task")
 int netdata_release_task_socket(struct pt_regs* ctx)
 {
+    netdata_bandwidth_t *removeme;
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps)
+        if (*apps == 0)
+            return 0;
+
+    removeme = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
+    if (removeme)
+        bpf_map_delete_elem(&tbl_bandwidth, &key);
+
     return 0;
 }
 
