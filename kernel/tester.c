@@ -84,6 +84,7 @@ ebpf_module_t ebpf_modules[] = {
 char *specific_ebpf = NULL;
 char *netdata_path = NULL;
 char *log_path = NULL;
+#define NETDATA_DEFAULT_PROCESS_NUMBER 4096
 long nprocesses;
 FILE *stdlog = NULL;
 int end_iteration = 1;
@@ -1257,6 +1258,10 @@ int main(int argc, char **argv)
     int is_rhf = ebpf_get_redhat_release();
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
+    if (nprocesses < 0) {
+        fprintf(stderr, "Cannot find number of proccess, using the default %lu\n", NETDATA_DEFAULT_PROCESS_NUMBER);
+        nprocesses = NETDATA_DEFAULT_PROCESS_NUMBER;
+    }
 
     uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel);
 
