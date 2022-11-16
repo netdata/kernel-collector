@@ -335,6 +335,47 @@ static __always_inline u8 select_protocol(struct sock *sk)
 }
 #endif // Kernel version 5.6.0
 
+static __always_inline void update_pid_connection(__u8 version)
+{
+    netdata_bandwidth_t *stored;
+    netdata_bandwidth_t data = { };
+
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return;
+    } else
+        return;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    key = (__u32)(pid_tgid >> 32);
+
+    stored = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &key);
+    if (stored) {
+        if (stored->pid != tgid)
+            ebpf_socket_reset_bandwidth(key, tgid);
+
+        stored->ct = bpf_ktime_get_ns();
+
+        if (version == 4)
+            libnetdata_update_u32(&stored->ipv4_connect, 1);
+        else
+            libnetdata_update_u32(&stored->ipv6_connect, 1);
+    } else {
+        data.pid = tgid;
+        data.first = bpf_ktime_get_ns();
+        data.ct = data.first;
+        if (version == 4)
+            data.ipv4_connect = 1;
+        else
+            data.ipv6_connect = 1;
+
+        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
+    }
+}
+
 /************************************************************************************
  *
  *                                 General Socket Section
@@ -484,6 +525,8 @@ int netdata_tcp_v4_connect(struct pt_regs* ctx)
     }
 #endif
 
+    update_pid_connection(4);
+
     return 0;
 }
 
@@ -502,6 +545,8 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
         return 0;
     }
 #endif
+
+    update_pid_connection(6);
 
     return 0;
 }
