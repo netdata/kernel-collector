@@ -1259,7 +1259,7 @@ int main(int argc, char **argv)
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
     if (nprocesses < 0) {
-        fprintf(stderr, "Cannot find number of proccess, using the default %lu\n", NETDATA_DEFAULT_PROCESS_NUMBER);
+        fprintf(stderr, "Cannot find number of proccess, using the default %lu\n", (unsigned long int)NETDATA_DEFAULT_PROCESS_NUMBER);
         nprocesses = NETDATA_DEFAULT_PROCESS_NUMBER;
     }
 
