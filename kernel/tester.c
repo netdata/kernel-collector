@@ -549,19 +549,20 @@ static ebpf_table_data_t *ebpf_allocate_tables(const char *name, size_t key, siz
     if (!ret)
         return NULL;
 
-    ret->key = calloc(key, sizeof(char));
+    // Using `size_t` instead `char` to remove issues with Gentoo
+    ret->key = calloc(key, sizeof(size_t));
     if (!ret->key)
         goto error_td;
 
-    ret->next_key = calloc(key, sizeof(char));
+    ret->next_key = calloc(key, sizeof(size_t));
     if (!ret->next_key)
         goto error_td;
 
-    ret->value = calloc(value, sizeof(char));
+    ret->value = calloc(value, sizeof(size_t));
     if (!ret->value)
         goto error_td;
 
-    ret->def_value = calloc(value, sizeof(char));
+    ret->def_value = calloc(value, sizeof(size_t));
     if (!ret->def_value)
         goto error_td;
 
