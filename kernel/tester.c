@@ -534,10 +534,11 @@ static void ebpf_cleanup_tables(ebpf_table_data_t *out)
  *
  * Allocate values used to read data;
  *
+ * @param name   the table name.
  * @param key    the size of the key.
  * @param value  the size of the values.
  */
-static ebpf_table_data_t *ebpf_allocate_tables(size_t key, size_t value)
+static ebpf_table_data_t *ebpf_allocate_tables(const char *name, size_t key, size_t value)
 {
     // We multiply value by number of proccess to avoid problems when data is stored
     // per process
@@ -569,6 +570,7 @@ static ebpf_table_data_t *ebpf_allocate_tables(size_t key, size_t value)
     return ret;
 
 error_td:
+     fprintf(stderr, "Cannot allocate memory for table %s with pair of key=%lu and value=%lu\n", name, key, value);
      ebpf_cleanup_tables(ret);
      return NULL;
 }
@@ -719,7 +721,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         key_size = def->key_size;
         value_size = def->value_size;
 #endif
-        values = ebpf_allocate_tables(key_size, value_size);
+        values = ebpf_allocate_tables(name, key_size, value_size);
         if (values) {
             // Write header
            fprintf(stdlog,
@@ -742,9 +744,9 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
                    "        },\n");
 
             tables++;
-        }
 
-        ebpf_cleanup_tables(values);
+            ebpf_cleanup_tables(values);
+        }
     }
 
     // Write total tables read
