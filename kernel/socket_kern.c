@@ -376,6 +376,45 @@ static __always_inline void update_pid_connection(__u8 version)
     }
 }
 
+static __always_inline void update_pid_cleanup(__u64 drop, __u64 close)
+{
+    netdata_bandwidth_t *b;
+    netdata_bandwidth_t data = { };
+
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return;
+    } else
+        return;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+
+    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
+    if (b) {
+        if (b->pid != tgid)
+            ebpf_socket_reset_bandwidth(pid, tgid);
+
+        if (drop)
+            libnetdata_update_u64(&b->drop, 1);
+        else
+            libnetdata_update_u64(&b->close, 1);
+    } else {
+        data.pid = tgid;
+        data.first = bpf_ktime_get_ns();
+        data.ct = data.first;
+        if (drop)
+            data.drop = 1;
+        else
+            data.close = 1;
+
+        bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
+    }
+}
+
 /************************************************************************************
  *
  *                                 General Socket Section
@@ -504,6 +543,19 @@ int netdata_tcp_close(struct pt_regs* ctx)
     // Safety test only, in theory this is unecessary
     if (!is)
         return 0;
+
+    update_pid_cleanup(0, 1);
+
+    netdata_socket_idx_t idx = { };
+    __u16 family = set_idx_value(&idx, is);
+    if (!family)
+        return 0;
+
+    void *tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
+    netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
+    if (val) {
+        bpf_map_delete_elem(tbl, &idx);
+    }
 
     return 0;
 }
