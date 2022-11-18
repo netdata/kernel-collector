@@ -84,6 +84,7 @@ ebpf_module_t ebpf_modules[] = {
 char *specific_ebpf = NULL;
 char *netdata_path = NULL;
 char *log_path = NULL;
+#define NETDATA_DEFAULT_PROCESS_NUMBER 4096
 long nprocesses;
 FILE *stdlog = NULL;
 int end_iteration = 1;
@@ -534,10 +535,11 @@ static void ebpf_cleanup_tables(ebpf_table_data_t *out)
  *
  * Allocate values used to read data;
  *
+ * @param name   the table name.
  * @param key    the size of the key.
  * @param value  the size of the values.
  */
-static ebpf_table_data_t *ebpf_allocate_tables(size_t key, size_t value)
+static ebpf_table_data_t *ebpf_allocate_tables(const char *name, size_t key, size_t value)
 {
     // We multiply value by number of proccess to avoid problems when data is stored
     // per process
@@ -547,19 +549,20 @@ static ebpf_table_data_t *ebpf_allocate_tables(size_t key, size_t value)
     if (!ret)
         return NULL;
 
-    ret->key = calloc(key, sizeof(char));
+    // Using `size_t` instead `char` to remove issues with Gentoo
+    ret->key = calloc(key, sizeof(size_t));
     if (!ret->key)
         goto error_td;
 
-    ret->next_key = calloc(key, sizeof(char));
+    ret->next_key = calloc(key, sizeof(size_t));
     if (!ret->next_key)
         goto error_td;
 
-    ret->value = calloc(value, sizeof(char));
+    ret->value = calloc(value, sizeof(size_t));
     if (!ret->value)
         goto error_td;
 
-    ret->def_value = calloc(value, sizeof(char));
+    ret->def_value = calloc(value, sizeof(size_t));
     if (!ret->def_value)
         goto error_td;
 
@@ -569,6 +572,7 @@ static ebpf_table_data_t *ebpf_allocate_tables(size_t key, size_t value)
     return ret;
 
 error_td:
+     fprintf(stderr, "Cannot allocate memory for table %s with pair of key=%lu and value=%lu\n", name, key, value);
      ebpf_cleanup_tables(ret);
      return NULL;
 }
@@ -719,7 +723,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         key_size = def->key_size;
         value_size = def->value_size;
 #endif
-        values = ebpf_allocate_tables(key_size, value_size);
+        values = ebpf_allocate_tables(name, key_size, value_size);
         if (values) {
             // Write header
            fprintf(stdlog,
@@ -742,9 +746,9 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
                    "        },\n");
 
             tables++;
-        }
 
-        ebpf_cleanup_tables(values);
+            ebpf_cleanup_tables(values);
+        }
     }
 
     // Write total tables read
@@ -1255,6 +1259,10 @@ int main(int argc, char **argv)
     int is_rhf = ebpf_get_redhat_release();
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
+    if (nprocesses < 0) {
+        fprintf(stderr, "Cannot find number of proccess, using the default %lu\n", (unsigned long int)NETDATA_DEFAULT_PROCESS_NUMBER);
+        nprocesses = NETDATA_DEFAULT_PROCESS_NUMBER;
+    }
 
     uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel);
 

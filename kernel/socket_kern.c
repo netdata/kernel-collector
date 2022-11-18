@@ -97,7 +97,7 @@ struct bpf_map_def SEC("maps") tbl_bandwidth = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(__u32),
     .value_size = sizeof(netdata_bandwidth_t),
-    .max_entries = 65536
+    .max_entries = PID_MAX_DEFAULT
 };
 
 struct bpf_map_def SEC("maps") tbl_global_sock = {
@@ -146,15 +146,11 @@ struct bpf_map_def SEC("maps") socket_ctrl = {
 
 /************************************************************************************
  *
- *                                 Global Socket Section
+ *                                 Common Section
  *
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
-#else
-static inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *is)
-#endif
 {
     __u16 family;
 
@@ -188,17 +184,13 @@ static inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct inet_sock *i
     //Read destination port
     bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
     bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
-    nsi->sport = bpf_ntohs(nsi->sport);
+    nsi->sport = ntohs(nsi->sport);
 
     return family;
 }
 
 // Update time and bytes sent and received
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u32 retransmitted)
-#else
-static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u32 retransmitted)
-#endif
 {
     ptr->ct = bpf_ktime_get_ns();
 
@@ -215,28 +207,22 @@ static inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 
     libnetdata_update_u32(&ptr->retransmit, retransmitted);
 }
 
+
 // Use __always_inline instead inline to keep compatiblity with old kernels
 // https://docs.cilium.io/en/v1.8/bpf/
-// The condition to test kernel was added, because __always_inline broke the epbf.plugin
-// on CentOS 7 and Ubuntu 18.04 (kernel 4.18)
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline  void update_socket_table(struct pt_regs* ctx,
                                                 __u64 sent,
                                                 __u64 received,
-                                                __u32 retransmitted,
-                                                __u16 protocol)
-#else
-static inline void update_socket_table(struct pt_regs* ctx,
-                                                __u64 sent,
-                                                __u64 received,
-                                                __u32 retransmitted,
-                                                __u16 protocol)
-#endif
+                                                __u32 retransmitted)
 {
     __u16 family;
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
     void *tbl;
     netdata_socket_idx_t idx = { };
+
+    // Safety condition
+    if (!is)
+        return;
 
     family = set_idx_value(&idx, is);
     if (!family)
@@ -250,148 +236,84 @@ static inline void update_socket_table(struct pt_regs* ctx,
     val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
-
-        if (protocol == IPPROTO_UDP)
-            bpf_map_delete_elem(tbl, &idx);
     } else {
-        // This will be present while we do not have network viewer.
-        if (protocol == IPPROTO_UDP && received)
-            return;
-
         data.first = bpf_ktime_get_ns();
-        data.protocol = protocol;
+        data.protocol = IPPROTO_TCP;
         update_socket_stats(&data, sent, received, retransmitted);
 
         bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
     }
 }
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid)
-#else
-static inline void ebpf_socket_reset_bandwidth(__u32 pid)
-#endif
+static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
 {
     netdata_bandwidth_t data = { };
-    data.pid = pid;
+    data.pid = tgid;
     data.first = bpf_ktime_get_ns();
 
     bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
 }
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline __u32 update_pid_bandwidth(netdata_bandwidth_t *data, __u64 sent, __u64 received, __u8 protocol)
-#else
-static inline __u32 update_pid_bandwidth(netdata_bandwidth_t *data, __u64 sent, __u64 received, __u8 protocol)
-#endif
-{
-    netdata_bandwidth_t *b;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (!apps || *apps == 0)
-        return 0;
-
-    b = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
-    if (b) {
-        if (b->pid != key)
-            ebpf_socket_reset_bandwidth(key);
-
-        b->ct = bpf_ktime_get_ns();
-
-        if (sent)
-            libnetdata_update_u64(&b->bytes_sent, sent);
-
-        if (received)
-            libnetdata_update_u64(&b->bytes_received, received);
-
-        if (protocol == IPPROTO_TCP) {
-            if (sent) {
-                libnetdata_update_u64(&b->call_tcp_sent, 1);
-            } else if (received) {
-                libnetdata_update_u64(&b->call_tcp_received, 1);
-            } else {
-                libnetdata_update_u64(&b->retransmit, 1);
-            }
-        } else {
-                libnetdata_update_u64((sent) ? &b->call_udp_sent : &b->call_udp_received, 1);
-        } 
-
-        return 0;
-    } else {
-        data->pid = key;
-        data->first = data->ct = bpf_ktime_get_ns();
-        data->bytes_sent = sent;
-        data->bytes_received = received;
-
-/*      When we try to load on kernel older than 4.17 this algorithm is not loaded.
- *      We are keeping it here for we do not forget.
-        netdata_bandwidth_t data = { };
-        if (protocol == IPPROTO_TCP) {
-            if (sent) {
-                data.call_tcp_sent = 1;
-            } else if (received) {
-                data.call_tcp_received = 1;
-            } else {
-                data.retransmit = 1;
-            }
-        } else {
-            if (sent) {
-                data.call_udp_sent = 1;
-            } else {
-                data.call_udp_received = 1;
-            }
-        }
-
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
-*/
-    }
-
-    return key;
-}
-
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
-static __always_inline void update_pid_cleanup(__u64 drop, __u64 close)
-#else
-static inline void update_pid_cleanup(__u64 drop, __u64 close)
-#endif
+static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
-
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (!apps || *apps == 0)
+    if (apps) {
+        if (*apps == 0)
+            return;
+    } else
         return;
 
-    b = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
-    if (b) {
-        if (b->pid != key)
-            ebpf_socket_reset_bandwidth(key);
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
 
-        if (drop)
-            libnetdata_update_u64(&b->drop, 1);
-        else
-            libnetdata_update_u64(&b->close, 1);
+    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
+    if (b) {
+        if (b->pid != tgid)
+            ebpf_socket_reset_bandwidth(pid, tgid);
+
+        b->ct = bpf_ktime_get_ns();
+
+        if (sent) {
+            libnetdata_update_u64(&b->bytes_sent, sent);
+
+            libnetdata_update_u64((protocol == IPPROTO_TCP) ? &b->call_tcp_sent : &b->call_udp_sent, 1);
+        } else if (received) {
+            libnetdata_update_u64(&b->bytes_received, received);
+
+            libnetdata_update_u64((protocol == IPPROTO_TCP) ? &b->call_tcp_received : &b->call_udp_received, 1);
+        } else
+            libnetdata_update_u64(&b->retransmit, 1);
     } else {
-        data.pid = key;
+        data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
-        if (drop)
-            data.drop = 1;
-        else
-            data.close = 1;
+        if (sent) {
+            data.bytes_sent = sent;
+            if (protocol == IPPROTO_TCP)
+                data.call_tcp_sent = 1;
+            else
+                data.call_udp_sent = 1;
+        } else if (received) {
+            data.bytes_received = received;
+            if (protocol == IPPROTO_TCP)
+                data.call_tcp_received = 1;
+            else
+                data.call_udp_received = 1;
+        } else {
+            data.retransmit = 1;
+        }
 
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
     }
 }
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0))
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline u8 select_protocol(struct sock *sk)
-#else
-static inline u8 select_protocol(struct sock *sk)
-#endif
 {
     u8 protocol = 0;
 
@@ -413,24 +335,27 @@ static inline u8 select_protocol(struct sock *sk)
 }
 #endif // Kernel version 5.6.0
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline void update_pid_connection(__u8 version)
-#else
-static inline void update_pid_connection(__u8 version)
-#endif
 {
     netdata_bandwidth_t *stored;
     netdata_bandwidth_t data = { };
 
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (!apps || *apps == 0)
+    if (apps) {
+        if (*apps == 0)
+            return;
+    } else
         return;
 
-    stored = netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    key = (__u32)(pid_tgid >> 32);
+
+    stored = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &key);
     if (stored) {
-        if (stored->pid != key)
-            ebpf_socket_reset_bandwidth(key);
+        if (stored->pid != tgid)
+            ebpf_socket_reset_bandwidth(key, tgid);
 
         stored->ct = bpf_ktime_get_ns();
 
@@ -439,7 +364,7 @@ static inline void update_pid_connection(__u8 version)
         else
             libnetdata_update_u32(&stored->ipv6_connect, 1);
     } else {
-        data.pid = key;
+        data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         if (version == 4)
@@ -448,6 +373,45 @@ static inline void update_pid_connection(__u8 version)
             data.ipv6_connect = 1;
 
         bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
+    }
+}
+
+static __always_inline void update_pid_cleanup(__u64 drop, __u64 close)
+{
+    netdata_bandwidth_t *b;
+    netdata_bandwidth_t data = { };
+
+    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
+    if (apps) {
+        if (*apps == 0)
+            return;
+    } else
+        return;
+
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+
+    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
+    if (b) {
+        if (b->pid != tgid)
+            ebpf_socket_reset_bandwidth(pid, tgid);
+
+        if (drop)
+            libnetdata_update_u64(&b->drop, 1);
+        else
+            libnetdata_update_u64(&b->close, 1);
+    } else {
+        data.pid = tgid;
+        data.first = bpf_ktime_get_ns();
+        data.ct = data.first;
+        if (drop)
+            data.drop = 1;
+        else
+            data.close = 1;
+
+        bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
     }
 }
 
@@ -513,8 +477,8 @@ SEC("kprobe/tcp_sendmsg")
 #endif
 int netdata_tcp_sendmsg(struct pt_regs* ctx)
 {
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    netdata_bandwidth_t data = { };
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
+
     size_t sent;
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
@@ -524,20 +488,15 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     }
 
     sent = (size_t) ret;
-#else 
+#else
     sent = (size_t)PT_REGS_PARM3(ctx);
 #endif
 
-    update_socket_table(ctx, sent, 0, 0, (__u16)IPPROTO_TCP);
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
 
-    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_SENDMSG, 1);
+    update_pid_bandwidth((__u64)sent, 0, IPPROTO_TCP);
 
-    key = update_pid_bandwidth(&data, (__u64)sent, 0, IPPROTO_TCP);
-    if (key) {
-        data.call_tcp_sent = 1;
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
-    }
+    update_socket_table(ctx, sent, 0, 0);
 
     return 0;
 }
@@ -545,17 +504,11 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 SEC("kprobe/tcp_retransmit_skb")
 int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    netdata_bandwidth_t data = { };
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_TCP_RETRANSMIT, 1);
 
-    update_socket_table(ctx, 0, 0, 1, (__u16)IPPROTO_TCP);
+    update_pid_bandwidth(0, 0, IPPROTO_TCP);
 
-    key = update_pid_bandwidth(&data, 0, 0, IPPROTO_TCP);
-    if (key) {
-        data.retransmit = 1;
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
-    }
+    update_socket_table(ctx, 0, 0, 1);
 
     return 0;
 }
@@ -564,28 +517,20 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 SEC("kprobe/tcp_cleanup_rbuf")
 int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 {
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    netdata_bandwidth_t data = { };
-    int copied = (int)PT_REGS_PARM2(ctx);
-
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLEANUP_RBUF, 1);
 
+    int copied = (int)PT_REGS_PARM2(ctx);
     if (copied < 0) {
         libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_TCP_CLEANUP_RBUF, 1);
         return 0;
     }
 
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
-
-    update_socket_table(ctx, 0, (__u64)copied, 1, (__u16)IPPROTO_TCP);
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
 
-    key = update_pid_bandwidth(&data, 0, received, IPPROTO_TCP);
-    if (key) {
-        data.call_tcp_received = 1;
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
-    }
+    update_pid_bandwidth(0, received, IPPROTO_TCP);
 
+    update_socket_table(ctx, 0, (__u64)copied, 1);
 
     return 0;
 }
@@ -593,23 +538,21 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 SEC("kprobe/tcp_close")
 int netdata_tcp_close(struct pt_regs* ctx)
 {
-    void *tbl;
-    netdata_socket_t *val;
-    __u16 family;
-    netdata_socket_idx_t idx = { };
-
-    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
-
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CLOSE, 1);
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+    // Safety test only, in theory this is unecessary
+    if (!is)
+        return 0;
 
     update_pid_cleanup(0, 1);
 
-    family =  set_idx_value(&idx, is);
+    netdata_socket_idx_t idx = { };
+    __u16 family = set_idx_value(&idx, is);
     if (!family)
         return 0;
 
-    tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
-    val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
+    void *tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
+    netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
     if (val) {
         bpf_map_delete_elem(tbl, &idx);
     }
@@ -625,6 +568,7 @@ SEC("kprobe/tcp_v4_connect")
 int netdata_tcp_v4_connect(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_CONNECT_IPV4, 1);
+
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
     if (ret < 0) {
@@ -659,7 +603,6 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
     return 0;
 }
 
-
 /************************************************************************************
  *
  *                                 UDP Section
@@ -670,10 +613,12 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
 SEC("kprobe/udp_recvmsg")
 int trace_udp_recvmsg(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_UDP_RECVMSG, 1);
+
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     struct sock *sk = (struct sock*)PT_REGS_PARM1(ctx);
-
-    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_UDP_RECVMSG, 1);
+    if (!sk)
+        return 0;
 
     bpf_map_update_elem(&tbl_nv_udp, &pid_tgid, &sk, BPF_ANY);
 
@@ -683,29 +628,17 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
 SEC("kretprobe/udp_recvmsg")
 int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 {
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    netdata_bandwidth_t data = { };
-
-    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_UDP_RECVMSG, 1);
-
-     struct sock **skpp = bpf_map_lookup_elem(&tbl_nv_udp, &pid_tgid);
-    if (skpp == 0) {
+    struct sock **skpp = bpf_map_lookup_elem(&tbl_nv_udp, &pid_tgid);
+    if (skpp == 0)
         return 0;
-    }
 
     bpf_map_delete_elem(&tbl_nv_udp, &pid_tgid);
     __u64 received = (__u64) PT_REGS_RC(ctx);
-    update_socket_table(ctx, 0, received, 1, (__u16)IPPROTO_UDP);
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_RECVMSG, received);
 
-    key = update_pid_bandwidth(&data, 0, received, IPPROTO_UDP);
-    if (key) {
-        data.call_udp_received = 1;
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
-    }
-
+    update_pid_bandwidth(0, received, IPPROTO_UDP);
 
     return 0;
 }
@@ -718,37 +651,23 @@ SEC("kprobe/udp_sendmsg")
 #endif
 int trace_udp_sendmsg(struct pt_regs* ctx)
 {
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    netdata_bandwidth_t data = { };
-#if NETDATASEL < 2
-    int ret = (int)PT_REGS_RC(ctx);
-#endif
-    
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_UDP_SENDMSG, 1);
 
     size_t sent;
 #if NETDATASEL < 2
-    sent = (ret > 0 )?(size_t)ret:0;
+    int ret = (int)PT_REGS_RC(ctx);
+    if (ret < 0) {
+        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_UDP_SENDMSG, 1);
+        sent = 0;
+    } else
+        sent = (size_t)ret;
 #else
     sent = (size_t)PT_REGS_PARM3(ctx);
 #endif
 
-    update_socket_table(ctx, sent, 0, 1, (__u16)IPPROTO_UDP);
-
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
 
-#if NETDATASEL < 2
-    if (ret < 0) {
-        libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_ERROR_UDP_SENDMSG, 1);
-    }
-#endif
-
-    key = update_pid_bandwidth(&data, (__u64) sent, 0, IPPROTO_UDP);
-    if (key) {
-        data.call_udp_sent = 1;
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
-    }
-
+    update_pid_bandwidth((__u64) sent, 0, IPPROTO_UDP);
 
     return 0;
 }
@@ -774,18 +693,13 @@ int netdata_release_task_socket(struct pt_regs* ctx)
     netdata_bandwidth_t *removeme;
     __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps) {
+    if (apps)
         if (*apps == 0)
             return 0;
-    } else
-        return 0;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    key = (__u32)(pid_tgid >> 32);
-    removeme = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &key);
-    if (removeme) {
+    removeme = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
+    if (removeme)
         bpf_map_delete_elem(&tbl_bandwidth, &key);
-    }
 
     return 0;
 }
