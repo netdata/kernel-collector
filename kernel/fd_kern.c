@@ -71,21 +71,6 @@ struct bpf_map_def SEC("maps") fd_ctrl = {
 #endif
 
 /************************************************************************************
- *
- *                                Local Function Section
- *
- ***********************************************************************************/
-
-static inline void netdata_fill_common_fd_data(struct netdata_fd_stat_t *data)
-{
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-
-    data->pid_tgid = pid_tgid;
-    data->pid = tgid;
-}
-
-/************************************************************************************
  *     
  *                                   Probe Section
  *     
@@ -135,8 +120,6 @@ int netdata_sys_open(struct pt_regs* ctx)
         } 
 #endif
     } else {
-        netdata_fill_common_fd_data(&data);
-
 #if NETDATASEL < 2
         if (ret < 0) {
             data.open_err = 1;
@@ -198,7 +181,6 @@ int netdata_close(struct pt_regs* ctx)
         } 
 #endif
     } else {
-        netdata_fill_common_fd_data(&data);
         data.close_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
