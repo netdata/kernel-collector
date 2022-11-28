@@ -1,4 +1,4 @@
-FROM alpine:3.16 AS build
+FROM alpine:3.17 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
