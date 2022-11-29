@@ -4,9 +4,6 @@
 #define _NETDATA_EBPF_FD_H_ 1
 
 struct netdata_fd_stat_t {
-    __u64 pid_tgid;                     //Unique identifier
-    __u32 pid;                          //process id
-
     //Counter
     __u32 open_call;                    //open syscalls (open and openat)
     __u32 close_call;                   //Close syscall (close)

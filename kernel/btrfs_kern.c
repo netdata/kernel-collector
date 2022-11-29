@@ -81,13 +81,7 @@ struct bpf_map_def SEC("maps") tmp_btrfs = {
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,0,0))
-static int netdata_btrfs_entry()
-#elif (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
 static __always_inline int netdata_btrfs_entry()
-#else
-static inline int netdata_btrfs_entry()
-#endif
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
