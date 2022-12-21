@@ -23,6 +23,7 @@ LINUXINCLUDE += -include $(KERNELSOURCE)/include/linux/kconfig.h
 LINUXINCLUDE += -I../includes
 
 CLANG_VERSION := $(shell clang --version | grep -o -E 'clang version [0-9]+\.[0-9]+\.[0-9]' | cut -f 3 -d ' ')
+CLANG_MAJOR_VERSION := $(shell echo $(CLANG_VERSION) | cut -d. -f1 )
 LLVM_INCLUDES = $(shell [ -d /usr/lib/clang ] && echo "-I/usr/lib/clang/$(CLANG_VERSION)/include" || echo "-I/usr/lib64/clang/$(CLANG_VERSION)/include")
 LLVM_INCLUDES += -I/opt/rh/llvm-toolset-7.0/root/usr/lib64/clang/$(CLANG_VERSION)/include
 
@@ -86,13 +87,19 @@ else
 NETDATA_APPS= ${NETDATA_ALL_APPS}
 endif
 
+ifeq ($(shell test $(CLANG_MAJOR_VERSION) -ge 8 ; echo $$?),0)
+CC_LIBBPF = clang
+else
+CC_LIBBPF = gcc
+endif
+
 all: $(NETDATA_APPS)
 
 dev: ${NETDATA_ALL_APPS}
 
 libbpf:
 	# -fPIE added to be compatible with olders clang/gcc
-	cd $(LIBBPF)/src && /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR) && $(MAKE) CC=clang CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
+	cd $(LIBBPF)/src && /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR) && $(MAKE) CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
 %_kern.o: %_kern.c libbpf
 	if [ -w $(KERNELSOURCE)/include/generated/autoconf.h ]; then  if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' $(KERNELSOURCE)/include/generated/autoconf.h; fi ; fi
