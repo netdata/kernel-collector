@@ -40,7 +40,7 @@ static inline void libnetdata_update_global(void *tbl,__u32 key, __u64 value)
     if (res)
         libnetdata_update_u64(res, value) ;
     else
-        bpf_map_update_elem(tbl, &key, &value, BPF_NOEXIST);
+        bpf_map_update_elem(tbl, &key, &value, BPF_EXIST);
 }
 
 /**
