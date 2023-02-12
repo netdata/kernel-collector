@@ -15,7 +15,7 @@
 #include <sys/resource.h>
 
 // Libbpf
-#include "tester.h"
+#include "tester_user.h"
 
 static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_lookup_fast",
                                                    .function_to_attach = "lookup_fast",
