@@ -80,3 +80,29 @@ monitors not only the calls, but also returns from functions.
 There are other tracers like `uprobe` that we are not working right now, and `trampolines` that we have a specific 
 [repo](https://github.com/netdata/ebpf-co-re) for them.
 
+## Binaries
+
+Binaries are compiled according kernel version, the list of binaries are defned in our 
+[Makefile](https://github.com/netdata/kernel-collector/blob/84e70d0ae83cc91fee59053459eff84f9077d2c5/kernel/Makefile#L66-L88).
+
+When we are developing and we need to compile everything, we can run command:
+
+```sh
+make dev
+```
+
+## Tests
+
+The tester is not compiled by default. To compile it and run all common tests run:
+
+```sh
+make dev
+for j in `seq 0 2`; do for i in `ls *.o`; do ./kernel/legacy_test --content --pid $j --load-binary $i --log-path $i_pid$i.txt; 2>> err >> out; done; done
+```
+
+You can take a look in all options available for tests running:
+
+```sh
+./kernel/legacy_test --help
+```
+
