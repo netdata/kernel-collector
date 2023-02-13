@@ -145,13 +145,14 @@ SEC("kprobe/close_fd")
 # endif
 #else
 # if NETDATASEL < 2
-#  if defined(RHEL_MAJOR) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0))
+#  if defined(RHEL_MAJOR) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0)) && (LINUX_VERSION_CODE <= KERNEL_VERSION(4,19,0))
 SEC("kretprobe/close_fd")
 #  else
 SEC("kretprobe/__close_fd")
 #  endif
 # else
-#  if defined(RHEL_MAJOR) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0))
+#  if defined(RHEL_MAJOR) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0)) && (LINUX_VERSION_CODE <= KERNEL_VERSION(4,19,0))
+SEC("kprobe/close_fd")
 #  else
 SEC("kprobe/__close_fd")
 #  endif
