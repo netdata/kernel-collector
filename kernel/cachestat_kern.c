@@ -157,7 +157,11 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
     return 0;
 }
 #else
+#if defined(RHEL_MAJOR) && (LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0))
+SEC("kprobe/__folio_mark_dirty")
+#else
 SEC("kprobe/account_page_dirtied")
+#endif
 int netdata_account_page_dirtied(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
