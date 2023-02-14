@@ -14,7 +14,9 @@ helpful if there is no related issue.
 
 ##### Test Plan
 1. Get binaries according your LIBC from [this](ADD ACTIONS LINK HERE) link and extract them inside a `directory`.
+
 2. Extract them running:
+
 ```sh
 for i in `ls *.zip`; do unzip $i; rm .gitkeep ; rm $i; done
 for i in `ls *.xz`; do tar -xf $i; rm $i* ; done
