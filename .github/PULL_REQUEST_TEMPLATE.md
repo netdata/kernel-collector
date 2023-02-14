@@ -13,6 +13,27 @@ helpful if there is no related issue.
 ##### Summary
 
 ##### Test Plan
+1. Get binaries according your LIBC from [this](ADD ACTIONS LINK HERE) link and extract them inside a `directory`.
+
+2. Extract them running:
+    ```sh
+    $ for i in `ls *.zip`; do unzip $i; rm .gitkeep ; rm $i; done
+    $ for i in `ls *.xz`; do tar -xf $i; rm $i* ; done
+    ```
+
+3. Compile branch an run the following tests:
+
+    ```sh
+    # make; make tester
+    # for i in `seq 0 2`; do ./kernel/legacy_test --netdata-path ../directory --content --iteration --pid $i --log-path file_pid$i.txt; done
+    ```
+
+4. Every test should finally with `Success`, unless you do not have a specific target (function) available.
 
 ##### Additional information
 
+This PR was tested on:
+
+| Linux Distribution | kernel version | real parent | parent |  all |
+|--------------------|----------------|-------------|--------|------|
+| LINUX DISTRIBUION  | uname -r       |             |        |      |
