@@ -1,9 +1,9 @@
 # Developers
 
-This MD file was added to help develpoers starting with eBPF codes.
+This MD file was added to help developers starting with eBPF development.
 
-We are using in this repo the same [pattern](https://elixir.bootlin.com/linux/v4.20.17/source/samples/bpf) used before
-[BTF](https://docs.kernel.org/bpf/btf.html) to be released. All source files ending with `_kern.c` are eBPF codes
+In this repo we are using the same [pattern](https://elixir.bootlin.com/linux/v4.20.17/source/samples/bpf) that was used before
+[BTF](https://docs.kernel.org/bpf/btf.html) was released. All source files ending with `_kern.c` are eBPF codes
 loaded inside `kernel ring`. We do no have a `_user.c` for each one of `_kern.c` files, because we have a common loader for
 all (`tester_user.c`).
 
@@ -15,7 +15,7 @@ time using a [script](https://github.com/netdata/kernel-collector/blob/master/.d
 
 ## Internal Code division
 
-All eBPF codes are split in three sections:
+All eBPF sources are split in three sections:
 
 -  Headers
 -  Tables
@@ -82,10 +82,10 @@ There are other tracers like `uprobe` that we are not working right now, and `tr
 
 ## Binaries
 
-Binaries are compiled according kernel version, the list of binaries are defned in our 
+Binaries are compiled in accordance to kernel version, the list of binaries are defined in our 
 [Makefile](https://github.com/netdata/kernel-collector/blob/84e70d0ae83cc91fee59053459eff84f9077d2c5/kernel/Makefile#L66-L88).
 
-When we are developing and we need to compile everything, we can run command:
+When needed to compile everything during development, we can run the command:
 
 ```sh
 make dev
