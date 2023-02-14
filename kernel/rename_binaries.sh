@@ -51,7 +51,7 @@ select_kernel_version() {
     fi
 
     if [ -f /etc/redhat-release ]; then
-        ISRH=".rhf."
+        ISRH=".rhf"
     fi
 
     echo "${KSELECTED}${ISRH}"
