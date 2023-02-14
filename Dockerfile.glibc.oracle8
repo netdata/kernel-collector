@@ -27,10 +27,12 @@ RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
     rpm -i https://oss.oracle.com/ol8/SRPMS-updates/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
 
+# hadolint ignore=DL3003
 RUN cd ~/rpmbuild/SOURCES && \
     tar -xf linux-${KERNEL_VERSION}.tar.xz && \
     mkdir -p /usr/src/kernels
 
+# hadolint ignore=DL3003
 RUN cd /usr/src && \
     ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
 
