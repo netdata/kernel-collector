@@ -333,16 +333,18 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
  *  @param kver      the kernel version
  *  @param name      the eBPF program name.
  *  @param is_return is return or entry ?
+ *  @param is_rhf    am I running on RH family?
  */
-static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, int is_return)
+static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, int is_return, int is_rhf)
 {
     char *version = ebpf_select_kernel_name(kver);
     char *path = (!netdata_path) ? getcwd(NULL, 0) : realpath(netdata_path, NULL);
-    snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s.o", 
+    snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s%s.o", 
             path,
             (is_return) ? 'r' : 'p',
             name,
-            version);
+            version,
+            (is_rhf != -1) ? ".rhf" : "");
     free(path);
 }
 
@@ -872,7 +874,7 @@ static void ebpf_run_netdata_tests(int is_rhf, uint32_t kver, int is_return, uin
     while (ebpf_modules[i].name) {
         if (flags & ebpf_modules[i].flags) {
             uint32_t idx = ebpf_select_index(ebpf_modules[i].kernels, is_rhf, kver);
-            ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return);
+            ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, is_rhf);
 
             ebpf_start_netdata_json(load, is_return);
             char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT, 
