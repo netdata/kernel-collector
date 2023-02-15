@@ -29,12 +29,16 @@ RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
 
 # hadolint ignore=DL3003
 RUN cd ~/rpmbuild/SOURCES && \
-    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
+    tar -xf linux-${KERNEL_VERSION}.tar.bz2 && \
     mkdir -p /usr/src/kernels
 
 # hadolint ignore=DL3003
 RUN cd /usr/src && \
     ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+
+COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
+COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
+RUN /patch_kernel.sh
 
 WORKDIR /kernel-collector
 
