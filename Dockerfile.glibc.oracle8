@@ -3,7 +3,7 @@ FROM almalinux:8 AS build
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=uek-5.4.17-2136.316.7.el8uek
+ENV KERNEL_VERSION=5.4.17
 
 ENV _LIBC=glibc
 
@@ -25,7 +25,7 @@ RUN dnf update -y && \
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i https://oss.oracle.com/ol8/SRPMS-updates/kernel-${KERNEL_VERSION}.src.rpm 2>&1 
+    rpm -i https://oss.oracle.com/ol8/SRPMS-updates/kernel-uek-${KERNEL_VERSION}-2136.316.7.el8uek.src.rpm 2>&1 
 
 # hadolint ignore=DL3003
 RUN cd ~/rpmbuild/SOURCES && \
@@ -35,10 +35,6 @@ RUN cd ~/rpmbuild/SOURCES && \
 # hadolint ignore=DL3003
 RUN cd /usr/src && \
     ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
-
-COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
-COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
-RUN /patch_kernel.sh
 
 WORKDIR /kernel-collector
 
