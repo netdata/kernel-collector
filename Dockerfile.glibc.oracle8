@@ -37,10 +37,6 @@ RUN cd ~/rpmbuild/SOURCES && \
 RUN cd /usr/src && \
     ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
 
-COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
-COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
-RUN /patch_kernel.sh
-
 WORKDIR /kernel-collector
 
 COPY .dockerfiles/build.sh /build.sh
