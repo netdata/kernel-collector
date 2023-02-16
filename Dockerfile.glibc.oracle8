@@ -24,7 +24,7 @@ RUN dnf update -y && \
                    rpm-build sh-utils tar xmlto xz zlib-devel clang llvm rsync
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
-    echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
+    echo "%_topdir %(echo $HOME)/rpmbuild" > ~/.rpmmacros && \
     rpm -i https://oss.oracle.com/ol8/SRPMS-updates/kernel-uek-${KERNEL_VERSION}-2136.316.7.el8uek.src.rpm 2>&1 
 
 # hadolint ignore=DL3003
