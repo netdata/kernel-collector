@@ -230,6 +230,8 @@ static int ebpf_select_max_index(int rhf_version, uint32_t kver)
     if (rhf_version > 0) { // Red Hat family
         if (kver >= NETDATA_EBPF_KERNEL_5_14)
             return 7;
+        else if (kver >= NETDATA_EBPF_KERNEL_5_4) 
+            return 4;
         else if (kver >= NETDATA_EBPF_KERNEL_4_11)
             return 3;
     } else { // Kernels from kernel.org
