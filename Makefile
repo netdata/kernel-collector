@@ -5,7 +5,7 @@ KERNEL_PROGRAM = $(KERNEL_DIR)process_kern.o
 
 KERNEL_VERSION="$(shell if [ -f /usr/src/linux/include/config/kernel.release ]; then cat /usr/src/linux/include/config/kernel.release; else cat /proc/sys/kernel/osrelease; fi)"
 FIRST_KERNEL_VERSION=$(shell tools/complement.sh "$(KERNEL_VERSION)")
-RHF="$(shell if [ -f /etc/redhat-release ]; then printf ".rhf" else printf "" fi)"
+RHF=$(shell if [ -f /etc/redhat-release ]; then printf ".rhf"; else printf ''; fi)
 
 NETDATA_KERNEL_VERSION=$(shell echo $(KERNEL_VERSION) | tr -s "." "_")
 
