@@ -156,7 +156,6 @@ SEC("kprobe/close_fd")
 #  else /* RHEL_MAJOR */
 SEC("kprobe/__close_fd")
 #  endif /* RHEL_MAJOR */
-SEC("kprobe/close_fd")
 # endif/* NETDATASEL < 2 */
 #endif /* KERNEL > 5.11 */
 int netdata_close(struct pt_regs* ctx)
