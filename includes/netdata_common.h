@@ -13,15 +13,7 @@ struct netdata_error_report_t {
     int err;
 };
 
-// Use __always_inline instead inline to keep compatiblity with old kernels
-// https://docs.cilium.io/en/v1.8/bpf/
-// The condition to test kernel was added, because __always_inline broke the epbf.plugin
-// on CentOS 7 and Ubuntu 18.04 (kernel 4.18)
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
 static __always_inline void libnetdata_update_u64(__u64 *res, __u64 value)
-#else
-static inline void libnetdata_update_u64(__u64 *res, __u64 value)
-#endif
 {
     __sync_fetch_and_add(res, value);
     if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
@@ -29,29 +21,21 @@ static inline void libnetdata_update_u64(__u64 *res, __u64 value)
     }
 }
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)) 
 static __always_inline void libnetdata_update_global(void *tbl,__u32 key, __u64 value)
-#else
-static inline void libnetdata_update_global(void *tbl,__u32 key, __u64 value)
-#endif
 {
     __u64 *res;
     res = bpf_map_lookup_elem(tbl, &key);
     if (res)
         libnetdata_update_u64(res, value) ;
     else
-        bpf_map_update_elem(tbl, &key, &value, BPF_NOEXIST);
+        bpf_map_update_elem(tbl, &key, &value, BPF_EXIST);
 }
 
 /**
  * The motive we are using log2 to plot instead the raw value is well explained
  * inside this paper https://www.fsl.cs.stonybrook.edu/docs/osprof-osdi2006/osprof.pdf
  */
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline unsigned int libnetdata_log2(unsigned int v)
-#else
-static inline unsigned int libnetdata_log2(unsigned int v)
-#endif
 {
     unsigned int r;
     unsigned int shift;
@@ -65,11 +49,7 @@ static inline unsigned int libnetdata_log2(unsigned int v)
     return r;
 }
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline unsigned int libnetdata_log2l(__u64 v)
-#else
-static inline unsigned int libnetdata_log2l(__u64 v)
-#endif
 {
     unsigned int hi = v >> 32;
     if (hi)
@@ -78,11 +58,7 @@ static inline unsigned int libnetdata_log2l(__u64 v)
         return libnetdata_log2(v);
 }
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline void libnetdata_update_u32(u32 *res, u32 value) 
-#else
-static inline void libnetdata_update_u32(u32 *res, u32 value) 
-#endif
 {
     if (!value)
         return;
@@ -93,11 +69,7 @@ static inline void libnetdata_update_u32(u32 *res, u32 value)
     }
 }
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0))
 static __always_inline __u32 libnetdata_select_idx(__u64 val, __u32 end)
-#else
-static inline __u32 libnetdata_select_idx(__u64 val, __u32 end)
-#endif
 {
     __u32 rlog;
 
@@ -154,7 +126,7 @@ Netdata's Agent team for inclusion in Netdata.
 } while (0)
 
 // Get real parent PID
-static inline __u32 netdata_get_real_parent_pid()
+static __always_inline __u32 netdata_get_real_parent_pid()
 {
     __u32 ppid;
     struct task_struct *task, *real_parent;
@@ -166,7 +138,7 @@ static inline __u32 netdata_get_real_parent_pid()
     return ppid;
 }
 
-static inline __u32 netdata_get_parent_pid()
+static __always_inline __u32 netdata_get_parent_pid()
 {
     __u32 ppid;
     struct task_struct *task, *parent;
@@ -178,7 +150,7 @@ static inline __u32 netdata_get_parent_pid()
     return ppid;
 }
 
-static inline __u32 netdata_get_current_pid()
+static __always_inline __u32 netdata_get_current_pid()
 {
     __u32 pid;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
@@ -187,7 +159,7 @@ static inline __u32 netdata_get_current_pid()
     return pid;
 }
 
-static inline void *netdata_get_pid_structure(__u32 *store_pid, void *ctrl_tbl, void *pid_tbl)
+static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *ctrl_tbl, void *pid_tbl)
 {
     __u32 pid, key = NETDATA_CONTROLLER_APPS_LEVEL;
 
