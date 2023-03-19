@@ -41,7 +41,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u32);
-    __type(value, __u32);
+    __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } fd_ctrl SEC(".maps");
 
@@ -64,7 +64,7 @@ struct bpf_map_def SEC("maps") tbl_fd_global = {
 struct bpf_map_def SEC("maps") fd_ctrl = {
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
     .max_entries = NETDATA_CONTROLLER_END
 };
 
@@ -96,7 +96,6 @@ int netdata_sys_open(struct pt_regs* ctx)
 #endif
     struct netdata_fd_stat_t *fill;
     struct netdata_fd_stat_t data = { };
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_fd_global, NETDATA_KEY_CALLS_DO_SYS_OPEN, 1);
 #if NETDATASEL < 2
@@ -105,10 +104,9 @@ int netdata_sys_open(struct pt_regs* ctx)
     } 
 #endif
 
-    __u32 *apps = bpf_map_lookup_elem(&fd_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&fd_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &fd_ctrl, &tbl_fd_pid);
     if (fill) {
@@ -132,6 +130,8 @@ int netdata_sys_open(struct pt_regs* ctx)
         data.open_call = 1;
 
         bpf_map_update_elem(&tbl_fd_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&fd_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -156,14 +156,13 @@ SEC("kprobe/close_fd")
 #  else /* RHEL_MAJOR */
 SEC("kprobe/__close_fd")
 #  endif /* RHEL_MAJOR */
-# endif/* NETDATASEL < 2 */
+# endif /* NETDATASEL < 2 */
 #endif /* KERNEL > 5.11 */
 int netdata_close(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
 #endif
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     struct netdata_fd_stat_t data = { };
     struct netdata_fd_stat_t *fill;
 
@@ -174,10 +173,9 @@ int netdata_close(struct pt_regs* ctx)
     } 
 #endif
 
-    __u32 *apps = bpf_map_lookup_elem(&fd_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&fd_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &fd_ctrl, &tbl_fd_pid);
     if (fill) {
@@ -197,6 +195,8 @@ int netdata_close(struct pt_regs* ctx)
 #endif
 
         bpf_map_update_elem(&tbl_fd_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&fd_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -215,17 +215,15 @@ SEC("kprobe/release_task")
 int netdata_release_task_fd(struct pt_regs* ctx)
 {
     struct netdata_fd_stat_t *removeme;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&fd_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return 0;
-    } else
+    __u32 key = 0;
+    if (!monitor_apps(&fd_ctrl))
         return 0;
 
     removeme = netdata_get_pid_structure(&key, &fd_ctrl, &tbl_fd_pid);
     if (removeme) {
         bpf_map_delete_elem(&tbl_fd_pid, &key);
+
+        libnetdata_update_global(&fd_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;
