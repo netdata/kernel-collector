@@ -51,6 +51,12 @@ struct {
     __uint(max_entries,  4192);
 } tmp_btrfs SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_CONTROLLER_END);
+} btrfs_ctrl SEC(".maps");
 #else
 
 struct bpf_map_def SEC("maps") tbl_btrfs = {
@@ -73,6 +79,13 @@ struct bpf_map_def SEC("maps") tmp_btrfs = {
     .value_size = sizeof(__u64),
     .max_entries = 4192
 };
+
+struct bpf_map_def SEC("maps") btrfs_ctrl = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .max_entries = NETDATA_CONTROLLER_END
+};
 #endif
 
 /************************************************************************************
@@ -88,6 +101,8 @@ static __always_inline int netdata_btrfs_entry()
     __u64 ts = bpf_ktime_get_ns();
 
     bpf_map_update_elem(&tmp_btrfs, &pid, &ts, BPF_ANY);
+
+    libnetdata_update_global(&btrfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
 
     return 0;
 }
@@ -182,6 +197,8 @@ int netdata_ret_generic_file_read_iter(struct pt_regs *ctx)
     data = bpf_ktime_get_ns() - *fill;
     bpf_map_delete_elem(&tmp_btrfs, &pid);
 
+    libnetdata_update_global(&btrfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_DEL, 1);
+
     // Skip entries with backward time
     if ( (s64)data < 0)
         return 0;
@@ -207,6 +224,8 @@ int netdata_ret_btrfs_file_write_iter(struct pt_regs *ctx)
 
     data = bpf_ktime_get_ns() - *fill;
     bpf_map_delete_elem(&tmp_btrfs, &pid);
+
+    libnetdata_update_global(&btrfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_DEL, 1);
 
     // Skip entries with backward time
     if ( (s64)data < 0)
@@ -234,6 +253,8 @@ int netdata_ret_btrfs_file_open(struct pt_regs *ctx)
     data = bpf_ktime_get_ns() - *fill;
     bpf_map_delete_elem(&tmp_btrfs, &pid);
 
+    libnetdata_update_global(&btrfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_DEL, 1);
+
     // Skip entries with backward time
     if ( (s64)data < 0)
         return 0;
@@ -259,6 +280,8 @@ int netdata_ret_btrfs_sync_file(struct pt_regs *ctx)
 
     data = bpf_ktime_get_ns() - *fill;
     bpf_map_delete_elem(&tmp_btrfs, &pid);
+
+    libnetdata_update_global(&btrfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_DEL, 1);
 
     // Skip entries with backward time
     if ( (s64)data < 0)
