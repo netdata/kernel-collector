@@ -33,7 +33,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u32);
-    __type(value, __u32);
+    __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } shm_ctrl SEC(".maps");
 #else
@@ -54,7 +54,7 @@ struct bpf_map_def SEC("maps") tbl_pid_shm = {
 struct bpf_map_def SEC("maps") shm_ctrl = {
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
     .max_entries = NETDATA_CONTROLLER_END
 };
 #endif
@@ -71,13 +71,9 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
     libnetdata_update_global(&tbl_shm, NETDATA_KEY_SHMGET_CALL, 1);
 
     // check if apps is enabled; if not, don't record apps data.
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&shm_ctrl, &key);
-    if (apps) {
-        if (*apps == 0) {
-            return 0;
-        }
-    }
+    __u32 key = 0;
+    if (!monitor_apps(&shm_ctrl))
+        return 0;
 
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
@@ -85,6 +81,8 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
     } else {
         data.get = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&shm_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -102,13 +100,9 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
     libnetdata_update_global(&tbl_shm, NETDATA_KEY_SHMAT_CALL, 1);
 
     // check if apps is enabled; if not, don't record apps data.
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&shm_ctrl, &key);
-    if (apps) {
-        if (*apps == 0) {
-            return 0;
-        }
-    }
+    __u32 key = 0;
+    if (!monitor_apps(&shm_ctrl))
+        return 0;
 
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
@@ -116,6 +110,8 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
     } else {
         data.at = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&shm_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -133,13 +129,9 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
     libnetdata_update_global(&tbl_shm, NETDATA_KEY_SHMDT_CALL, 1);
 
     // check if apps is enabled; if not, don't record apps data.
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&shm_ctrl, &key);
-    if (apps) {
-        if (*apps == 0) {
-            return 0;
-        }
-    }
+    __u32 key = 0;
+    if (!monitor_apps(&shm_ctrl))
+        return 0;
 
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
@@ -147,6 +139,8 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
     } else {
         data.dt = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&shm_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -164,13 +158,9 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
     libnetdata_update_global(&tbl_shm, NETDATA_KEY_SHMCTL_CALL, 1);
 
     // check if apps is enabled; if not, don't record apps data.
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&shm_ctrl, &key);
-    if (apps) {
-        if (*apps == 0) {
-            return 0;
-        }
-    }
+    __u32 key = 0;
+    if (!monitor_apps(&shm_ctrl))
+        return 0;
 
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
@@ -178,6 +168,8 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
     } else {
         data.ctl = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&shm_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -196,17 +188,15 @@ SEC("kprobe/release_task")
 int netdata_release_task_shm(struct pt_regs* ctx)
 {
     netdata_shm_t *removeme;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&shm_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return 0;
-    } else
+    __u32 key = 0;
+    if (!monitor_apps(&shm_ctrl))
         return 0;
 
     removeme = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (removeme) {
         bpf_map_delete_elem(&tbl_pid_shm, &key);
+
+        libnetdata_update_global(&shm_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;
