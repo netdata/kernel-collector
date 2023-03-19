@@ -40,7 +40,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u32);
-    __type(value, __u32);
+    __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } process_ctrl SEC(".maps");
 
@@ -63,7 +63,7 @@ struct bpf_map_def SEC("maps") tbl_total_stats = {
 struct bpf_map_def SEC("maps") process_ctrl = {
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
     .max_entries = NETDATA_CONTROLLER_END
 };
 
@@ -94,13 +94,11 @@ SEC("tracepoint/sched/sched_process_exit")
 int netdata_tracepoint_sched_process_exit(struct netdata_sched_process_exit *ptr)
 {
     struct netdata_pid_stat_t *fill;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_EXIT, 1);
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&process_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
@@ -114,17 +112,17 @@ SEC("kprobe/release_task")
 int netdata_release_task(struct pt_regs* ctx)
 {
     struct netdata_pid_stat_t *fill;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_RELEASE_TASK, 1);
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&process_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         libnetdata_update_u32(&fill->release_call, 1) ;
+
+        libnetdata_update_global(&process_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;
@@ -135,14 +133,12 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
 {
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     // This is necessary, because it represents the main function to start a thread
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_PROCESS, 1);
 
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl, &key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&process_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
@@ -153,6 +149,8 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
         data.create_process = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&process_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -163,7 +161,6 @@ int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr
 {
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_PROCESS, 1);
 
@@ -174,10 +171,9 @@ int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr
         libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_THREAD, 1);
     }
 
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&process_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
@@ -192,6 +188,8 @@ int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr
             data.create_thread = 1;
 
         bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&process_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
 
@@ -218,7 +216,6 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL < 2
     int ret = (int)PT_REGS_RC(ctx);
 #endif
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
 
@@ -228,10 +225,9 @@ int netdata_fork(struct pt_regs* ctx)
     } 
 #endif
 
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&process_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
@@ -250,6 +246,8 @@ int netdata_fork(struct pt_regs* ctx)
         } 
 #endif
         bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&process_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -270,7 +268,6 @@ int netdata_sys_clone(struct pt_regs *ctx)
 #endif
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
 #if NETDATASEL < 2
     if (ret < 0) {
@@ -278,10 +275,9 @@ int netdata_sys_clone(struct pt_regs *ctx)
     } 
 #endif
 
-    __u32 *apps = bpf_map_lookup_elem(&process_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&process_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
     if (fill) {
@@ -302,6 +298,8 @@ int netdata_sys_clone(struct pt_regs *ctx)
 #endif
 
         bpf_map_update_elem(&tbl_pid_stats, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&process_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
     return 0;
 }
