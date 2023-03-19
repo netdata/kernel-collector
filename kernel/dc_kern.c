@@ -37,7 +37,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
-    __type(value, __u32);
+    __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } dcstat_ctrl SEC(".maps");
 
@@ -60,7 +60,7 @@ struct bpf_map_def SEC("maps") dcstat_pid = {
 struct bpf_map_def SEC("maps") dcstat_ctrl = {
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
     .max_entries = NETDATA_CONTROLLER_END
 };
 
@@ -78,11 +78,9 @@ int netdata_lookup_fast(struct pt_regs* ctx)
     netdata_dc_stat_t *fill, data = {};
     libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_REFERENCE, 1);
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&dcstat_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&dcstat_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
     if (fill) {
@@ -90,6 +88,8 @@ int netdata_lookup_fast(struct pt_regs* ctx)
     } else {
         data.references = 1;
         bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&dcstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -103,32 +103,31 @@ int netdata_d_lookup(struct pt_regs* ctx)
 
     int ret = PT_REGS_RC(ctx);
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&dcstat_ctrl ,&key);
-    if (!apps)
+    __u32 key = 0;
+    if (!monitor_apps(&dcstat_ctrl))
         return 0;
 
-    if (*apps == 1) {
-        fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
-        if (fill) {
-            libnetdata_update_u64(&fill->slow, 1);
-        } else {
-            data.slow = 1;
-            bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
-        }
+    fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+    if (fill) {
+        libnetdata_update_u64(&fill->slow, 1);
+    } else {
+        data.slow = 1;
+        bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&dcstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     // file not found
     if (ret == 0) {
         libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_MISS, 1);
-        if (*apps == 1) {
-            fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
-            if (fill) {
-                libnetdata_update_u64(&fill->missed, 1);
-            } else {
-                data.missed = 1;
-                bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
-            }
+        fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+        if (fill) {
+            libnetdata_update_u64(&fill->missed, 1);
+        } else {
+            data.missed = 1;
+            bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
+
+            libnetdata_update_global(&dcstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
         }
     }
 
@@ -148,17 +147,15 @@ SEC("kprobe/release_task")
 int netdata_release_task_dc(struct pt_regs* ctx)
 {
     netdata_dc_stat_t *removeme;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&dcstat_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return 0;
-    } else
+    __u32 key = 0;
+    if (!monitor_apps(&dcstat_ctrl))
         return 0;
 
     removeme = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
     if (removeme) {
         bpf_map_delete_elem(&dcstat_pid, &key);
+
+        libnetdata_update_global(&dcstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;
