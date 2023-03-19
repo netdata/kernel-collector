@@ -28,13 +28,13 @@ static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_look
 // Version 5_4 must be present for kernels newer than 4.17.0
 ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_10 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_BTRFS, .name = "btrfs", .update_names = NULL, .ctrl_table = NULL },
+      .flags = NETDATA_FLAG_BTRFS, .name = "btrfs", .update_names = NULL, .ctrl_table = "btrfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_15 | NETDATA_V5_14 | NETDATA_V5_16,
       .flags = NETDATA_FLAG_CACHESTAT, .name = "cachestat", .update_names = NULL, .ctrl_table = "cstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_DC, .name = "dc", .update_names = dc_optional_name, .ctrl_table = "dcstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_DISK, .name = "disk", .update_names = NULL, .ctrl_table = NULL },
+      .flags = NETDATA_FLAG_DISK, .name = "disk", .update_names = NULL, .ctrl_table = "disk_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_EXT4, .name = "ext4", .update_names = NULL, .ctrl_table = "ext4_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14,
@@ -52,7 +52,7 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "msync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = NULL },
+      .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
@@ -74,9 +74,9 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_XFS, .name = "xfs", .update_names = NULL, .ctrl_table = NULL },
+      .flags = NETDATA_FLAG_XFS, .name = "xfs", .update_names = NULL, .ctrl_table = "xfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_ZFS, .name = "zfs", .update_names = NULL, .ctrl_table = NULL },
+      .flags = NETDATA_FLAG_ZFS, .name = "zfs", .update_names = NULL, .ctrl_table = "zfs_ctrl" },
 
     { .kernels = 0, .name = NULL, .update_names = NULL }
 };
