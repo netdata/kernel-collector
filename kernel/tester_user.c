@@ -220,7 +220,7 @@ static char *ebpf_select_kernel_name(uint32_t selector)
  *
  * Select last index that will be tested on host.
  *
- * @param rhf_version is Red Hat fammily?
+ * @param rhf_version is Red Hat family?
  * @param kver        the kernel version
  *
  * @return it returns the index to access kernel string.
@@ -260,7 +260,7 @@ static int ebpf_select_max_index(int rhf_version, uint32_t kver)
  * Select index to load data.
  *
  * @param kernels      is the variable with kernel versions.
- * @param rhf_version  is Red Hat fammily?
+ * @param rhf_version  is Red Hat family?
  * param  kver         the kernel version
  */
 static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kver)
