@@ -26,6 +26,7 @@ select_kernel_version() {
     VER4_15_0="004015"
     VER4_11_0="004011"
     VER3_10_0="003010"
+    ISRH=""
 
     if [ "${KVER}" -eq "${VER3_10_0}" ]; then
         KSELECTED="3.10";
@@ -49,7 +50,11 @@ select_kernel_version() {
         KSELECTED="4.14";
     fi
 
-    echo "${KSELECTED}"
+    if [ -f /etc/redhat-release ]; then
+        ISRH=".rhf"
+    fi
+
+    echo "${KSELECTED}${ISRH}"
 }
 
 OBJECTNAME="$3"

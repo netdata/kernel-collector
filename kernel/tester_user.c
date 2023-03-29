@@ -220,16 +220,18 @@ static char *ebpf_select_kernel_name(uint32_t selector)
  *
  * Select last index that will be tested on host.
  *
- * @param is_rhf is Red Hat fammily?
- * @param kver   the kernel version
+ * @param rhf_version is Red Hat family?
+ * @param kver        the kernel version
  *
  * @return it returns the index to access kernel string.
  */
-static int ebpf_select_max_index(int is_rhf, uint32_t kver)
+static int ebpf_select_max_index(int rhf_version, uint32_t kver)
 {
-    if (is_rhf > 0) { // Is Red Hat family
+    if (rhf_version > 0) { // Red Hat family
         if (kver >= NETDATA_EBPF_KERNEL_5_14)
             return 7;
+        else if (kver >= NETDATA_EBPF_KERNEL_5_4) 
+            return 4;
         else if (kver >= NETDATA_EBPF_KERNEL_4_11)
             return 3;
     } else { // Kernels from kernel.org
@@ -257,16 +259,16 @@ static int ebpf_select_max_index(int is_rhf, uint32_t kver)
  *
  * Select index to load data.
  *
- * @param kernels is the variable with kernel versions.
- * @param is_rhf  is Red Hat fammily?
- * param  kver    the kernel version
+ * @param kernels      is the variable with kernel versions.
+ * @param rhf_version  is Red Hat family?
+ * param  kver         the kernel version
  */
-static uint32_t ebpf_select_index(uint32_t kernels, int is_rhf, uint32_t kver)
+static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kver)
 {
-    uint32_t start = ebpf_select_max_index(is_rhf, kver);
+    uint32_t start = ebpf_select_max_index(rhf_version, kver);
     uint32_t idx;
 
-    if (is_rhf == -1)
+    if (rhf_version == -1)
         kernels &= ~NETDATA_V5_14;
 
     for (idx = start; idx; idx--) {
@@ -328,21 +330,23 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
  *     N - The eBPF program name.
  *     V - The kernel version in string format.    
  *
- *  @param out       the vector where the name will be stored
- *  @param len       the size of the out vector.
- *  @param kver      the kernel version
- *  @param name      the eBPF program name.
- *  @param is_return is return or entry ?
+ *  @param out            the vector where the name will be stored
+ *  @param len            the size of the out vector.
+ *  @param kver           the kernel version
+ *  @param name           the eBPF program name.
+ *  @param is_return      is return or entry ?
+ *  @param rhf_version    Red Hat version.
  */
-static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, int is_return)
+static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, int is_return, int rhf_version)
 {
     char *version = ebpf_select_kernel_name(kver);
     char *path = (!netdata_path) ? getcwd(NULL, 0) : realpath(netdata_path, NULL);
-    snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s.o", 
+    snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s%s.o", 
             path,
             (is_return) ? 'r' : 'p',
             name,
-            version);
+            version,
+            (rhf_version != -1) ? ".rhf" : "");
     free(path);
 }
 
@@ -860,19 +864,19 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, int maps, c
  *
  *  Run tests for each eBPF program delivered by Netdata.
  *
- *  @param is_rhf        Is this a Red Hat family
+ *  @param rhf_version   Is this a Red Hat family
  *  @param kver          The kernel version
  *  @param is_return     Load return or entry eBPF program
  *  @param flags         tests that software will run
  */
-static void ebpf_run_netdata_tests(int is_rhf, uint32_t kver, int is_return, uint64_t flags)
+static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return, uint64_t flags)
 {
     char load[FILENAME_MAX];
     int i = 0;
     while (ebpf_modules[i].name) {
         if (flags & ebpf_modules[i].flags) {
-            uint32_t idx = ebpf_select_index(ebpf_modules[i].kernels, is_rhf, kver);
-            ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return);
+            uint32_t idx = ebpf_select_index(ebpf_modules[i].kernels, rhf_version, kver);
+            ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, rhf_version);
 
             ebpf_start_netdata_json(load, is_return);
             char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT, 
@@ -1256,7 +1260,7 @@ static int ebpf_write_error_exit(char *msg, int ret)
 int main(int argc, char **argv)
 {
     int my_kernel = ebpf_get_kernel_version();
-    int is_rhf = ebpf_get_redhat_release();
+    int rhf_version = ebpf_get_redhat_release();
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
     if (nprocesses < 0) {
@@ -1276,8 +1280,8 @@ int main(int argc, char **argv)
     if (!(flags & NETDATA_FLAG_LOAD_BINARY)) {
         ebpf_fill_names();
 
-        ebpf_run_netdata_tests(is_rhf, my_kernel, 1, flags);
-        ebpf_run_netdata_tests(is_rhf, my_kernel, 0, flags);
+        ebpf_run_netdata_tests(rhf_version, my_kernel, 1, flags);
+        ebpf_run_netdata_tests(rhf_version, my_kernel, 0, flags);
 
         ebpf_clean_name_vectors();
     } else {

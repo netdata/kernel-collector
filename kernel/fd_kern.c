@@ -142,23 +142,22 @@ int netdata_sys_open(struct pt_regs* ctx)
 SEC("kretprobe/close_fd")
 # else
 SEC("kprobe/close_fd")
-# endif
-#else
+# endif /* NETDATASEL < 2 */
+#else /* KERNEL > 5.11 */
 # if NETDATASEL < 2
 #  if defined(RHEL_MAJOR) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0)) && (LINUX_VERSION_CODE <= KERNEL_VERSION(4,19,0))
 SEC("kretprobe/close_fd")
-#  else
+#  else /* RHEL_MAJOR */
 SEC("kretprobe/__close_fd")
-#  endif
-# else
+#  endif /* RHEL_MAJOR */
+# else /* NETDATASEL < 2 */
 #  if defined(RHEL_MAJOR) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0)) && (LINUX_VERSION_CODE <= KERNEL_VERSION(4,19,0))
 SEC("kprobe/close_fd")
-#  else
+#  else /* RHEL_MAJOR */
 SEC("kprobe/__close_fd")
-#  endif
-SEC("kprobe/close_fd")
-# endif
-#endif
+#  endif /* RHEL_MAJOR */
+# endif/* NETDATASEL < 2 */
+#endif /* KERNEL > 5.11 */
 int netdata_close(struct pt_regs* ctx)
 {
 #if NETDATASEL < 2
