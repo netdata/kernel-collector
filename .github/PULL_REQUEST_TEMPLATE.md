@@ -14,6 +14,7 @@ helpful if there is no related issue.
 
 ##### Test Plan
 1. Get binaries according your LIBC from [this](ADD ACTIONS LINK HERE) link and extract them inside a `directory`.
+You can also get everything for glibc [here](UPLOAD FILE WITH ALL BINARIES TO SIMPLIFY REVIEWERS).
 
 2. Extract them running:
     ```sh
@@ -24,11 +25,11 @@ helpful if there is no related issue.
 3. Compile branch an run the following tests:
 
     ```sh
-    # make; make tester
+    # make clean; make tester
     # for i in `seq 0 2`; do ./kernel/legacy_test --netdata-path ../directory --content --iteration --pid $i --log-path file_pid$i.txt; done
     ```
 
-4. Every test should finally with `Success`, unless you do not have a specific target (function) available.
+4. Every test should ends with `Success`, unless you do not have a specific target (function) available.
 
 ##### Additional information
 

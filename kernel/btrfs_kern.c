@@ -107,7 +107,7 @@ int netdata_generic_file_read_iter(struct pt_regs *ctx)
     struct kiocb *ptr = (struct kiocb *)PT_REGS_PARM1(ctx);
     struct file *kf = _(ptr->ki_filp);
     if (kf) {
-        struct file_operations *fo = _(kf->f_op);
+        const struct file_operations *fo = _(kf->f_op);
         if (fo) {
             __u64 *bfo = bpf_map_lookup_elem(&tbl_ext_addr, &key);
             if (bfo) {
