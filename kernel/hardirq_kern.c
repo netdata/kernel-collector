@@ -30,7 +30,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
-    __type(value, hardirq_static_val_t);
+    __type(value, hardirq_val_t);
     __uint(max_entries, NETDATA_HARDIRQ_STATIC_END);
 } tbl_hardirq_static SEC(".maps");
 
@@ -46,7 +46,7 @@ struct bpf_map_def SEC("maps") tbl_hardirq = {
 struct bpf_map_def SEC("maps") tbl_hardirq_static = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
-    .value_size = sizeof(hardirq_static_val_t),
+    .value_size = sizeof(hardirq_val_t),
     .max_entries = NETDATA_HARDIRQ_STATIC_END
 };
 #endif
