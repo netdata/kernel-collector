@@ -102,7 +102,7 @@ int netdata_irq_handler_exit(struct netdata_irq_handler_exit *ptr)
 int netdata_irq_ ##__type(struct netdata_irq_vectors_entry *ptr)              \
 {                                                                             \
     u32 idx;                                                                  \
-    hardirq_static_val_t *valp, val = {};                                     \
+    hardirq_val_t *valp, val = {};                                     \
                                                                               \
     idx = __enum_idx;                                                         \
     valp = bpf_map_lookup_elem(&tbl_hardirq_static, &idx);                    \
@@ -121,7 +121,7 @@ int netdata_irq_ ##__type(struct netdata_irq_vectors_entry *ptr)              \
 int netdata_irq_ ##__type(struct netdata_irq_vectors_exit *ptr)               \
 {                                                                             \
     u32 idx;                                                                  \
-    hardirq_static_val_t *valp;                                               \
+    hardirq_val_t *valp;                                               \
                                                                               \
     idx = __enum_idx;                                                         \
     valp = bpf_map_lookup_elem(&tbl_hardirq_static, &idx);                    \
