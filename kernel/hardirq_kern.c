@@ -68,7 +68,7 @@ int netdata_irq_handler_entry(struct netdata_irq_handler_entry *ptr)
     } else {
         val.latency = 0;
         val.ts = bpf_ktime_get_ns();
-        TP_DATA_LOC_READ_CONST(val.name, ptr, ptr->data_loc_name, NETDATA_HARDIRQ_NAME_LEN);
+        // TP_DATA_LOC_READ_CONST(val.name, ptr, ptr->data_loc_name, NETDATA_HARDIRQ_NAME_LEN);
         bpf_map_update_elem(&tbl_hardirq, &key, &val, BPF_ANY);
     }
 

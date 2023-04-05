@@ -35,7 +35,11 @@ typedef struct hardirq_val {
     u64 ts;
 
     // identifies the IRQ with a human-readable string.
-    char name[NETDATA_HARDIRQ_NAME_LEN];
+    // We are reading it direct from /proc avoiding in some kernels:
+    //  #0  0x000055f9729eb725 in libbpf_err_errno ()
+    // #1  0x000055f9729ec8a0 in bpf_map_lookup_elem ()
+    // #2  0x000055f97298be21 in hardirq_read_latency_map (mapfd=69) at collectors/ebpf.plugin/ebpf_hardirq.c:259
+ //   char name[NETDATA_HARDIRQ_NAME_LEN];
 } hardirq_val_t;
 
 /************************************************************************************
