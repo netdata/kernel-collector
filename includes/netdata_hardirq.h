@@ -25,6 +25,7 @@ typedef struct hardirq_key {
     int irq;
 } hardirq_key_t;
 
+/*
 typedef struct hardirq_val {
     // incremental counter storing the total latency so far.
     u64 latency;
@@ -35,8 +36,13 @@ typedef struct hardirq_val {
     u64 ts;
 
     // identifies the IRQ with a human-readable string.
-    char name[NETDATA_HARDIRQ_NAME_LEN];
+    // We are reading it direct from /proc avoiding in some kernels:
+    //  #0  0x000055f9729eb725 in libbpf_err_errno ()
+    // #1  0x000055f9729ec8a0 in bpf_map_lookup_elem ()
+    // #2  0x000055f97298be21 in hardirq_read_latency_map (mapfd=69) at collectors/ebpf.plugin/ebpf_hardirq.c:259
+ //   char name[NETDATA_HARDIRQ_NAME_LEN];
 } hardirq_val_t;
+*/
 
 /************************************************************************************
  *                                HARDIRQ STATIC
@@ -72,7 +78,7 @@ enum netdata_hardirq_static {
     NETDATA_HARDIRQ_STATIC_END
 };
 
-typedef struct hardirq_static_val {
+typedef struct hardirq_val {
     // incremental counter storing the total latency so far.
     u64 latency;
 
@@ -80,6 +86,6 @@ typedef struct hardirq_static_val {
     // timestamp at the IRQ exit handler, to get the latency to add to the
     // `latency` field.
     u64 ts;
-} hardirq_static_val_t;
+} hardirq_val_t;
 
 #endif /* _NETDATA_HARDIRQ_H_ */

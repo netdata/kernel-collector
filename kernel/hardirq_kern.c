@@ -30,7 +30,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
-    __type(value, hardirq_static_val_t);
+    __type(value, hardirq_val_t);
     __uint(max_entries, NETDATA_HARDIRQ_STATIC_END);
 } tbl_hardirq_static SEC(".maps");
 
@@ -46,7 +46,7 @@ struct bpf_map_def SEC("maps") tbl_hardirq = {
 struct bpf_map_def SEC("maps") tbl_hardirq_static = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
-    .value_size = sizeof(hardirq_static_val_t),
+    .value_size = sizeof(hardirq_val_t),
     .max_entries = NETDATA_HARDIRQ_STATIC_END
 };
 #endif
@@ -68,7 +68,7 @@ int netdata_irq_handler_entry(struct netdata_irq_handler_entry *ptr)
     } else {
         val.latency = 0;
         val.ts = bpf_ktime_get_ns();
-        TP_DATA_LOC_READ_CONST(val.name, ptr, ptr->data_loc_name, NETDATA_HARDIRQ_NAME_LEN);
+        // TP_DATA_LOC_READ_CONST(val.name, ptr, ptr->data_loc_name, NETDATA_HARDIRQ_NAME_LEN);
         bpf_map_update_elem(&tbl_hardirq, &key, &val, BPF_ANY);
     }
 
@@ -102,7 +102,7 @@ int netdata_irq_handler_exit(struct netdata_irq_handler_exit *ptr)
 int netdata_irq_ ##__type(struct netdata_irq_vectors_entry *ptr)              \
 {                                                                             \
     u32 idx;                                                                  \
-    hardirq_static_val_t *valp, val = {};                                     \
+    hardirq_val_t *valp, val = {};                                     \
                                                                               \
     idx = __enum_idx;                                                         \
     valp = bpf_map_lookup_elem(&tbl_hardirq_static, &idx);                    \
@@ -121,7 +121,7 @@ int netdata_irq_ ##__type(struct netdata_irq_vectors_entry *ptr)              \
 int netdata_irq_ ##__type(struct netdata_irq_vectors_exit *ptr)               \
 {                                                                             \
     u32 idx;                                                                  \
-    hardirq_static_val_t *valp;                                               \
+    hardirq_val_t *valp;                                               \
                                                                               \
     idx = __enum_idx;                                                         \
     valp = bpf_map_lookup_elem(&tbl_hardirq_static, &idx);                    \
