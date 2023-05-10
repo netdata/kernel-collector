@@ -93,7 +93,20 @@ jobs:
               mkdir -p "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"
               tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -xvf "${pkg}"
             done
+            # all
             tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
+            # Exclude RHF
+            tar --exclude=*rhf* -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.dists.tar.xz" ./
+            # All RHF files
+            tar --exclude=*.?.??.o --exclude=*5.4.o -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.rhf.tar.xz" ./
+            # CentOS 7.9
+            tar --exclude=*.?.??.o --exclude=*5.4.o --exclude=*5.*rhf* --exclude=*4.18* -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.rhf7.tar.xz" ./
+            # Alma 8
+            tar --exclude=*.?.??.o --exclude=*5.4.o --exclude=*5.*rhf* --exclude=*3.10* -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.rhf8.tar.xz" ./
+            # Ora 8
+            tar --exclude=*.?.??.o --exclude=*.?.??.o --exclude=*.?.?.o --exclude=*5.14.*o --exclude=*3* --exclude=*4.1*rhf* -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.ora8.tar.xz" ./
+            # Alma 9
+            tar --exclude=*.?.??.o --exclude=*.?.??.o --exclude=*5.4.*o  --exclude=*3* --exclude=*4.1*rhf* -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.rhf9.tar.xz" ./
           done
           cd final-artifacts && sha256sum ./*.tar.xz > sha256sums.txt
       - name: Create Release
