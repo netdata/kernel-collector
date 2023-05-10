@@ -1,6 +1,8 @@
 #define KBUILD_MODNAME "disk_netdata"
 #include <linux/version.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0))
 #include <linux/kdev_t.h>
+#endif
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
 #include <linux/genhd.h>
 #endif
