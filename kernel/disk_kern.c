@@ -40,6 +40,13 @@ struct {
     __uint(max_entries, 8192);
 } tmp_disk_tp_stat SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_CONTROLLER_END);
+} disk_ctrl SEC(".maps");
+
 #else
 
 //Hardware
@@ -60,6 +67,13 @@ struct bpf_map_def SEC("maps") tmp_disk_tp_stat = {
     .key_size = sizeof(netdata_disk_key_t),
     .value_size = sizeof(__u64),
     .max_entries = 8192
+};
+
+struct bpf_map_def SEC("maps") disk_ctrl = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .max_entries = NETDATA_CONTROLLER_END
 };
 
 #endif
@@ -89,6 +103,8 @@ int netdata_block_rq_issue(struct netdata_block_rq_issue *ptr)
     __u64 value = bpf_ktime_get_ns();
 
     bpf_map_update_elem(&tmp_disk_tp_stat, &key, &value, BPF_ANY);
+
+    libnetdata_update_global(&disk_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
     return 0;
 }
@@ -128,6 +144,8 @@ int netdata_block_rq_complete(struct netdata_block_rq_complete *ptr)
     }
 
     bpf_map_delete_elem(&tmp_disk_tp_stat, &key);
+
+    libnetdata_update_global(&disk_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
 
     return 0;
 }

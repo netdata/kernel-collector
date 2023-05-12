@@ -87,7 +87,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u32);
-    __type(value, __u32);
+    __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } socket_ctrl SEC(".maps");
 
@@ -138,7 +138,7 @@ struct bpf_map_def SEC("maps") tbl_lports = {
 struct bpf_map_def SEC("maps") socket_ctrl = {
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
     .max_entries = NETDATA_CONTROLLER_END
 };
 
@@ -258,13 +258,9 @@ static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
 
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return;
-    } else
+    __u32 key = 0;
+    if (!monitor_apps(&socket_ctrl))
         return;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
@@ -340,12 +336,8 @@ static __always_inline void update_pid_connection(__u8 version)
     netdata_bandwidth_t *stored;
     netdata_bandwidth_t data = { };
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return;
-    } else
+    __u32 key = 0;
+    if (!monitor_apps(&socket_ctrl))
         return;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
@@ -381,12 +373,8 @@ static __always_inline void update_pid_cleanup(__u64 drop, __u64 close)
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return;
-    } else
+    __u32 key = 0;
+    if (!monitor_apps(&socket_ctrl))
         return;
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
@@ -691,11 +679,9 @@ SEC("kprobe/release_task")
 int netdata_release_task_socket(struct pt_regs* ctx)
 {
     netdata_bandwidth_t *removeme;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&socket_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&socket_ctrl))
+        return 0;
 
     removeme = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
     if (removeme)

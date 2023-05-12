@@ -34,7 +34,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u32);
-    __type(value, __u32);
+    __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } cstat_ctrl SEC(".maps");
 
@@ -57,7 +57,7 @@ struct bpf_map_def SEC("maps") cstat_pid = {
 struct bpf_map_def SEC("maps") cstat_ctrl = {
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
     .max_entries = NETDATA_CONTROLLER_END
 };
 
@@ -75,11 +75,9 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
     netdata_cachestat_t *fill, data = {};
     libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, 1);
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&cstat_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&cstat_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
@@ -87,6 +85,8 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
     } else {
         data.add_to_page_cache_lru = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -98,11 +98,9 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
     netdata_cachestat_t *fill, data = {};
     libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, 1);
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&cstat_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&cstat_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
@@ -110,6 +108,8 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
     } else {
         data.mark_page_accessed = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -140,11 +140,9 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
     netdata_cachestat_t *fill, data = {};
     libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&cstat_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&cstat_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
@@ -152,6 +150,8 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
     } else {
         data.account_page_dirtied = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -167,11 +167,9 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
     netdata_cachestat_t *fill, data = {};
     libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&cstat_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&cstat_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
@@ -179,6 +177,8 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
     } else {
         data.account_page_dirtied = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -191,11 +191,9 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
     netdata_cachestat_t *fill, data = {};
     libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, 1);
 
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&cstat_ctrl ,&key);
-    if (apps)
-        if (*apps == 0)
-            return 0;
+    __u32 key = 0;
+    if (!monitor_apps(&cstat_ctrl))
+        return 0;
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
@@ -203,6 +201,8 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
     } else {
         data.mark_buffer_dirty = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -221,17 +221,15 @@ SEC("kprobe/release_task")
 int netdata_release_task_dc(struct pt_regs* ctx)
 {
     netdata_cachestat_t *removeme;
-    __u32 key = NETDATA_CONTROLLER_APPS_ENABLED;
-    __u32 *apps = bpf_map_lookup_elem(&cstat_ctrl ,&key);
-    if (apps) {
-        if (*apps == 0)
-            return 0;
-    } else
+    __u32 key = 0;
+    if (!monitor_apps(&cstat_ctrl))
         return 0;
 
     removeme = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (removeme) {
         bpf_map_delete_elem(&cstat_pid, &key);
+
+        libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;

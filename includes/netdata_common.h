@@ -163,7 +163,7 @@ static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *c
 {
     __u32 pid, key = NETDATA_CONTROLLER_APPS_LEVEL;
 
-    __u32 *level = bpf_map_lookup_elem(ctrl_tbl ,&key);
+    __u64 *level = bpf_map_lookup_elem(ctrl_tbl ,&key);
     if (level) {
         if (*level == NETDATA_APPS_LEVEL_REAL_PARENT)
             pid = netdata_get_real_parent_pid();
@@ -179,6 +179,15 @@ static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *c
     return bpf_map_lookup_elem(pid_tbl, store_pid);
 }
 
+static __always_inline __u32 monitor_apps(void *ctrl_tbl)
+{
+    __u32 apps_key = NETDATA_CONTROLLER_APPS_ENABLED;
+    __u64 *apps = bpf_map_lookup_elem(ctrl_tbl ,&apps_key);
+    if (!apps || (apps && *apps == 0))
+        return 0;
+
+    return 1;
+}
 
 #endif /* _NETDATA_COMMON_ */
 

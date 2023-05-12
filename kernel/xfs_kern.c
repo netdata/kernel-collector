@@ -38,6 +38,14 @@ struct {
     __type(value, __u64);
     __uint(max_entries,  4192);
 } tmp_xfs SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, NETDATA_CONTROLLER_END);
+} xfs_ctrl SEC(".maps");
+
 #else
 struct bpf_map_def SEC("maps") tbl_xfs = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
@@ -51,6 +59,13 @@ struct bpf_map_def SEC("maps") tmp_xfs = {
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries = 4192
+};
+
+struct bpf_map_def SEC("maps") xfs_ctrl = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .max_entries = NETDATA_CONTROLLER_END
 };
 #endif
 
@@ -67,6 +82,8 @@ static __always_inline int netdata_xfs_entry()
     __u64 ts = bpf_ktime_get_ns();
 
     bpf_map_update_elem(&tmp_xfs, &pid, &ts, BPF_ANY);
+
+    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
 
     return 0;
 }
@@ -116,6 +133,8 @@ static void netdata_xfs_store_bin(__u32 bin, __u32 selection)
 
     data = 1;
     bpf_map_update_elem(&tbl_xfs, &idx, &data, BPF_ANY);
+
+    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_DEL, 1);
 }
 
 SEC("kretprobe/xfs_file_read_iter")
