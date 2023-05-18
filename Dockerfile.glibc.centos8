@@ -1,4 +1,4 @@
-FROM almalinux:8 AS build
+FROM almalinux:9 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
@@ -21,7 +21,7 @@ RUN dnf update -y && \
                    module-init-tools ncurses-devel net-tools newt-devel \
                    numactl-devel openssl openssl-devel patch pciutils-devel \
                    perl perl-ExtUtils-Embed pesign \
-                   rpm-build sh-utils tar xmlto xz zlib-devel clang llvm
+                   rpm-build coreutils tar xmlto xz zlib-devel clang llvm
 
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
