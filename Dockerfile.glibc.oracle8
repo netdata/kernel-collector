@@ -26,7 +26,7 @@ RUN dnf update -y && \
 # hadolint ignore=SC2016
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros && \
-    rpm -i https://oss.oracle.com/ol8/SRPMS-updates/kernel-uek-${KERNEL_VERSION}-2136.316.7.el8uek.src.rpm 2>&1 
+    rpm -i https://oss.oracle.com/ol8/SRPMS-updates/kernel-uek-${KERNEL_VERSION}-2136.320.4.el8uek.src.rpm 2>&1 
 
 # hadolint ignore=DL3003
 RUN cd ~/rpmbuild/SOURCES && \
