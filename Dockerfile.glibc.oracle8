@@ -21,7 +21,7 @@ RUN dnf update -y && \
                    module-init-tools ncurses-devel net-tools newt-devel \
                    numactl-devel openssl openssl-devel patch pciutils-devel \
                    perl perl-ExtUtils-Embed pesign \
-                   rpm-build coreutils tar xmlto xz zlib-devel clang llvm rsync
+                   rpm-build tar xmlto xz zlib-devel clang llvm rsync
 
 # hadolint ignore=SC2016
 RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
