@@ -64,12 +64,13 @@ enum netdata_kernel_flag {
     NETDATA_V4_14 = 1 << 1,
     NETDATA_V4_16 = 1 << 2,
     NETDATA_V4_18 = 1 << 3,
-    NETDATA_V5_4  = 1 << 4,
-    NETDATA_V5_10 = 1 << 5,
-    NETDATA_V5_11 = 1 << 6,
-    NETDATA_V5_14 = 1 << 7,
-    NETDATA_V5_15 = 1 << 8,
-    NETDATA_V5_16 = 1 << 9
+    NETDATA_V4_19 = 1 << 4,
+    NETDATA_V5_4  = 1 << 5,
+    NETDATA_V5_10 = 1 << 6,
+    NETDATA_V5_11 = 1 << 7,
+    NETDATA_V5_14 = 1 << 8,
+    NETDATA_V5_15 = 1 << 9,
+    NETDATA_V5_16 = 1 << 10
 };
 
 enum netdata_kernel_counter {
@@ -77,6 +78,7 @@ enum netdata_kernel_counter {
     NETDATA_4_14,
     NETDATA_4_16,
     NETDATA_4_18,
+    NETDATA_4_19,
     NETDATA_5_4,
     NETDATA_5_10,
     NETDATA_5_11,
