@@ -243,10 +243,12 @@ static int ebpf_select_max_index(int rhf_version, uint32_t kver)
             return 7;
         else if (kver >= NETDATA_EBPF_KERNEL_5_10)
             return 6;
-        else if (kver >= NETDATA_EBPF_KERNEL_4_19 && kver <= NETDATA_EBPF_KERNEL_5_0)
+        else if (kver >= NETDATA_EBPF_KERNEL_5_0)
             return 5;
-        else if (kver >= NETDATA_EBPF_KERNEL_4_17)
+        else if (kver >= NETDATA_EBPF_KERNEL_4_19 && kver <= NETDATA_EBPF_KERNEL_5_0)
             return 4;
+        else if (kver >= NETDATA_EBPF_KERNEL_4_17)
+            return 3;
         else if (kver >= NETDATA_EBPF_KERNEL_4_15)
             return 2;
         else if (kver >= NETDATA_EBPF_KERNEL_4_11)
