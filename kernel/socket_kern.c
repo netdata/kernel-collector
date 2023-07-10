@@ -27,11 +27,7 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, __u32);
     __type(value, netdata_bandwidth_t);
     __uint(max_entries, PID_MAX_DEFAULT);
@@ -45,33 +41,21 @@ struct {
 } tbl_global_sock SEC(".maps");
 
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, netdata_socket_idx_t);
     __type(value, netdata_socket_t);
     __uint(max_entries, 65536);
 } tbl_conn_ipv4 SEC(".maps");
 
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, netdata_socket_idx_t);
     __type(value, netdata_socket_t);
     __uint(max_entries, 65536);
 } tbl_conn_ipv6 SEC(".maps");
 
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, __u64);
     __type(value, void *);
     __uint(max_entries, 8192);
