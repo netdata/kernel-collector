@@ -44,15 +44,8 @@ struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
     __type(key, netdata_socket_idx_t);
     __type(value, netdata_socket_t);
-    __uint(max_entries, 65536);
-} tbl_conn_ipv4 SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __type(key, netdata_socket_idx_t);
-    __type(value, netdata_socket_t);
-    __uint(max_entries, 65536);
-} tbl_conn_ipv6 SEC(".maps");
+    __uint(max_entries, PID_MAX_DEFAULT);
+} tbl_nd_socket SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
@@ -91,18 +84,11 @@ struct bpf_map_def SEC("maps") tbl_global_sock = {
     .max_entries =  NETDATA_SOCKET_COUNTER
 };
 
-struct bpf_map_def SEC("maps") tbl_conn_ipv4 = {
+struct bpf_map_def SEC("maps") tbl_nd_socket = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(netdata_socket_idx_t),
     .value_size = sizeof(netdata_socket_t),
-    .max_entries = 65536
-};
-
-struct bpf_map_def SEC("maps") tbl_conn_ipv6 = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(netdata_socket_idx_t),
-    .value_size = sizeof(netdata_socket_t),
-    .max_entries = 65536
+    .max_entries =  PID_MAX_DEFAULT,
 };
 
 struct bpf_map_def SEC("maps") tbl_nv_udp = {
@@ -201,7 +187,6 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
 {
     __u16 family;
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
-    void *tbl;
     netdata_socket_idx_t idx = { };
 
     // Safety condition
@@ -209,23 +194,22 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
         return;
 
     family = set_idx_value(&idx, is);
-    if (!family)
+    if (family == AF_UNSPEC)
         return;
-
-    tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
 
     netdata_socket_t *val;
     netdata_socket_t data = { };
 
-    val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
+    val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = IPPROTO_TCP;
+        data.family = family;
         update_socket_stats(&data, sent, received, retransmitted);
 
-        bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_nd_socket, &idx, &data, BPF_ANY);
     }
 }
 
@@ -352,7 +336,7 @@ static __always_inline void update_pid_connection(__u8 version)
     }
 }
 
-static __always_inline void update_pid_cleanup(__u64 drop, __u64 close)
+static __always_inline void update_pid_cleanup(__u64 drop, __u64 close, __u16 family)
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
@@ -516,17 +500,17 @@ int netdata_tcp_close(struct pt_regs* ctx)
     if (!is)
         return 0;
 
-    update_pid_cleanup(0, 1);
-
     netdata_socket_idx_t idx = { };
     __u16 family = set_idx_value(&idx, is);
-    if (!family)
+    if (family == AF_UNSPEC)
         return 0;
 
-    void *tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
-    netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
+    update_pid_cleanup(0, 1, family);
+
+
+    netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
-        bpf_map_delete_elem(tbl, &idx);
+        bpf_map_delete_elem(&tbl_nd_socket, &idx);
     }
 
     return 0;

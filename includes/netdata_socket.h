@@ -22,7 +22,7 @@ typedef struct netdata_socket {
     __u64 ct;   //Current timestamp
     __u32 retransmit; //It is never used with UDP
     __u16 protocol;
-    __u16 reserved;
+    __u16 family;
 } netdata_socket_t;
 
 typedef struct netdata_bandwidth {
