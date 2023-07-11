@@ -336,7 +336,7 @@ static __always_inline void update_pid_connection(__u8 version)
     }
 }
 
-static __always_inline void update_pid_cleanup(__u64 drop, __u64 close, __u16 family)
+static __always_inline void update_pid_cleanup(__u16 family)
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
@@ -354,18 +354,12 @@ static __always_inline void update_pid_cleanup(__u64 drop, __u64 close, __u16 fa
         if (b->pid != tgid)
             ebpf_socket_reset_bandwidth(pid, tgid);
 
-        if (drop)
-            libnetdata_update_u64(&b->drop, 1);
-        else
-            libnetdata_update_u64(&b->close, 1);
+        libnetdata_update_u64(&b->close, 1);
     } else {
         data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
-        if (drop)
-            data.drop = 1;
-        else
-            data.close = 1;
+        data.close = 1;
 
         bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
     }
@@ -505,12 +499,11 @@ int netdata_tcp_close(struct pt_regs* ctx)
     if (family == AF_UNSPEC)
         return 0;
 
-    update_pid_cleanup(0, 1, family);
-
+    update_pid_cleanup(family);
 
     netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
-        bpf_map_delete_elem(&tbl_nd_socket, &idx);
+        libnetdata_update_u32(&val->close, 1);
     }
 
     return 0;
