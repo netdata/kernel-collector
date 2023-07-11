@@ -216,7 +216,7 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
 static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
 {
     netdata_bandwidth_t data = { };
-    data.pid = tgid;
+    data.tgid = tgid;
     data.first = bpf_ktime_get_ns();
 
     bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
@@ -237,7 +237,7 @@ static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u
 
     b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
     if (b) {
-        if (b->pid != tgid)
+        if (b->tgid != tgid)
             ebpf_socket_reset_bandwidth(pid, tgid);
 
         b->ct = bpf_ktime_get_ns();
@@ -253,7 +253,7 @@ static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u
         } else
             libnetdata_update_u64(&b->retransmit, 1);
     } else {
-        data.pid = tgid;
+        data.tgid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         if (sent) {
@@ -314,7 +314,7 @@ static __always_inline void update_pid_connection(__u8 version)
 
     stored = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &key);
     if (stored) {
-        if (stored->pid != tgid)
+        if (stored->tgid != tgid)
             ebpf_socket_reset_bandwidth(key, tgid);
 
         stored->ct = bpf_ktime_get_ns();
@@ -324,7 +324,7 @@ static __always_inline void update_pid_connection(__u8 version)
         else
             libnetdata_update_u32(&stored->ipv6_connect, 1);
     } else {
-        data.pid = tgid;
+        data.tgid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         if (version == 4)
@@ -351,12 +351,12 @@ static __always_inline void update_pid_cleanup(__u16 family)
 
     b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
     if (b) {
-        if (b->pid != tgid)
+        if (b->tgid != tgid)
             ebpf_socket_reset_bandwidth(pid, tgid);
 
         libnetdata_update_u64(&b->close, 1);
     } else {
-        data.pid = tgid;
+        data.tgid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         data.close = 1;

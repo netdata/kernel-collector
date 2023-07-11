@@ -28,7 +28,7 @@ typedef struct netdata_socket {
 } netdata_socket_t;
 
 typedef struct netdata_bandwidth {
-    __u32 pid;
+    __u32 tgid;
 
     __u64 first;
     __u64 ct;
