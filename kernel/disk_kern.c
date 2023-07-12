@@ -4,6 +4,10 @@
 #include <linux/genhd.h>
 #endif
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(6,0,0))
+#include <linux/kdev_t.h>
+#endif
+
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 #include <uapi/linux/bpf.h>
 #else

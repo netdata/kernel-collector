@@ -27,11 +27,7 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, __u32);
     __type(value, netdata_bandwidth_t);
     __uint(max_entries, PID_MAX_DEFAULT);
@@ -45,33 +41,14 @@ struct {
 } tbl_global_sock SEC(".maps");
 
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, netdata_socket_idx_t);
     __type(value, netdata_socket_t);
-    __uint(max_entries, 65536);
-} tbl_conn_ipv4 SEC(".maps");
+    __uint(max_entries, PID_MAX_DEFAULT);
+} tbl_nd_socket SEC(".maps");
 
 struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
-    __type(key, netdata_socket_idx_t);
-    __type(value, netdata_socket_t);
-    __uint(max_entries, 65536);
-} tbl_conn_ipv6 SEC(".maps");
-
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
     __type(key, __u64);
     __type(value, void *);
     __uint(max_entries, 8192);
@@ -107,18 +84,11 @@ struct bpf_map_def SEC("maps") tbl_global_sock = {
     .max_entries =  NETDATA_SOCKET_COUNTER
 };
 
-struct bpf_map_def SEC("maps") tbl_conn_ipv4 = {
+struct bpf_map_def SEC("maps") tbl_nd_socket = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(netdata_socket_idx_t),
     .value_size = sizeof(netdata_socket_t),
-    .max_entries = 65536
-};
-
-struct bpf_map_def SEC("maps") tbl_conn_ipv6 = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(netdata_socket_idx_t),
-    .value_size = sizeof(netdata_socket_t),
-    .max_entries = 65536
+    .max_entries =  PID_MAX_DEFAULT,
 };
 
 struct bpf_map_def SEC("maps") tbl_nv_udp = {
@@ -217,7 +187,6 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
 {
     __u16 family;
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
-    void *tbl;
     netdata_socket_idx_t idx = { };
 
     // Safety condition
@@ -225,33 +194,23 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
         return;
 
     family = set_idx_value(&idx, is);
-    if (!family)
+    if (family == AF_UNSPEC)
         return;
-
-    tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
 
     netdata_socket_t *val;
     netdata_socket_t data = { };
 
-    val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
+    val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted);
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = IPPROTO_TCP;
+        data.family = family;
         update_socket_stats(&data, sent, received, retransmitted);
 
-        bpf_map_update_elem(tbl, &idx, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_nd_socket, &idx, &data, BPF_ANY);
     }
-}
-
-static __always_inline void ebpf_socket_reset_bandwidth(__u32 pid, __u32 tgid)
-{
-    netdata_bandwidth_t data = { };
-    data.pid = tgid;
-    data.first = bpf_ktime_get_ns();
-
-    bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
 }
 
 static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
@@ -263,15 +222,8 @@ static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u
     if (!monitor_apps(&socket_ctrl))
         return;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-
-    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
+    b = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
     if (b) {
-        if (b->pid != tgid)
-            ebpf_socket_reset_bandwidth(pid, tgid);
-
         b->ct = bpf_ktime_get_ns();
 
         if (sent) {
@@ -285,7 +237,6 @@ static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u
         } else
             libnetdata_update_u64(&b->retransmit, 1);
     } else {
-        data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         if (sent) {
@@ -304,7 +255,7 @@ static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u
             data.retransmit = 1;
         }
 
-        bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
     }
 }
 
@@ -340,15 +291,8 @@ static __always_inline void update_pid_connection(__u8 version)
     if (!monitor_apps(&socket_ctrl))
         return;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-    key = (__u32)(pid_tgid >> 32);
-
-    stored = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &key);
+    stored = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
     if (stored) {
-        if (stored->pid != tgid)
-            ebpf_socket_reset_bandwidth(key, tgid);
-
         stored->ct = bpf_ktime_get_ns();
 
         if (version == 4)
@@ -356,7 +300,6 @@ static __always_inline void update_pid_connection(__u8 version)
         else
             libnetdata_update_u32(&stored->ipv6_connect, 1);
     } else {
-        data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
         if (version == 4)
@@ -368,7 +311,7 @@ static __always_inline void update_pid_connection(__u8 version)
     }
 }
 
-static __always_inline void update_pid_cleanup(__u64 drop, __u64 close)
+static __always_inline void update_pid_cleanup(__u16 family)
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
@@ -377,29 +320,15 @@ static __always_inline void update_pid_cleanup(__u64 drop, __u64 close)
     if (!monitor_apps(&socket_ctrl))
         return;
 
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-
-    b = (netdata_bandwidth_t *) bpf_map_lookup_elem(&tbl_bandwidth, &pid);
+    b = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
     if (b) {
-        if (b->pid != tgid)
-            ebpf_socket_reset_bandwidth(pid, tgid);
-
-        if (drop)
-            libnetdata_update_u64(&b->drop, 1);
-        else
-            libnetdata_update_u64(&b->close, 1);
+        libnetdata_update_u64(&b->close, 1);
     } else {
-        data.pid = tgid;
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
-        if (drop)
-            data.drop = 1;
-        else
-            data.close = 1;
+        data.close = 1;
 
-        bpf_map_update_elem(&tbl_bandwidth, &pid, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
     }
 }
 
@@ -532,17 +461,16 @@ int netdata_tcp_close(struct pt_regs* ctx)
     if (!is)
         return 0;
 
-    update_pid_cleanup(0, 1);
-
     netdata_socket_idx_t idx = { };
     __u16 family = set_idx_value(&idx, is);
-    if (!family)
+    if (family == AF_UNSPEC)
         return 0;
 
-    void *tbl = (family == AF_INET6)?(void *)&tbl_conn_ipv6:(void *)&tbl_conn_ipv4;
-    netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(tbl, &idx);
+    update_pid_cleanup(family);
+
+    netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
-        bpf_map_delete_elem(tbl, &idx);
+        libnetdata_update_u32(&val->close, 1);
     }
 
     return 0;
@@ -656,36 +584,6 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
 
     update_pid_bandwidth((__u64) sent, 0, IPPROTO_UDP);
-
-    return 0;
-}
-
-/************************************************************************************
- *
- *                           CLEAN UP SECTION
- *
- ***********************************************************************************/
-
-/**
- * Release task socket
- *
- * Removing a socket when it's no longer needed helps us reduce the default
- * size used with our tables.
- *
- * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
- * the information about the process, so it is safe to remove the information about the socket.
- */
-SEC("kprobe/release_task")
-int netdata_release_task_socket(struct pt_regs* ctx)
-{
-    netdata_bandwidth_t *removeme;
-    __u32 key = 0;
-    if (!monitor_apps(&socket_ctrl))
-        return 0;
-
-    removeme = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
-    if (removeme)
-        bpf_map_delete_elem(&tbl_bandwidth, &key);
 
     return 0;
 }
