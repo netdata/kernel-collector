@@ -35,6 +35,6 @@ You can also get everything for glibc [here](UPLOAD FILE WITH ALL BINARIES TO SI
 
 This PR was tested on:
 
-| Linux Distribution | kernel version | real parent | parent |  all |
-|--------------------|----------------|-------------|--------|------|
-| LINUX DISTRIBUION  | uname -r       |             |        |      |
+| Linux Distribution |   Environment  |Kernel Version | Real Parent | Parent |  All |
+|--------------------|----------------|---------------|-------------|--------|------|
+| LINUX DISTRIBUION  | Bare metal/VM  | uname -r      |             |        |      |
