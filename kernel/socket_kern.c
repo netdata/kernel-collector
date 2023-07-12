@@ -328,6 +328,7 @@ static __always_inline void update_pid_cleanup(__u16 family)
     } else {
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
+        data.family = family;
         data.close = 1;
 
         bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
