@@ -308,6 +308,8 @@ static __always_inline void update_pid_connection(__u8 version)
             data.ipv6_connect = 1;
 
         bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 }
 
@@ -376,6 +378,8 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
         data.pid = pid;
         data.counter = 1;
         bpf_map_update_elem(&tbl_lports, &idx, &data, BPF_ANY);
+
+        libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
