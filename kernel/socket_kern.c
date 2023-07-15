@@ -308,10 +308,12 @@ static __always_inline void update_pid_connection(__u8 version)
             data.ipv6_connect = 1;
 
         bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
+
+        libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 }
 
-static __always_inline void update_pid_cleanup(__u16 family)
+static __always_inline void update_pid_cleanup()
 {
     netdata_bandwidth_t *b;
     netdata_bandwidth_t data = { };
@@ -376,6 +378,8 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
         data.pid = pid;
         data.counter = 1;
         bpf_map_update_elem(&tbl_lports, &idx, &data, BPF_ANY);
+
+        libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
 
     return 0;
@@ -466,7 +470,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
     if (family == AF_UNSPEC)
         return 0;
 
-    update_pid_cleanup(family);
+    update_pid_cleanup();
 
     netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
