@@ -48,6 +48,7 @@ typedef struct netdata_socket_idx {
     __u16 sport;
     union netdata_ip daddr;
     __u16 dport;
+    __u32 pid;
 } netdata_socket_idx_t;
 
 typedef struct netdata_passive_connection {
