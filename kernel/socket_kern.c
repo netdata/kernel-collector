@@ -162,21 +162,35 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
 }
 
 // Update time and bytes sent and received
-static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sent, __u64 received, __u32 retransmitted)
+static __always_inline void update_socket_stats(netdata_socket_t *ptr,
+                                                __u64 sent,
+                                                __u64 received,
+                                                __u32 retransmitted,
+                                                __u16 protocol)
 {
     ptr->ct = bpf_ktime_get_ns();
 
     if (sent) {
-        libnetdata_update_u64(&ptr->sent_packets, 1);
-        libnetdata_update_u64(&ptr->sent_bytes, sent);
+        if (protocol == IPPROTO_TCP) {
+            libnetdata_update_u32(&ptr->tcp.call_tcp_sent, 1);
+            libnetdata_update_u64(&ptr->tcp.tcp_bytes_sent, sent);
+
+            libnetdata_update_u32(&ptr->tcp.retransmit, retransmitted);
+        } else {
+            libnetdata_update_u32(&ptr->udp.call_udp_sent, 1);
+            libnetdata_update_u64(&ptr->udp.udp_bytes_sent, sent);
+        }
     }
 
     if (received) {
-        libnetdata_update_u64(&ptr->recv_packets, 1);
-        libnetdata_update_u64(&ptr->recv_bytes, received);
+        if (protocol == IPPROTO_TCP) {
+            libnetdata_update_u32(&ptr->tcp.call_tcp_received, 1);
+            libnetdata_update_u64(&ptr->tcp.tcp_bytes_received, received);
+        } else {
+            libnetdata_update_u32(&ptr->udp.call_udp_received, 1);
+            libnetdata_update_u64(&ptr->udp.udp_bytes_received, received);
+        }
     }
-
-    libnetdata_update_u32(&ptr->retransmit, retransmitted);
 }
 
 
@@ -205,12 +219,12 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
 
     val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
-        update_socket_stats(val, sent, received, retransmitted);
+        update_socket_stats(val, sent, received, retransmitted, protocol);
     } else {
         data.first = bpf_ktime_get_ns();
         data.protocol = protocol;
         data.family = family;
-        update_socket_stats(&data, sent, received, retransmitted);
+        update_socket_stats(&data, sent, received, retransmitted, protocol);
 
         bpf_map_update_elem(&tbl_nd_socket, &idx, &data, BPF_ANY);
     }
@@ -477,7 +491,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
 
     netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
-        libnetdata_update_u32(&val->close, 1);
+        libnetdata_update_u32(&val->tcp.close, 1);
     }
 
     return 0;
