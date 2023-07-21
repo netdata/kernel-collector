@@ -563,6 +563,8 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 
     update_pid_bandwidth(0, received, IPPROTO_UDP);
 
+    update_socket_table(ctx, 0, received, 0, IPPROTO_UDP);
+
     return 0;
 }
 
@@ -591,6 +593,8 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
 
     update_pid_bandwidth((__u64) sent, 0, IPPROTO_UDP);
+
+    update_socket_table(ctx, sent, 0, 0, IPPROTO_UDP);
 
     return 0;
 }
