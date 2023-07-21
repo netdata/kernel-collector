@@ -222,9 +222,12 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
         update_socket_stats(val, sent, received, retransmitted, protocol);
     } else {
         data.first = bpf_ktime_get_ns();
+        data.ct = data.first;
         data.protocol = protocol;
         data.family = family;
         update_socket_stats(&data, sent, received, retransmitted, protocol);
+
+        libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
         bpf_map_update_elem(&tbl_nd_socket, &idx, &data, BPF_ANY);
     }
@@ -253,32 +256,37 @@ static __always_inline u8 select_protocol(struct sock *sk)
 }
 #endif // Kernel version 5.6.0
 
-static __always_inline void update_pid_connection(__u8 version)
+static __always_inline void update_pid_connection(struct pt_regs* ctx)
 {
-    netdata_bandwidth_t *stored;
-    netdata_bandwidth_t data = { };
+    netdata_socket_idx_t idx = { };
 
-    __u32 key = 0;
-    if (!monitor_apps(&socket_ctrl))
+    netdata_socket_t *stored;
+    netdata_socket_t data = { };
+
+    struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
+
+    __u16 family = set_idx_value(&idx, is);
+    if (family == AF_UNSPEC)
         return;
 
-    stored = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
     if (stored) {
         stored->ct = bpf_ktime_get_ns();
 
-        if (version == 4)
-            libnetdata_update_u32(&stored->ipv4_connect, 1);
+        if (family == AF_INET)
+            libnetdata_update_u32(&stored->tcp.ipv4_connect, 1);
         else
-            libnetdata_update_u32(&stored->ipv6_connect, 1);
+            libnetdata_update_u32(&stored->tcp.ipv6_connect, 1);
     } else {
         data.first = bpf_ktime_get_ns();
         data.ct = data.first;
-        if (version == 4)
-            data.ipv4_connect = 1;
+        data.protocol = IPPROTO_TCP;
+        data.family = family;
+        if (family == AF_INET)
+            data.tcp.ipv4_connect = 1;
         else
-            data.ipv6_connect = 1;
+            data.tcp.ipv6_connect = 1;
 
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
+        bpf_map_update_elem(&tbl_nd_socket, &idx, &data, BPF_ANY);
 
         libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
     }
@@ -439,7 +447,7 @@ int netdata_tcp_v4_connect(struct pt_regs* ctx)
     }
 #endif
 
-    update_pid_connection(4);
+    update_pid_connection(ctx);
 
     return 0;
 }
@@ -460,7 +468,7 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
     }
 #endif
 
-    update_pid_connection(6);
+    update_pid_connection(ctx);
 
     return 0;
 }
