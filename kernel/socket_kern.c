@@ -230,52 +230,6 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
     }
 }
 
-static __always_inline void update_pid_bandwidth(__u64 sent, __u64 received, __u8 protocol)
-{
-    netdata_bandwidth_t *b;
-    netdata_bandwidth_t data = { };
-
-    __u32 key = 0;
-    if (!monitor_apps(&socket_ctrl))
-        return;
-
-    b = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
-    if (b) {
-        b->ct = bpf_ktime_get_ns();
-
-        if (sent) {
-            libnetdata_update_u64(&b->bytes_sent, sent);
-
-            libnetdata_update_u64((protocol == IPPROTO_TCP) ? &b->call_tcp_sent : &b->call_udp_sent, 1);
-        } else if (received) {
-            libnetdata_update_u64(&b->bytes_received, received);
-
-            libnetdata_update_u64((protocol == IPPROTO_TCP) ? &b->call_tcp_received : &b->call_udp_received, 1);
-        } else
-            libnetdata_update_u64(&b->retransmit, 1);
-    } else {
-        data.first = bpf_ktime_get_ns();
-        data.ct = data.first;
-        if (sent) {
-            data.bytes_sent = sent;
-            if (protocol == IPPROTO_TCP)
-                data.call_tcp_sent = 1;
-            else
-                data.call_udp_sent = 1;
-        } else if (received) {
-            data.bytes_received = received;
-            if (protocol == IPPROTO_TCP)
-                data.call_tcp_received = 1;
-            else
-                data.call_udp_received = 1;
-        } else {
-            data.retransmit = 1;
-        }
-
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
-    }
-}
-
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0))
 static __always_inline u8 select_protocol(struct sock *sk)
 {
@@ -327,27 +281,6 @@ static __always_inline void update_pid_connection(__u8 version)
         bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
-    }
-}
-
-static __always_inline void update_pid_cleanup()
-{
-    netdata_bandwidth_t *b;
-    netdata_bandwidth_t data = { };
-
-    __u32 key = 0;
-    if (!monitor_apps(&socket_ctrl))
-        return;
-
-    b = (netdata_bandwidth_t *) netdata_get_pid_structure(&key, &socket_ctrl, &tbl_bandwidth);
-    if (b) {
-        libnetdata_update_u64(&b->close, 1);
-    } else {
-        data.first = bpf_ktime_get_ns();
-        data.ct = data.first;
-        data.close = 1;
-
-        bpf_map_update_elem(&tbl_bandwidth, &key, &data, BPF_ANY);
     }
 }
 
@@ -432,8 +365,6 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
 
-    update_pid_bandwidth((__u64)sent, 0, IPPROTO_TCP);
-
     update_socket_table(ctx, sent, 0, 0, IPPROTO_TCP);
 
     return 0;
@@ -443,8 +374,6 @@ SEC("kprobe/tcp_retransmit_skb")
 int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_TCP_RETRANSMIT, 1);
-
-    update_pid_bandwidth(0, 0, IPPROTO_TCP);
 
     update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP);
 
@@ -466,8 +395,6 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
 
-    update_pid_bandwidth(0, received, IPPROTO_TCP);
-
     update_socket_table(ctx, 0, (__u64)copied, 1, IPPROTO_TCP);
 
     return 0;
@@ -486,8 +413,6 @@ int netdata_tcp_close(struct pt_regs* ctx)
     __u16 family = set_idx_value(&idx, is);
     if (family == AF_UNSPEC)
         return 0;
-
-    update_pid_cleanup();
 
     netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
@@ -575,8 +500,6 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_RECVMSG, received);
 
-    update_pid_bandwidth(0, received, IPPROTO_UDP);
-
     update_socket_table(ctx, 0, received, 0, IPPROTO_UDP);
 
     return 0;
@@ -605,8 +528,6 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 #endif
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
-
-    update_pid_bandwidth((__u64) sent, 0, IPPROTO_UDP);
 
     update_socket_table(ctx, sent, 0, 0, IPPROTO_UDP);
 
