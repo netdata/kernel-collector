@@ -27,13 +27,6 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __type(key, __u32);
-    __type(value, netdata_bandwidth_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_bandwidth SEC(".maps");
-
-struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
     __type(value, __u64);
@@ -51,7 +44,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
     __type(key, __u64);
     __type(value, void *);
-    __uint(max_entries, 8192);
+    __uint(max_entries, 4096);
 } tbl_nv_udp SEC(".maps");
 
 struct {
@@ -69,14 +62,6 @@ struct {
 } socket_ctrl SEC(".maps");
 
 #else
-
-struct bpf_map_def SEC("maps") tbl_bandwidth = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(netdata_bandwidth_t),
-    .max_entries = PID_MAX_DEFAULT
-};
-
 struct bpf_map_def SEC("maps") tbl_global_sock = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
@@ -95,7 +80,7 @@ struct bpf_map_def SEC("maps") tbl_nv_udp = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(__u64),
     .value_size = sizeof(void *),
-    .max_entries = 8192
+    .max_entries = 4096
 };
 
 struct bpf_map_def SEC("maps") tbl_lports = {
