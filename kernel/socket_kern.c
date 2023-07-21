@@ -185,7 +185,8 @@ static __always_inline void update_socket_stats(netdata_socket_t *ptr, __u64 sen
 static __always_inline  void update_socket_table(struct pt_regs* ctx,
                                                 __u64 sent,
                                                 __u64 received,
-                                                __u32 retransmitted)
+                                                __u32 retransmitted,
+                                                __u16 protocol)
 {
     __u16 family;
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
@@ -207,7 +208,7 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
         update_socket_stats(val, sent, received, retransmitted);
     } else {
         data.first = bpf_ktime_get_ns();
-        data.protocol = IPPROTO_TCP;
+        data.protocol = protocol;
         data.family = family;
         update_socket_stats(&data, sent, received, retransmitted);
 
@@ -419,7 +420,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 
     update_pid_bandwidth((__u64)sent, 0, IPPROTO_TCP);
 
-    update_socket_table(ctx, sent, 0, 0);
+    update_socket_table(ctx, sent, 0, 0, IPPROTO_TCP);
 
     return 0;
 }
@@ -431,7 +432,7 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 
     update_pid_bandwidth(0, 0, IPPROTO_TCP);
 
-    update_socket_table(ctx, 0, 0, 1);
+    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP);
 
     return 0;
 }
@@ -453,7 +454,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 
     update_pid_bandwidth(0, received, IPPROTO_TCP);
 
-    update_socket_table(ctx, 0, (__u64)copied, 1);
+    update_socket_table(ctx, 0, (__u64)copied, 1, IPPROTO_TCP);
 
     return 0;
 }
