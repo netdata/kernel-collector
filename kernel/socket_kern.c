@@ -254,6 +254,7 @@ static __always_inline void update_pid_connection(struct pt_regs* ctx)
     if (family == AF_UNSPEC)
         return;
 
+    stored = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (stored) {
         stored->ct = bpf_ktime_get_ns();
 
