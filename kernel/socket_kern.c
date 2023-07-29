@@ -116,7 +116,8 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
         bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr);
         bpf_probe_read(&nsi->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
 
-        if (nsi->saddr.addr32[0] == 0 || nsi->daddr.addr32[0] == 0)
+        if (nsi->saddr.addr32[0] == 0 || nsi->daddr.addr32[0] == 0 || // Zero addr
+           nsi->saddr.addr64[0] == 16777343) // Loopback
             return AF_UNSPEC;
     }
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
@@ -128,7 +129,8 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
         addr6 = &is->sk.sk_v6_daddr;
         bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
-        if ( ((nsi->saddr.addr64[0] == 0) && (nsi->saddr.addr64[1] == 0)) || ((nsi->daddr.addr64[0] == 0) && (nsi->daddr.addr64[1] == 0)))
+        if ( ((nsi->saddr.addr64[0] == 0) && (nsi->saddr.addr64[1] == 0)) || ((nsi->daddr.addr64[0] == 0) && (nsi->daddr.addr64[1] == 0)) || // Zero addr
+             ((nsi->saddr.addr64[0] == 0) && (nsi->saddr.addr64[1] == 72057594037927936))) // Loopback
             return AF_UNSPEC;
     }
 #endif
