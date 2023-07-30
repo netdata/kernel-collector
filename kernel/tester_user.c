@@ -1173,7 +1173,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                 {
                     int value = (int)strtol(optarg, NULL, 10);
                     if (value < 1) {
-                        fprintf(stdlog, "\"Error\" : \"Value given (%d) is smaller than the minimum, resetting to default 1.\",\n",
+                        fprintf(stdlog, "\"Error\" : \"Value given (%d) is smaller than the minimum, reseting to default 1.\",\n",
                                 value);
                         value = 1;
                     }
@@ -1184,8 +1184,8 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
             case NETDATA_OPT_PID:
                 {
                     int value = (int)strtol(optarg, NULL, 10);
-                    if (value < NETDATA_APPS_LEVEL_REAL_PARENT || value > NETDATA_APPS_LEVEL_ALL) {
-                        fprintf(stdlog, "\"Error\" : \"Value given (%d) is not valid, resetting to default 0 (Real Parent).\",\n",
+                    if (value < NETDATA_APPS_LEVEL_REAL_PARENT || value >= NETDATA_APPS_LEVEL_END) {
+                        fprintf(stdlog, "\"Error\" : \"Value given (%d) is not valid, reseting to default 0 (Real Parent).\",\n",
                                 value);
                         value = NETDATA_APPS_LEVEL_REAL_PARENT;
                     }
