@@ -147,7 +147,7 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
     if (nsi->sport == 0 || nsi->dport == 0)
         return AF_UNSPEC;
 
-    nsi->pid =  netdata_get_current_pid();
+    nsi->pid = netdata_get_pid(&socket_ctrl);
 
     return family;
 }

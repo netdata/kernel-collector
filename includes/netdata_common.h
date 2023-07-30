@@ -159,7 +159,7 @@ static __always_inline __u32 netdata_get_current_pid()
     return pid;
 }
 
-static __always_inline __u32 netdata_get_pid(void *ctrl_tbl, void *pid_tbl)
+static __always_inline __u32 netdata_get_pid(void *ctrl_tbl)
 {
     __u32 key = NETDATA_CONTROLLER_APPS_LEVEL;
 
@@ -179,7 +179,7 @@ static __always_inline __u32 netdata_get_pid(void *ctrl_tbl, void *pid_tbl)
 
 static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *ctrl_tbl, void *pid_tbl)
 {
-    __u32 pid =  netdata_get_pid(ctrl_tbl, pid_tbl);
+    __u32 pid =  netdata_get_pid(ctrl_tbl);
 
     *store_pid = pid;
 
