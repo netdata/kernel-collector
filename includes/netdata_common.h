@@ -169,8 +169,10 @@ static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *c
             pid = netdata_get_real_parent_pid();
         else if (*level == NETDATA_APPS_LEVEL_PARENT)
             pid = netdata_get_parent_pid();
-        else
+        else if (*level == NETDATA_APPS_LEVEL_ALL)
             pid = netdata_get_current_pid();
+        else // I do not care for PID, so group them
+            pid = 0;
     } else
         pid = netdata_get_real_parent_pid();
 
