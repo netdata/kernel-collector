@@ -26,7 +26,7 @@ You can also get everything for glibc [here](UPLOAD FILE WITH ALL BINARIES TO SI
 
     ```sh
     # make clean; make tester
-    # for i in `seq 0 3`; do ./kernel/legacy_test --netdata-path ../artifacts --content --iteration --pid $i --log-path file_pid$i.txt; done
+    # for i in `seq 0 3`; do ./kernel/legacy_test --netdata-path ../artifacts --content --iteration 1 --pid $i --log-path file_pid$i.txt; done
     ```
 
 4. Every test should ends with `Success`, unless you do not have a specific target (function) available.
