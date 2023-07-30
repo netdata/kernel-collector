@@ -159,20 +159,27 @@ static __always_inline __u32 netdata_get_current_pid()
     return pid;
 }
 
-static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *ctrl_tbl, void *pid_tbl)
+static __always_inline __u32 netdata_get_pid(void *ctrl_tbl)
 {
-    __u32 pid, key = NETDATA_CONTROLLER_APPS_LEVEL;
+    __u32 key = NETDATA_CONTROLLER_APPS_LEVEL;
 
     __u64 *level = bpf_map_lookup_elem(ctrl_tbl ,&key);
     if (level) {
         if (*level == NETDATA_APPS_LEVEL_REAL_PARENT)
-            pid = netdata_get_real_parent_pid();
+            return netdata_get_real_parent_pid();
         else if (*level == NETDATA_APPS_LEVEL_PARENT)
-            pid = netdata_get_parent_pid();
-        else
-            pid = netdata_get_current_pid();
-    } else
-        pid = netdata_get_real_parent_pid();
+            return netdata_get_parent_pid();
+        else if (*level == NETDATA_APPS_LEVEL_ALL)
+            return netdata_get_current_pid();
+    }
+
+    // I do not care for PID, so group them
+    return 0;
+}
+
+static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *ctrl_tbl, void *pid_tbl)
+{
+    __u32 pid =  netdata_get_pid(ctrl_tbl);
 
     *store_pid = pid;
 
