@@ -171,10 +171,11 @@ static __always_inline __u32 netdata_get_pid(void *ctrl_tbl)
             return netdata_get_parent_pid();
         else if (*level == NETDATA_APPS_LEVEL_ALL)
             return netdata_get_current_pid();
+        else if (*level == NETDATA_APPS_LEVEL_IGNORE) // Ignore PID
+            return 0;
     }
 
-    // I do not care for PID, so group them
-    return 0;
+    return netdata_get_real_parent_pid();
 }
 
 static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *ctrl_tbl, void *pid_tbl)
