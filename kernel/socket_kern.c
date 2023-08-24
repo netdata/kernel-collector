@@ -144,11 +144,12 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
 
     //Read destination port
     bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
-    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
+ //   bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_num);
 
     // Socket for nowhere or system looking for port
     // This can be an attack vector that needs to be addressed in another opportunity
-    if (nsi->sport == 0 || nsi->dport == 0)
+    //if (nsi->sport == 0 || nsi->dport == 0)
+    if (nsi->dport == 0)
         return AF_UNSPEC;
 
 

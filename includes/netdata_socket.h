@@ -59,7 +59,7 @@ typedef struct netdata_bandwidth {
 // Index used together previous structure
 typedef struct netdata_socket_idx {
     union netdata_ip saddr;
-    __u16 sport;
+    //__u16 sport;
     union netdata_ip daddr;
     __u16 dport;
     __u32 pid;
