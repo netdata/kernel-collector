@@ -29,12 +29,12 @@ typedef struct netdata_socket {
         __u64 tcp_bytes_received;
         __u32 close;        //It is never used with UDP
         __u32 retransmit;   //It is never used with UDP
-        __u32 ipv4_connect;
-        __u32 ipv6_connect;
+        __u32 ipv4_connect; // Use to count new connections
+        __u32 ipv6_connect; // Use to count new connections
     } tcp;
     // Number of calls
     struct {
-        __u32 call_udp_sent;
+        __u32 call_udp_sent; // Use to count new connections
         __u32 call_udp_received;
         __u64 udp_bytes_sent;
         __u64 udp_bytes_received;
