@@ -351,7 +351,7 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
 
     val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &nv_idx);
     if (val) {
-        val->external_origin = 1;
+        libnetdata_update_u32(&val->external_origin, 1);
     } else {
         nv_data.first = bpf_ktime_get_ns();
         nv_data.ct = nv_data.first;
