@@ -113,7 +113,8 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
     bpf_probe_read(&family, sizeof(u16), &is->sk.__sk_common.skc_family);
     // Read source and destination IPs
     if ( family == AF_INET ) { //AF_INET
-        bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr);
+        // bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr); // bind to local address
+        bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_saddr);
         bpf_probe_read(&nsi->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
 
         if ((nsi->saddr.addr32[0] == 16777343 || nsi->daddr.addr32[0] == 16777343) || // Loopback
@@ -123,10 +124,11 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
 #if IS_ENABLED(CONFIG_IPV6)
     else if ( family == AF_INET6 ) {
-        struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr;
+        // struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr; // bind to local address
+        struct in6_addr *addr6 = &is->sk.__sk_common.skc_v6_rcv_saddr.s6_addr;
         bpf_probe_read(&nsi->saddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
-        addr6 = &is->sk.sk_v6_daddr;
+        addr6 = &is->sk.__sk_common.skc_v6_daddr.s6_addr;
         bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
         if (((nsi->saddr.addr64[0] == 0) && (nsi->saddr.addr64[1] == 72057594037927936)) ||  // Loopback
