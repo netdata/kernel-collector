@@ -15,11 +15,14 @@ union netdata_ip {
 
 typedef struct netdata_socket {
     // Timestamp
-    __u64 first;        //First timestamp
-    __u64 ct;           //Current timestamp
+    __u64 first;        // First timestamp
+    __u64 ct;           // Current timestamp
     // Socket additional info
     __u16 protocol;
     __u16 family;
+    __u32 external_origin;       // We are using only lower bits, so if it is
+                                 // necessary to store more info, this shoud be
+                                 // split in two __u16.
     // Stats
     // Number of bytes
     struct {

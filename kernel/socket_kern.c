@@ -113,7 +113,8 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
     bpf_probe_read(&family, sizeof(u16), &is->sk.__sk_common.skc_family);
     // Read source and destination IPs
     if ( family == AF_INET ) { //AF_INET
-        bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr);
+        // bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr); // bind to local address
+        bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_saddr);
         bpf_probe_read(&nsi->daddr.addr32[0], sizeof(u32), &is->inet_daddr);
 
         if ((nsi->saddr.addr32[0] == 16777343 || nsi->daddr.addr32[0] == 16777343) || // Loopback
@@ -123,10 +124,11 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
 #if IS_ENABLED(CONFIG_IPV6)
     else if ( family == AF_INET6 ) {
-        struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr;
+        // struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr; // bind to local address
+        struct in6_addr *addr6 = &is->sk.__sk_common.skc_v6_rcv_saddr.s6_addr;
         bpf_probe_read(&nsi->saddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
-        addr6 = &is->sk.sk_v6_daddr;
+        addr6 = &is->sk.__sk_common.skc_v6_daddr.s6_addr;
         bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
         if (((nsi->saddr.addr64[0] == 0) && (nsi->saddr.addr64[1] == 72057594037927936)) ||  // Loopback
@@ -336,6 +338,28 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_lports, &idx, &data, BPF_ANY);
 
         libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
+    }
+
+    struct inet_sock *is = inet_sk(sk);
+    netdata_socket_idx_t nv_idx = { };
+    __u16 family = set_idx_value(&nv_idx, is);
+    if (family == AF_UNSPEC)
+        return 0;
+
+    netdata_socket_t *val;
+    netdata_socket_t nv_data = { };
+
+    val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &nv_idx);
+    if (val) {
+        libnetdata_update_u32(&val->external_origin, 1);
+    } else {
+        nv_data.first = bpf_ktime_get_ns();
+        nv_data.ct = nv_data.first;
+        nv_data.protocol = protocol;
+        nv_data.family = family;
+        nv_data.external_origin = 1;
+
+        bpf_map_update_elem(&tbl_nd_socket, &nv_idx, &nv_data, BPF_ANY);
     }
 
     return 0;
