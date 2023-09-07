@@ -4,9 +4,7 @@
 #define _NETDATA_VFS_H_ 1
 
 struct netdata_vfs_stat_t {
-    __u64 pid_tgid;                     
-    __u32 pid;                          
-    __u32 pad;                          
+    __u64 ct;
 
     //Counter
     __u32 write_call;                   
