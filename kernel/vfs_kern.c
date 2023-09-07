@@ -576,32 +576,5 @@ int netdata_vfs_create(struct pt_regs* ctx)
     return 0;
 }
 
-/**
- * Release task
- *
- * Removing a pid when it's no longer needed helps us reduce the default
- * size used with our tables.
- *
- * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
- * the information about the process, so it is safe to remove the information about the table.
- */
-SEC("kprobe/release_task")
-int netdata_release_task_vfs(struct pt_regs* ctx)
-{
-    struct netdata_vfs_stat_t *removeme;
-    __u32 key = 0;
-    if (!monitor_apps(&vfs_ctrl))
-        return 0;
-
-    removeme = netdata_get_pid_structure(&key, &vfs_ctrl, &tbl_vfs_pid);
-    if (removeme) {
-        bpf_map_delete_elem(&tbl_vfs_pid, &key);
-
-        libnetdata_update_global(&vfs_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
-    }
-
-    return 0;
-}
-
 char _license[] SEC("license") = "GPL";
 
