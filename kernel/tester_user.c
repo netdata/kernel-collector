@@ -788,7 +788,7 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         const struct bpf_map_def *def = bpf_map__def(map);
         end = def->max_entries;
 #endif
-        uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level};
+        uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level, 0, 0, 0, 0};
         for (i = 0; i < end; i++) {
              int ret = bpf_map_update_elem(fd, &i, &values[i], 0);
              if (ret)
@@ -816,7 +816,7 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
  *
  * @return It returns 'Success' or 'Fail' depending of final result.
  */
-static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, int maps, char *ctrl)
+static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl)
 {
     static char *result[] = { "Success", "Fail" };
 
