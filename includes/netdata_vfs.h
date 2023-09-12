@@ -7,9 +7,7 @@
 
 struct netdata_vfs_stat_t {
     __u64 ct;
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
     char name[TASK_COMM_LEN];
-#endif
 
     //Counter
     __u32 write_call;                   
