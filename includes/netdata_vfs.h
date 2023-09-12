@@ -8,9 +8,7 @@
 
 struct netdata_vfs_stat_t {
     __u64 ct;
-#ifdef LIBBPF_MAJOR_VERSION
     char name[TASK_COMM_LEN];
-#endif
 
     //Counter
     __u32 write_call;                   
