@@ -3,10 +3,13 @@
 #ifndef _NETDATA_VFS_H_
 #define _NETDATA_VFS_H_ 1
 
+#include <linux/sched.h>
+
 struct netdata_vfs_stat_t {
-    __u64 pid_tgid;                     
-    __u32 pid;                          
-    __u32 pad;                          
+    __u64 ct;
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+    char name[TASK_COMM_LEN];
+#endif
 
     //Counter
     __u32 write_call;                   

@@ -68,21 +68,6 @@ struct bpf_map_def SEC("maps") vfs_ctrl = {
 #endif
 
 /************************************************************************************
- *
- *                                Local Function Section
- *
- ***********************************************************************************/
-
-static inline void netdata_fill_common_vfs_data(struct netdata_vfs_stat_t *data)
-{
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
-
-    data->pid_tgid = pid_tgid;
-    data->pid = tgid;
-}
-
-/************************************************************************************
  *     
  *                                   FILE Section
  *     
@@ -132,7 +117,10 @@ int netdata_sys_write(struct pt_regs* ctx)
         }
 #endif
     } else {
-        netdata_fill_common_vfs_data(&data);
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -198,7 +186,10 @@ int netdata_sys_writev(struct pt_regs* ctx)
         }
 #endif
     } else {
-        netdata_fill_common_vfs_data(&data);
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -264,7 +255,10 @@ int netdata_sys_read(struct pt_regs* ctx)
         }
 #endif
     } else {
-        netdata_fill_common_vfs_data(&data);
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -331,7 +325,10 @@ int netdata_sys_readv(struct pt_regs* ctx)
         }
 #endif
     } else {
-        netdata_fill_common_vfs_data(&data);
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -387,7 +384,10 @@ int netdata_sys_unlink(struct pt_regs* ctx)
         } 
 #endif
     } else {
-        netdata_fill_common_vfs_data(&data);
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -443,7 +443,10 @@ int netdata_vfs_fsync(struct pt_regs* ctx)
         } 
 #endif
     } else {
-        netdata_fill_common_vfs_data(&data);
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -499,7 +502,10 @@ int netdata_vfs_open(struct pt_regs* ctx)
         } 
 #endif
     } else {
-        netdata_fill_common_vfs_data(&data);
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -555,7 +561,10 @@ int netdata_vfs_create(struct pt_regs* ctx)
         } 
 #endif
     } else {
-        netdata_fill_common_vfs_data(&data);
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#endif
 
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -571,33 +580,6 @@ int netdata_vfs_create(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_vfs_pid, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&vfs_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
-    }
-
-    return 0;
-}
-
-/**
- * Release task
- *
- * Removing a pid when it's no longer needed helps us reduce the default
- * size used with our tables.
- *
- * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
- * the information about the process, so it is safe to remove the information about the table.
- */
-SEC("kprobe/release_task")
-int netdata_release_task_vfs(struct pt_regs* ctx)
-{
-    struct netdata_vfs_stat_t *removeme;
-    __u32 key = 0;
-    if (!monitor_apps(&vfs_ctrl))
-        return 0;
-
-    removeme = netdata_get_pid_structure(&key, &vfs_ctrl, &tbl_vfs_pid);
-    if (removeme) {
-        bpf_map_delete_elem(&tbl_vfs_pid, &key);
-
-        libnetdata_update_global(&vfs_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;
