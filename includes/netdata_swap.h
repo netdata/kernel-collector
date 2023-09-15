@@ -4,6 +4,9 @@
 #define _NETDATA_SWAP_H_ 1
 
 typedef struct netdata_swap_access {
+    __u64 ct;
+    char name[TASK_COMM_LEN];
+
     __u64 read;
     __u64 write;
 } netdata_swap_access_t;
