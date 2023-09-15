@@ -4,6 +4,9 @@
 #define _NETDATA_CACHE_H_ 1
 
 typedef struct netdata_cachestat {
+    __u64 ct;
+    char name[TASK_COMM_LEN];
+
     __u64 add_to_page_cache_lru;
     __u64 mark_page_accessed;
     __u64 account_page_dirtied;

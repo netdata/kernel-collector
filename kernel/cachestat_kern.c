@@ -10,6 +10,7 @@
 #endif
 #include "bpf_tracing.h"
 #include "bpf_helpers.h"
+#include <linux/sched.h>
 #include "netdata_ebpf.h"
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
@@ -83,6 +84,13 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->add_to_page_cache_lru, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.add_to_page_cache_lru = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
@@ -106,6 +114,13 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->mark_page_accessed, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.mark_page_accessed = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
@@ -148,6 +163,13 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->account_page_dirtied, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.account_page_dirtied = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
@@ -175,6 +197,13 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->account_page_dirtied, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.account_page_dirtied = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
@@ -199,37 +228,17 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->mark_buffer_dirty, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.mark_buffer_dirty = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
-    }
-
-    return 0;
-}
-
-/**
- * Release task
- *
- * Removing a pid when it's no longer needed helps us reduce the default
- * size used with our tables.
- *
- * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
- * the information about the process, so it is safe to remove the information about the table.
- */
-SEC("kprobe/release_task")
-int netdata_release_task_dc(struct pt_regs* ctx)
-{
-    netdata_cachestat_t *removeme;
-    __u32 key = 0;
-    if (!monitor_apps(&cstat_ctrl))
-        return 0;
-
-    removeme = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
-    if (removeme) {
-        bpf_map_delete_elem(&cstat_pid, &key);
-
-        libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;
