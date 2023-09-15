@@ -14,6 +14,8 @@ union netdata_ip {
 };
 
 typedef struct netdata_socket {
+    char name[TASK_COMM_LEN];
+
     // Timestamp
     __u64 first;        // First timestamp
     __u64 ct;           // Current timestamp

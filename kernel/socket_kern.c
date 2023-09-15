@@ -192,6 +192,21 @@ static __always_inline void update_socket_stats(netdata_socket_t *ptr,
     }
 }
 
+static __always_inline void update_socket_common(netdata_socket_t *data, __u16 protocol, __u16 family)
+{
+    data->ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+    bpf_get_current_comm(&data->name, TASK_COMM_LEN);
+#else
+    data->name[0] = '\0';
+#endif
+
+    data->first = bpf_ktime_get_ns();
+    data->ct = data->first;
+    data->protocol = protocol;
+    data->family = family;
+}
+
 
 // Use __always_inline instead inline to keep compatiblity with old kernels
 // https://docs.cilium.io/en/v1.8/bpf/
@@ -220,10 +235,7 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
     if (val) {
         update_socket_stats(val, sent, received, retransmitted, protocol);
     } else {
-        data.first = bpf_ktime_get_ns();
-        data.ct = data.first;
-        data.protocol = protocol;
-        data.family = family;
+        update_socket_common(&data, protocol, family);
         update_socket_stats(&data, sent, received, retransmitted, protocol);
 
         libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
@@ -277,10 +289,7 @@ static __always_inline void update_pid_connection(struct pt_regs* ctx)
         else
             libnetdata_update_u32(&stored->tcp.ipv6_connect, 1);
     } else {
-        data.first = bpf_ktime_get_ns();
-        data.ct = data.first;
-        data.protocol = IPPROTO_TCP;
-        data.family = family;
+        update_socket_common(&data, IPPROTO_TCP, family);
         if (family == AF_INET)
             data.tcp.ipv4_connect = 1;
         else
@@ -353,10 +362,7 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
     if (val) {
         libnetdata_update_u32(&val->external_origin, 1);
     } else {
-        nv_data.first = bpf_ktime_get_ns();
-        nv_data.ct = nv_data.first;
-        nv_data.protocol = protocol;
-        nv_data.family = family;
+        update_socket_common(&nv_data, protocol, family);
         nv_data.external_origin = 1;
 
         bpf_map_update_elem(&tbl_nd_socket, &nv_idx, &nv_data, BPF_ANY);
