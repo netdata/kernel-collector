@@ -4,10 +4,13 @@
 #define _NETDATA_SHM_H_ 1
 
 typedef struct netdata_shm {
-    __u64 get;
-    __u64 at;
-    __u64 dt;
-    __u64 ctl;
+    __u64 ct;
+    char name[TASK_COMM_LEN];
+
+    __u32 get;
+    __u32 at;
+    __u32 dt;
+    __u32 ctl;
 } netdata_shm_t;
 
 enum shm_counters {
