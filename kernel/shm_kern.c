@@ -77,8 +77,15 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
 
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
-        libnetdata_update_u64(&fill->get, 1);
+        libnetdata_update_u32(&fill->get, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.get = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
 
@@ -106,8 +113,15 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
 
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
-        libnetdata_update_u64(&fill->at, 1);
+        libnetdata_update_u32(&fill->at, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.at = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
 
@@ -135,8 +149,15 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
 
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
-        libnetdata_update_u64(&fill->dt, 1);
+        libnetdata_update_u32(&fill->dt, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.dt = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
 
@@ -164,39 +185,19 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
 
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
-        libnetdata_update_u64(&fill->ctl, 1);
+        libnetdata_update_u32(&fill->ctl, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.ctl = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&shm_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
-    }
-
-    return 0;
-}
-
-/**
- * Release task
- *
- * Removing a pid when it's no longer needed helps us reduce the default
- * size used with our tables.
- *
- * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
- * the information about the process, so it is safe to remove the information about the table.
- */
-SEC("kprobe/release_task")
-int netdata_release_task_shm(struct pt_regs* ctx)
-{
-    netdata_shm_t *removeme;
-    __u32 key = 0;
-    if (!monitor_apps(&shm_ctrl))
-        return 0;
-
-    removeme = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
-    if (removeme) {
-        bpf_map_delete_elem(&tbl_pid_shm, &key);
-
-        libnetdata_update_global(&shm_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;

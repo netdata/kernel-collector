@@ -118,6 +118,13 @@ int netdata_sys_open(struct pt_regs* ctx)
         } 
 #endif
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
 #if NETDATASEL < 2
         if (ret < 0) {
             data.open_err = 1;
@@ -187,6 +194,13 @@ int netdata_close(struct pt_regs* ctx)
         } 
 #endif
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.close_call = 1;
 #if NETDATASEL < 2
         if (ret < 0) {
@@ -197,33 +211,6 @@ int netdata_close(struct pt_regs* ctx)
         bpf_map_update_elem(&tbl_fd_pid, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&fd_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
-    }
-
-    return 0;
-}
-
-/**
- * Release task
- *
- * Removing a pid when it's no longer needed helps us reduce the default
- * size used with our tables.
- *
- * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
- * the information about the process, so it is safe to remove the information about the table.
- */
-SEC("kprobe/release_task")
-int netdata_release_task_fd(struct pt_regs* ctx)
-{
-    struct netdata_fd_stat_t *removeme;
-    __u32 key = 0;
-    if (!monitor_apps(&fd_ctrl))
-        return 0;
-
-    removeme = netdata_get_pid_structure(&key, &fd_ctrl, &tbl_fd_pid);
-    if (removeme) {
-        bpf_map_delete_elem(&tbl_fd_pid, &key);
-
-        libnetdata_update_global(&fd_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;

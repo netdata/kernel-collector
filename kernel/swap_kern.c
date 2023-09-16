@@ -67,7 +67,7 @@ struct bpf_map_def SEC("maps") swap_ctrl = {
 
 /************************************************************************************
  *
- *                               SYNC SECTION
+ *                               SWAP SECTION
  *
  ***********************************************************************************/
 
@@ -86,6 +86,13 @@ int netdata_swap_readpage(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->read, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.read = 1;
         bpf_map_update_elem(&tbl_pid_swap, &key, &data, BPF_ANY);
 
@@ -110,43 +117,17 @@ int netdata_swap_writepage(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->write, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.write = 1;
         bpf_map_update_elem(&tbl_pid_swap, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&swap_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
-    }
-
-    return 0;
-}
-
-/************************************************************************************
- *
- *                             END SYNC SECTION
- *
- ***********************************************************************************/
-
-/**
- * Release task
- *
- * Removing a pid when it's no longer needed helps us reduce the default
- * size used with our tables.
- *
- * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
- * the information about the process, so it is safe to remove the information about the table.
- */
-SEC("kprobe/release_task")
-int netdata_release_task_swap(struct pt_regs* ctx)
-{
-    netdata_cachestat_t *removeme;
-    __u32 key = 0;
-    if (!monitor_apps(&swap_ctrl))
-        return 0;
-
-    removeme = netdata_get_pid_structure(&key, &swap_ctrl, &tbl_pid_swap);
-    if (removeme) {
-        bpf_map_delete_elem(&tbl_pid_swap, &key);
-
-        libnetdata_update_global(&swap_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
 
     return 0;
