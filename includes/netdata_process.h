@@ -32,8 +32,8 @@ struct netdata_pid_stat_t {
     __u64 ct;
     char name[TASK_COMM_LEN];
 
-    __u64 pid_tgid;                     //Unique identifier
-    __u32 pid;                          //process id
+    __u32 tgid;                         //Task id
+    __u32 pid;                          //Process id
 
     //Counter
     __u32 exit_call;                    //Exit syscalls (exit for exit_group)
