@@ -79,6 +79,7 @@ static inline void netdata_fill_common_process_data(struct netdata_pid_stat_t *d
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 tgid = (__u32)( 0x00000000FFFFFFFF & pid_tgid);
+    __u32 pid = (__u32) pid_tgid>>32;
 
     data->ct = bpf_ktime_get_ns();
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
@@ -87,8 +88,8 @@ static inline void netdata_fill_common_process_data(struct netdata_pid_stat_t *d
     data->name[0] = '\0';
 #endif
 
-    data->pid_tgid = pid_tgid;
-    data->pid = tgid;
+    data->tgid = tgid;
+    data->pid = pid;
 }
 
 /************************************************************************************
