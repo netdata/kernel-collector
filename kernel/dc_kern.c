@@ -86,6 +86,13 @@ int netdata_lookup_fast(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->references, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.references = 1;
         bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
 
@@ -111,6 +118,13 @@ int netdata_d_lookup(struct pt_regs* ctx)
     if (fill) {
         libnetdata_update_u64(&fill->slow, 1);
     } else {
+        data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+        bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+        data.name[0] = '\0';
+#endif
+
         data.slow = 1;
         bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
 
@@ -124,6 +138,13 @@ int netdata_d_lookup(struct pt_regs* ctx)
         if (fill) {
             libnetdata_update_u64(&fill->missed, 1);
         } else {
+            data.ct = bpf_ktime_get_ns();
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
+            bpf_get_current_comm(&data.name, TASK_COMM_LEN);
+#else
+            data.name[0] = '\0';
+#endif
+
             data.missed = 1;
             bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
 
@@ -133,34 +154,6 @@ int netdata_d_lookup(struct pt_regs* ctx)
 
     return 0;
 }
-
-/**
- * Release task
- *
- * Removing a pid when it's no longer needed helps us reduce the default
- * size used with our tables.
- *
- * When a process stops so fast that apps.plugin or cgroup.plugin cannot detect it, we don't show
- * the information about the process, so it is safe to remove the information about the table.
- */
-SEC("kprobe/release_task")
-int netdata_release_task_dc(struct pt_regs* ctx)
-{
-    netdata_dc_stat_t *removeme;
-    __u32 key = 0;
-    if (!monitor_apps(&dcstat_ctrl))
-        return 0;
-
-    removeme = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
-    if (removeme) {
-        bpf_map_delete_elem(&dcstat_pid, &key);
-
-        libnetdata_update_global(&dcstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
-    }
-
-    return 0;
-}
-
 
 char _license[] SEC("license") = "GPL";
 
