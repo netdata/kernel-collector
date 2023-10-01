@@ -4,6 +4,10 @@
 #define _NETDATA_DIRECTORY_CACHE_H_ 1
 
 typedef struct netdata_dc_stat {
+    __u64 ct;
+    char name[TASK_COMM_LEN];
+
+
     __u64 references;
     __u64 slow;
     __u64 missed;
