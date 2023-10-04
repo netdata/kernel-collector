@@ -26,12 +26,22 @@ static __always_inline void libnetdata_update_s64(__u64 *res, __s64 value)
     __sync_fetch_and_add(res, value);
 }
 
-static __always_inline void libnetdata_update_global(void *tbl,__u32 key, __u64 value)
+static __always_inline void libnetdata_update_global(void *tbl, __u32 key, __u64 value)
 {
     __u64 *res;
     res = bpf_map_lookup_elem(tbl, &key);
     if (res)
         libnetdata_update_u64(res, value) ;
+    else
+        bpf_map_update_elem(tbl, &key, &value, BPF_EXIST);
+}
+
+static __always_inline void libnetdata_update_sglobal(void *tbl, __u32 key, __s64 value)
+{
+    __s64 *res;
+    res = bpf_map_lookup_elem(tbl, &key);
+    if (res)
+        libnetdata_update_s64(res, value) ;
     else
         bpf_map_update_elem(tbl, &key, &value, BPF_EXIST);
 }

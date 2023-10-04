@@ -153,7 +153,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
 #endif
 
     netdata_cachestat_t *fill, data = {};
-    libnetdata_update_global(&cstat_global, NETDATA_KEY_MISSES, 1);
+    libnetdata_update_sglobal(&cstat_global, NETDATA_KEY_MISSES, -1);
 
     __u32 key = 0;
     if (!monitor_apps(&cstat_ctrl))
@@ -187,7 +187,7 @@ SEC("kprobe/account_page_dirtied")
 int netdata_account_page_dirtied(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    libnetdata_update_global(&cstat_global, NETDATA_KEY_MISSES, 1);
+    libnetdata_update_sglobal(&cstat_global, NETDATA_KEY_MISSES, -1);
 
     __u32 key = 0;
     if (!monitor_apps(&cstat_ctrl))
@@ -218,7 +218,7 @@ SEC("kprobe/mark_buffer_dirty")
 int netdata_mark_buffer_dirty(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    libnetdata_update_global(&cstat_global, NETDATA_KEY_TOTAL, 1);
+    libnetdata_update_sglobal(&cstat_global, NETDATA_KEY_TOTAL, -1);
     libnetdata_update_global(&cstat_global, NETDATA_KEY_DIRTY, 1);
 
     __u32 key = 0;
