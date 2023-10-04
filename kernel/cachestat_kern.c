@@ -74,7 +74,7 @@ SEC("kprobe/add_to_page_cache_lru")
 int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_MISSES, 1);
 
     __u32 key = 0;
     if (!monitor_apps(&cstat_ctrl))
@@ -82,7 +82,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        libnetdata_update_u64(&fill->add_to_page_cache_lru, 1);
+        libnetdata_update_s64(&fill->misses, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
@@ -91,7 +91,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
         data.name[0] = '\0';
 #endif
 
-        data.add_to_page_cache_lru = 1;
+        data.misses = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
@@ -104,7 +104,7 @@ SEC("kprobe/mark_page_accessed")
 int netdata_mark_page_accessed(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_TOTAL, 1);
 
     __u32 key = 0;
     if (!monitor_apps(&cstat_ctrl))
@@ -112,7 +112,7 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        libnetdata_update_u64(&fill->mark_page_accessed, 1);
+        libnetdata_update_s64(&fill->total, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
@@ -121,7 +121,7 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
         data.name[0] = '\0';
 #endif
 
-        data.mark_page_accessed = 1;
+        data.total = 1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
@@ -153,7 +153,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
 #endif
 
     netdata_cachestat_t *fill, data = {};
-    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_MISSES, 1);
 
     __u32 key = 0;
     if (!monitor_apps(&cstat_ctrl))
@@ -161,7 +161,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        libnetdata_update_u64(&fill->account_page_dirtied, 1);
+        libnetdata_update_s64(&fill->misses, -1);
     } else {
         data.ct = bpf_ktime_get_ns();
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
@@ -170,7 +170,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
         data.name[0] = '\0';
 #endif
 
-        data.account_page_dirtied = 1;
+        data.misses = -1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
@@ -187,7 +187,7 @@ SEC("kprobe/account_page_dirtied")
 int netdata_account_page_dirtied(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_MISSES, 1);
 
     __u32 key = 0;
     if (!monitor_apps(&cstat_ctrl))
@@ -195,7 +195,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        libnetdata_update_u64(&fill->account_page_dirtied, 1);
+        libnetdata_update_s64(&fill->misses, -1);
     } else {
         data.ct = bpf_ktime_get_ns();
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
@@ -204,7 +204,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
         data.name[0] = '\0';
 #endif
 
-        data.account_page_dirtied = 1;
+        data.misses = -1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
@@ -218,7 +218,8 @@ SEC("kprobe/mark_buffer_dirty")
 int netdata_mark_buffer_dirty(struct pt_regs* ctx)
 {
     netdata_cachestat_t *fill, data = {};
-    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_TOTAL, 1);
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_DIRTY, 1);
 
     __u32 key = 0;
     if (!monitor_apps(&cstat_ctrl))
@@ -226,7 +227,8 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        libnetdata_update_u64(&fill->mark_buffer_dirty, 1);
+        libnetdata_update_u64(&fill->total, -1);
+        libnetdata_update_u64(&fill->dirty, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
@@ -235,7 +237,8 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
         data.name[0] = '\0';
 #endif
 
-        data.mark_buffer_dirty = 1;
+        data.dirty = 1;
+        data.total = -1;
         bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
 
         libnetdata_update_global(&cstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
