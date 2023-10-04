@@ -21,6 +21,11 @@ static __always_inline void libnetdata_update_u64(__u64 *res, __u64 value)
     }
 }
 
+static __always_inline void libnetdata_update_s64(__u64 *res, __s64 value)
+{
+    __sync_fetch_and_add(res, value);
+}
+
 static __always_inline void libnetdata_update_global(void *tbl,__u32 key, __u64 value)
 {
     __u64 *res;
