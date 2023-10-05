@@ -169,7 +169,7 @@ static __always_inline __u32 netdata_get_current_pid()
 {
     __u32 pid;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    pid = (__u32)(pid_tgid >> 32);
+    pid = (__u32)pid_tgid;
 
     return pid;
 }
