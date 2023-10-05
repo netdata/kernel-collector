@@ -5,6 +5,7 @@
 
 struct netdata_fd_stat_t {
     __u64 ct;
+    __u32 tgid;
     char name[TASK_COMM_LEN];
 
     //Counter

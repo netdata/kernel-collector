@@ -5,8 +5,8 @@
 
 typedef struct netdata_dc_stat {
     __u64 ct;
+    __u32 tgid;
     char name[TASK_COMM_LEN];
-
 
     __u64 references;
     __u64 slow;

@@ -88,6 +88,7 @@ int netdata_lookup_fast(struct pt_regs* ctx)
         libnetdata_update_u64(&fill->references, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -121,6 +122,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
         libnetdata_update_u64(&fill->slow, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else

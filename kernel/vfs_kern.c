@@ -119,6 +119,7 @@ int netdata_sys_write(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -191,6 +192,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -263,6 +265,7 @@ int netdata_sys_read(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -336,6 +339,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -398,6 +402,7 @@ int netdata_sys_unlink(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -460,6 +465,7 @@ int netdata_vfs_fsync(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -522,6 +528,7 @@ int netdata_vfs_open(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -584,6 +591,7 @@ int netdata_vfs_create(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else

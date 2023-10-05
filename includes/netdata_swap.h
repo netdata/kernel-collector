@@ -5,6 +5,7 @@
 
 typedef struct netdata_swap_access {
     __u64 ct;
+    __u32 tgid;
     char name[TASK_COMM_LEN];
 
     __u64 read;

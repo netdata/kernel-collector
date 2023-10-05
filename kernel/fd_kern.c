@@ -120,6 +120,7 @@ int netdata_sys_open(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -197,6 +198,7 @@ int netdata_close(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else

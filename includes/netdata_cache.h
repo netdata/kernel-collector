@@ -5,6 +5,7 @@
 
 typedef struct netdata_cachestat {
     __u64 ct;
+    __u32 tgid;
     char name[TASK_COMM_LEN];
 
     __s64 total;
