@@ -165,27 +165,32 @@ static __always_inline __u32 netdata_get_parent_pid()
     return ppid;
 }
 
-static __always_inline __u32 netdata_get_current_pid()
+static __always_inline __u32 netdata_get_current_pid(__u32 *tgid)
 {
     __u32 pid;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     pid = (__u32)pid_tgid;
+    *tgid = (__u32)(pid_tgid>>32);
 
     return pid;
 }
 
-static __always_inline __u32 netdata_get_pid(void *ctrl_tbl)
+static __always_inline __u32 netdata_get_pid(void *ctrl_tbl, __u32 *tgid)
 {
     __u32 key = NETDATA_CONTROLLER_APPS_LEVEL;
 
     __u64 *level = bpf_map_lookup_elem(ctrl_tbl ,&key);
     if (level) {
-        if (*level == NETDATA_APPS_LEVEL_REAL_PARENT)
+        if (*level == NETDATA_APPS_LEVEL_REAL_PARENT) {
+            __u64 pid_tgid = bpf_get_current_pid_tgid();
+            *tgid = (__u32)(pid_tgid>>32);
             return netdata_get_real_parent_pid();
-        else if (*level == NETDATA_APPS_LEVEL_PARENT)
+        } else if (*level == NETDATA_APPS_LEVEL_PARENT) {
+            __u64 pid_tgid = bpf_get_current_pid_tgid();
+            *tgid = (__u32)(pid_tgid>>32);
             return netdata_get_parent_pid();
-        else if (*level == NETDATA_APPS_LEVEL_ALL)
-            return netdata_get_current_pid();
+        } else if (*level == NETDATA_APPS_LEVEL_ALL)
+            return netdata_get_current_pid(tgid);
         else if (*level == NETDATA_APPS_LEVEL_IGNORE) // Ignore PID
             return 0;
     }
@@ -193,9 +198,9 @@ static __always_inline __u32 netdata_get_pid(void *ctrl_tbl)
     return netdata_get_real_parent_pid();
 }
 
-static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, void *ctrl_tbl, void *pid_tbl)
+static __always_inline void *netdata_get_pid_structure(__u32 *store_pid, __u32 *store_tgid, void *ctrl_tbl, void *pid_tbl)
 {
-    __u32 pid =  netdata_get_pid(ctrl_tbl);
+    __u32 pid =  netdata_get_pid(ctrl_tbl, store_tgid);
 
     *store_pid = pid;
 

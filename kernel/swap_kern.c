@@ -79,10 +79,11 @@ int netdata_swap_readpage(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_swap, NETDATA_KEY_SWAP_READPAGE_CALL, 1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&swap_ctrl))
         return 0;
 
-    netdata_swap_access_t *fill = netdata_get_pid_structure(&key, &swap_ctrl, &tbl_pid_swap);
+    netdata_swap_access_t *fill = netdata_get_pid_structure(&key, &tgid, &swap_ctrl, &tbl_pid_swap);
     if (fill) {
         libnetdata_update_u64(&fill->read, 1);
     } else {
@@ -110,10 +111,11 @@ int netdata_swap_writepage(struct pt_regs* ctx)
     libnetdata_update_global(&tbl_swap, NETDATA_KEY_SWAP_WRITEPAGE_CALL, 1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&swap_ctrl))
         return 0;
 
-    netdata_swap_access_t *fill = netdata_get_pid_structure(&key, &swap_ctrl, &tbl_pid_swap);
+    netdata_swap_access_t *fill = netdata_get_pid_structure(&key, &tgid, &swap_ctrl, &tbl_pid_swap);
     if (fill) {
         libnetdata_update_u64(&fill->write, 1);
     } else {

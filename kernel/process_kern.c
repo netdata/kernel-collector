@@ -105,10 +105,11 @@ int netdata_tracepoint_sched_process_exit(struct netdata_sched_process_exit *ptr
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_EXIT, 1);
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
+    fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         libnetdata_update_u32(&fill->exit_call, 1) ;
     }
@@ -123,10 +124,11 @@ int netdata_release_task(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_RELEASE_TASK, 1);
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
+    fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         libnetdata_update_u32(&fill->release_call, 1) ;
 
@@ -145,10 +147,11 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_PROCESS, 1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
+    fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->create_process, 1) ;
@@ -180,10 +183,11 @@ int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr
     }
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
+    fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
         libnetdata_update_u32(&fill->create_process, 1);
@@ -234,10 +238,11 @@ int netdata_fork(struct pt_regs* ctx)
 #endif
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
+    fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
 
@@ -284,10 +289,11 @@ int netdata_sys_clone(struct pt_regs *ctx)
 #endif
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &process_ctrl, &tbl_pid_stats);
+    fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
 

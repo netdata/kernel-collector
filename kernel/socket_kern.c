@@ -155,7 +155,8 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
         return AF_UNSPEC;
 
 
-    nsi->pid = netdata_get_pid(&socket_ctrl);
+    __u32 tgid = 0;
+    nsi->pid = netdata_get_pid(&socket_ctrl, &tgid);
 
     return family;
 }

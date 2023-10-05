@@ -77,10 +77,11 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
     libnetdata_update_global(&cstat_global, NETDATA_KEY_MISSES, 1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_s64(&fill->misses, 1);
     } else {
@@ -107,10 +108,11 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
     libnetdata_update_global(&cstat_global, NETDATA_KEY_TOTAL, 1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_s64(&fill->total, 1);
     } else {
@@ -156,10 +158,11 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
     libnetdata_update_sglobal(&cstat_global, NETDATA_KEY_MISSES, -1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_s64(&fill->misses, -1);
     } else {
@@ -190,10 +193,11 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
     libnetdata_update_sglobal(&cstat_global, NETDATA_KEY_MISSES, -1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_s64(&fill->misses, -1);
     } else {
@@ -222,10 +226,11 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
     libnetdata_update_global(&cstat_global, NETDATA_KEY_DIRTY, 1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &cstat_ctrl, &cstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->total, -1);
         libnetdata_update_u64(&fill->dirty, 1);

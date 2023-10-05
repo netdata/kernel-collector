@@ -79,10 +79,11 @@ int netdata_lookup_fast(struct pt_regs* ctx)
     libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_REFERENCE, 1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&dcstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->references, 1);
     } else {
@@ -111,10 +112,11 @@ int netdata_d_lookup(struct pt_regs* ctx)
     int ret = PT_REGS_RC(ctx);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&dcstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->slow, 1);
     } else {
@@ -134,7 +136,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
     // file not found
     if (ret == 0) {
         libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_MISS, 1);
-        fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+        fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
         if (fill) {
             libnetdata_update_u64(&fill->missed, 1);
         } else {
