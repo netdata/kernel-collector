@@ -46,6 +46,13 @@ static __always_inline void libnetdata_update_sglobal(void *tbl, __u32 key, __s6
         bpf_map_update_elem(tbl, &key, &value, BPF_EXIST);
 }
 
+static __always_inline void libnetdata_update_uid_gid(__u32 *uid, __u32 *gid)
+{
+    __u64 uid_gid = bpf_get_current_uid_gid();
+    *uid = (__u32)uid_gid;
+    *gid = (__u32)(uid_gid>>32);
+}
+
 /**
  * The motive we are using log2 to plot instead the raw value is well explained
  * inside this paper https://www.fsl.cs.stonybrook.edu/docs/osprof-osdi2006/osprof.pdf

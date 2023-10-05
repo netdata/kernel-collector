@@ -82,6 +82,7 @@ static inline void netdata_fill_common_process_data(struct netdata_pid_stat_t *d
     __u32 pid = (__u32)pid_tgid;
 
     data->ct = bpf_ktime_get_ns();
+    libnetdata_update_uid_gid(&data->uid, &data->gid);
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
     bpf_get_current_comm(&data->name, TASK_COMM_LEN);
 #else

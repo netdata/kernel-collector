@@ -30,6 +30,8 @@ typedef struct netdata_sched_process_exec {
 
 struct netdata_pid_stat_t {
     __u64 ct;
+    __u32 uid;
+    __u32 gid;
     char name[TASK_COMM_LEN];
 
     __u32 tgid;                         //Task id

@@ -86,6 +86,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
         libnetdata_update_s64(&fill->misses, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -118,6 +119,7 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
         libnetdata_update_s64(&fill->total, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -169,6 +171,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
         libnetdata_update_s64(&fill->misses, -1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -205,6 +208,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
         libnetdata_update_s64(&fill->misses, -1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -240,6 +244,7 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
         libnetdata_update_u64(&fill->dirty, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);

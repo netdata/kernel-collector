@@ -88,6 +88,7 @@ int netdata_lookup_fast(struct pt_regs* ctx)
         libnetdata_update_u64(&fill->references, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -122,6 +123,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
         libnetdata_update_u64(&fill->slow, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -141,18 +143,6 @@ int netdata_d_lookup(struct pt_regs* ctx)
         fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
         if (fill) {
             libnetdata_update_u64(&fill->missed, 1);
-        } else {
-            data.ct = bpf_ktime_get_ns();
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-            bpf_get_current_comm(&data.name, TASK_COMM_LEN);
-#else
-            data.name[0] = '\0';
-#endif
-
-            data.missed = 1;
-            bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
-
-            libnetdata_update_global(&dcstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
         }
     }
 

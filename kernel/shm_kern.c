@@ -81,6 +81,7 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
         libnetdata_update_u32(&fill->get, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -119,6 +120,7 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
         libnetdata_update_u32(&fill->at, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -157,6 +159,7 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
         libnetdata_update_u32(&fill->dt, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
@@ -195,6 +198,7 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
         libnetdata_update_u32(&fill->ctl, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
