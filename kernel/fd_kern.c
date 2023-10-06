@@ -105,10 +105,11 @@ int netdata_sys_open(struct pt_regs* ctx)
 #endif
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&fd_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &fd_ctrl, &tbl_fd_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &fd_ctrl, &tbl_fd_pid);
     if (fill) {
         libnetdata_update_u32(&fill->open_call, 1) ;
 
@@ -119,6 +120,8 @@ int netdata_sys_open(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -181,10 +184,11 @@ int netdata_close(struct pt_regs* ctx)
 #endif
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&fd_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &fd_ctrl, &tbl_fd_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &fd_ctrl, &tbl_fd_pid);
     if (fill) {
         libnetdata_update_u32(&fill->close_call, 1) ;
 
@@ -195,6 +199,8 @@ int netdata_close(struct pt_regs* ctx)
 #endif
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else

@@ -155,7 +155,8 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
         return AF_UNSPEC;
 
 
-    nsi->pid = netdata_get_pid(&socket_ctrl);
+    __u32 tgid = 0;
+    nsi->pid = netdata_get_pid(&socket_ctrl, &tgid);
 
     return family;
 }
@@ -331,8 +332,8 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
     bpf_probe_read(&idx.port, sizeof(u16), &sk->__sk_common.skc_num);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 tgid = (__u32)(pid_tgid);
-    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tgid = (__u32)pid_tgid >>32;
+    __u32 pid = (__u32)pid_tgid;
 
     netdata_passive_connection_t *value = (netdata_passive_connection_t *)bpf_map_lookup_elem(&tbl_lports, &idx);
     if (value) {

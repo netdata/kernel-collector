@@ -5,6 +5,9 @@
 
 typedef struct netdata_shm {
     __u64 ct;
+    __u32 tgid;
+    __u32 uid;
+    __u32 gid;
     char name[TASK_COMM_LEN];
 
     __u32 get;

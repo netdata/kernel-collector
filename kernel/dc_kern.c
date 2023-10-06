@@ -79,14 +79,17 @@ int netdata_lookup_fast(struct pt_regs* ctx)
     libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_REFERENCE, 1);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&dcstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->references, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -111,14 +114,17 @@ int netdata_d_lookup(struct pt_regs* ctx)
     int ret = PT_REGS_RC(ctx);
 
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&dcstat_ctrl))
         return 0;
 
-    fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+    fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
     if (fill) {
         libnetdata_update_u64(&fill->slow, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -134,21 +140,9 @@ int netdata_d_lookup(struct pt_regs* ctx)
     // file not found
     if (ret == 0) {
         libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_MISS, 1);
-        fill = netdata_get_pid_structure(&key, &dcstat_ctrl, &dcstat_pid);
+        fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
         if (fill) {
             libnetdata_update_u64(&fill->missed, 1);
-        } else {
-            data.ct = bpf_ktime_get_ns();
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-            bpf_get_current_comm(&data.name, TASK_COMM_LEN);
-#else
-            data.name[0] = '\0';
-#endif
-
-            data.missed = 1;
-            bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
-
-            libnetdata_update_global(&dcstat_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
         }
     }
 

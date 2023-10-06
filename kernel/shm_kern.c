@@ -72,14 +72,17 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
 
     // check if apps is enabled; if not, don't record apps data.
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&shm_ctrl))
         return 0;
 
-    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &tgid, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u32(&fill->get, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -108,14 +111,17 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
 
     // check if apps is enabled; if not, don't record apps data.
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&shm_ctrl))
         return 0;
 
-    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &tgid, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u32(&fill->at, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -144,14 +150,17 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
 
     // check if apps is enabled; if not, don't record apps data.
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&shm_ctrl))
         return 0;
 
-    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &tgid, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u32(&fill->dt, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else
@@ -180,14 +189,17 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
 
     // check if apps is enabled; if not, don't record apps data.
     __u32 key = 0;
+    __u32 tgid = 0;
     if (!monitor_apps(&shm_ctrl))
         return 0;
 
-    netdata_shm_t *fill = netdata_get_pid_structure(&key, &shm_ctrl, &tbl_pid_shm);
+    netdata_shm_t *fill = netdata_get_pid_structure(&key, &tgid, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u32(&fill->ctl, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
+        libnetdata_update_uid_gid(&data.uid, &data.gid);
+        data.tgid = tgid;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
         bpf_get_current_comm(&data.name, TASK_COMM_LEN);
 #else

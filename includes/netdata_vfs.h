@@ -5,6 +5,9 @@
 
 struct netdata_vfs_stat_t {
     __u64 ct;
+    __u32 tgid;
+    __u32 uid;
+    __u32 gid;
     char name[TASK_COMM_LEN];
 
     //Counter
