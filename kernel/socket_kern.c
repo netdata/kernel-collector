@@ -234,8 +234,10 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
     val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted, protocol);
+        val->tcp.state = state;
     } else {
         update_socket_common(&data, protocol, family);
+        data.tcp.state = state;
         update_socket_stats(&data, sent, received, retransmitted, protocol);
 
         libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
