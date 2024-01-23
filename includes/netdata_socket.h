@@ -109,6 +109,8 @@ enum socket_counters {
     NETDATA_KEY_CALLS_TCP_CONNECT_IPV6,
     NETDATA_KEY_ERROR_TCP_CONNECT_IPV6,
 
+    NETDATA_KEY_CALLS_TCP_SET_STATE,
+
     // Keep this as last and don't skip numbers as it is used as element counter
     NETDATA_SOCKET_COUNTER
 };

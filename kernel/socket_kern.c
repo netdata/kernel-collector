@@ -213,7 +213,8 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
                                                 __u64 sent,
                                                 __u64 received,
                                                 __u32 retransmitted,
-                                                __u16 protocol)
+                                                __u16 protocol,
+                                                __u32 state)
 {
     __u16 family;
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
@@ -400,7 +401,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
 
-    update_socket_table(ctx, sent, 0, 0, IPPROTO_TCP);
+    update_socket_table(ctx, sent, 0, 0, IPPROTO_TCP, 0);
 
     return 0;
 }
@@ -410,7 +411,18 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_TCP_RETRANSMIT, 1);
 
-    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP);
+    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP, 0);
+
+    return 0;
+}
+
+SEC("kprobe/tcp_set_state")
+int netdata_tcp_set_state(struct pt_regs* ctx)
+{
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_SET_STATE, 1);
+    int state = PT_REGS_PARM1(ctx);
+
+    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP, state);
 
     return 0;
 }
@@ -430,7 +442,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
 
-    update_socket_table(ctx, 0, (__u64)copied, 1, IPPROTO_TCP);
+    update_socket_table(ctx, 0, (__u64)copied, 1, IPPROTO_TCP, 0);
 
     return 0;
 }
@@ -535,7 +547,7 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_RECVMSG, received);
 
-    update_socket_table(ctx, 0, received, 0, IPPROTO_UDP);
+    update_socket_table(ctx, 0, received, 0, IPPROTO_UDP, 0);
 
     return 0;
 }
@@ -564,7 +576,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
 
-    update_socket_table(ctx, sent, 0, 0, IPPROTO_UDP);
+    update_socket_table(ctx, sent, 0, 0, IPPROTO_UDP, 0);
 
     return 0;
 }
