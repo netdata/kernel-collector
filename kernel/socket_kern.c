@@ -422,7 +422,7 @@ SEC("kprobe/tcp_set_state")
 int netdata_tcp_set_state(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_SET_STATE, 1);
-    int state = PT_REGS_PARM1(ctx);
+    int state = PT_REGS_PARM2(ctx);
 
     update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP, state);
 
