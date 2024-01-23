@@ -36,6 +36,7 @@ typedef struct netdata_socket {
         __u32 retransmit;   //It is never used with UDP
         __u32 ipv4_connect; // Use to count new connections
         __u32 ipv6_connect; // Use to count new connections
+        __u32 state;        //Current socket state
     } tcp;
     // Number of calls
     struct {
