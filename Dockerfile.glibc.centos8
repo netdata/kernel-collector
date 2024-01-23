@@ -3,7 +3,7 @@ FROM almalinux:9 AS build
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=4.18.0-372.16.1.el8_6
+ENV KERNEL_VERSION=4.18.0-372.32.1.el8_6
 
 ENV _LIBC=glibc
 
@@ -32,7 +32,8 @@ RUN cd ~/rpmbuild/SOURCES && \
     mkdir -p /usr/src/kernels
 
 RUN cd /usr/src && \
-    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux
+    ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux && \
+    ln -s /usr/lib/gcc/x86_64-redhat-linux/11/include/stdarg.h /usr/src/linux/include/
 
 COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh

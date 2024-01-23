@@ -3,7 +3,7 @@ FROM almalinux:9 AS build
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=5.14.0-70.17.1.el9_0
+ENV KERNEL_VERSION=5.14.0-70.30.1.el9_0
 
 ENV _LIBC=glibc
 
@@ -30,7 +30,8 @@ RUN mkdir -p /root/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
 RUN tar -xf /root/rpmbuild/SOURCES/linux-${KERNEL_VERSION}.tar.xz -C /root/rpmbuild/SOURCES && \
     mkdir -p /usr/src/kernels
 
-RUN ln -s /root/rpmbuild/SOURCES/linux-${KERNEL_VERSION} /usr/src/linux
+RUN ln -s /root/rpmbuild/SOURCES/linux-${KERNEL_VERSION} /usr/src/linux && \
+    ln -s /usr/lib/gcc/x86_64-redhat-linux/11/include/stdarg.h /usr/src/linux/include/
 
 COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
