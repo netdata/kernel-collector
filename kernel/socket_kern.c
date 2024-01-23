@@ -195,7 +195,6 @@ static __always_inline void update_socket_stats(netdata_socket_t *ptr,
 
 static __always_inline void update_socket_common(netdata_socket_t *data, __u16 protocol, __u16 family)
 {
-    data->ct = bpf_ktime_get_ns();
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
     bpf_get_current_comm(&data->name, TASK_COMM_LEN);
 #else
@@ -203,7 +202,6 @@ static __always_inline void update_socket_common(netdata_socket_t *data, __u16 p
 #endif
 
     data->first = bpf_ktime_get_ns();
-    data->ct = data->first;
     data->protocol = protocol;
     data->family = family;
 }
