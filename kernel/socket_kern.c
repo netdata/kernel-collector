@@ -195,7 +195,6 @@ static __always_inline void update_socket_stats(netdata_socket_t *ptr,
 
 static __always_inline void update_socket_common(netdata_socket_t *data, __u16 protocol, __u16 family)
 {
-    data->ct = bpf_ktime_get_ns();
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
     bpf_get_current_comm(&data->name, TASK_COMM_LEN);
 #else
@@ -203,7 +202,6 @@ static __always_inline void update_socket_common(netdata_socket_t *data, __u16 p
 #endif
 
     data->first = bpf_ktime_get_ns();
-    data->ct = data->first;
     data->protocol = protocol;
     data->family = family;
 }
@@ -215,7 +213,8 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
                                                 __u64 sent,
                                                 __u64 received,
                                                 __u32 retransmitted,
-                                                __u16 protocol)
+                                                __u16 protocol,
+                                                __u32 state)
 {
     __u16 family;
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
@@ -235,8 +234,10 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
     val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted, protocol);
+        val->tcp.state = state;
     } else {
         update_socket_common(&data, protocol, family);
+        data.tcp.state = state;
         update_socket_stats(&data, sent, received, retransmitted, protocol);
 
         libnetdata_update_global(&socket_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
@@ -402,7 +403,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_SENDMSG, sent);
 
-    update_socket_table(ctx, sent, 0, 0, IPPROTO_TCP);
+    update_socket_table(ctx, sent, 0, 0, IPPROTO_TCP, 0);
 
     return 0;
 }
@@ -412,7 +413,18 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_TCP_RETRANSMIT, 1);
 
-    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP);
+    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP, 0);
+
+    return 0;
+}
+
+SEC("kprobe/tcp_set_state")
+int netdata_tcp_set_state(struct pt_regs* ctx)
+{
+    libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_CALLS_TCP_SET_STATE, 1);
+    int state = PT_REGS_PARM2(ctx);
+
+    update_socket_table(ctx, 0, 0, 1, IPPROTO_TCP, state);
 
     return 0;
 }
@@ -432,7 +444,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     __u64 received = (__u64) PT_REGS_PARM2(ctx);
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_TCP_CLEANUP_RBUF, received);
 
-    update_socket_table(ctx, 0, (__u64)copied, 1, IPPROTO_TCP);
+    update_socket_table(ctx, 0, (__u64)copied, 1, IPPROTO_TCP, 0);
 
     return 0;
 }
@@ -537,7 +549,7 @@ int trace_udp_ret_recvmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_RECVMSG, received);
 
-    update_socket_table(ctx, 0, received, 0, IPPROTO_UDP);
+    update_socket_table(ctx, 0, received, 0, IPPROTO_UDP, 0);
 
     return 0;
 }
@@ -566,7 +578,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 
     libnetdata_update_global(&tbl_global_sock, NETDATA_KEY_BYTES_UDP_SENDMSG, (__u64) sent);
 
-    update_socket_table(ctx, sent, 0, 0, IPPROTO_UDP);
+    update_socket_table(ctx, sent, 0, 0, IPPROTO_UDP, 0);
 
     return 0;
 }

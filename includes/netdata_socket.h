@@ -36,6 +36,7 @@ typedef struct netdata_socket {
         __u32 retransmit;   //It is never used with UDP
         __u32 ipv4_connect; // Use to count new connections
         __u32 ipv6_connect; // Use to count new connections
+        __u32 state;        //Current socket state
     } tcp;
     // Number of calls
     struct {
@@ -107,6 +108,8 @@ enum socket_counters {
 
     NETDATA_KEY_CALLS_TCP_CONNECT_IPV6,
     NETDATA_KEY_ERROR_TCP_CONNECT_IPV6,
+
+    NETDATA_KEY_CALLS_TCP_SET_STATE,
 
     // Keep this as last and don't skip numbers as it is used as element counter
     NETDATA_SOCKET_COUNTER
