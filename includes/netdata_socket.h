@@ -4,6 +4,10 @@
 #define _NETDATA_NETWORK_H_ 1
 
 /**
+ *      SOCKET
+ */
+
+/**
  * Union used to store ip addresses
  */
 union netdata_ip {
@@ -129,5 +133,40 @@ enum socket_functions {
 
     NETDATA_SOCKET_FCNT_END
 };
+
+/**
+ *      NETWORK VIEWER
+ */
+
+union ipv46 {
+    uint32_t ipv4;
+    union netdata_ip ipv6;
+};
+
+typedef struct netdata_nv_idx {
+    union ipv46 saddr;
+    __u16 sport;
+    union ipv46 daddr;
+    __u16 dport;
+} netdata_nv_idx_t;
+
+typedef struct netdata_nv_data {
+    int state;
+
+    __u32 pid;
+
+    __u8  timer;
+    __u8  retransmits;
+    __u32 expires;
+    __u32 rqueue;
+    __u32 wqueue;
+
+    char name[TASK_COMM_LEN];
+
+    __u32 direction;
+
+    __u16 family;
+} netdata_nv_data_t;
+
 
 #endif /* _NETDATA_NETWORK_H_ */
