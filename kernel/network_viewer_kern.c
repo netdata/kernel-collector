@@ -129,15 +129,37 @@ static __always_inline u8 select_protocol(struct sock *sk)
 }
 #endif // Kernel version 5.6.0
 
+static __always_inline __s32 am_i_monitoring_protocol(struct sock *sk)
+{
+    u16 protocol;
+    if (!sk)
+        return 0;
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
+    protocol = 0;
+    bpf_probe_read(&protocol, sizeof(u16), &sk->sk_protocol);
+#else
+    protocol = (u16) select_protocol(sk);
+#endif
+
+    if (protocol != IPPROTO_TCP && protocol != IPPROTO_UDP)
+        return 0;
+
+} 
+
 /************************************************************************************
  *
- *                                 General Socket Section
+ *                                 External Connection
  *
  ***********************************************************************************/
 
 SEC("kretprobe/inet_csk_accept")
 int netdata_inet_csk_accept(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_RC(ctx);
+    if (!am_i_monitoring_protocol(sk))
+        return 0;
+
     return 0;
 }
 
@@ -150,18 +172,30 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
 SEC("kretprobe/tcp_sendmsg")
 int netdata_tcp_sendmsg(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
     return 0;
 }
 
 SEC("kprobe/tcp_retransmit_skb")
 int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
     return 0;
 }
 
 SEC("kprobe/tcp_set_state")
 int netdata_tcp_set_state(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
     return 0;
 }
 
@@ -169,18 +203,30 @@ int netdata_tcp_set_state(struct pt_regs* ctx)
 SEC("kprobe/tcp_cleanup_rbuf")
 int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
     return 0;
 }
 
 SEC("kretprobe/tcp_v4_connect")
 int netdata_tcp_v4_connect(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
     return 0;
 }
 
 SEC("kretprobe/tcp_v6_connect")
 int netdata_tcp_v6_connect(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
     return 0;
 }
 
@@ -194,12 +240,20 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
 SEC("kprobe/udp_recvmsg")
 int trace_udp_recvmsg(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
     return 0;
 }
 
 SEC("kretprobe/udp_sendmsg")
 int trace_udp_sendmsg(struct pt_regs* ctx)
 {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+
     return 0;
 }
 
