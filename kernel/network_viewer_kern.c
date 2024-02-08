@@ -43,7 +43,7 @@ struct {
 } nv_ctrl SEC(".maps");
 
 #else
-struct bpf_map_def SEC("maps") tbl_nd_socket = {
+struct bpf_map_def SEC("maps") tbl_nv_socket = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(netdata_nv_idx_t),
     .value_size = sizeof(netdata_nv_data_t),
