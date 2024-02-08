@@ -166,6 +166,7 @@ typedef struct netdata_nv_data {
     __u32 direction;
 
     __u16 family;
+    __u16 protocol;
 } netdata_nv_data_t;
 
 

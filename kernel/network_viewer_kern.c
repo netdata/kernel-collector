@@ -19,6 +19,8 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
+const volatile bool collect_everything = false;
+
 /************************************************************************************
  *
  *                              Hash Table Section
@@ -62,31 +64,32 @@ struct bpf_map_def SEC("maps") nv_ctrl = {
  *
  ***********************************************************************************/
 
-static __always_inline __u16 set_idx_value(netdata_nv_idx_t *nsi, struct inet_sock *is)
+static __always_inline __u16 set_nv_idx_value(netdata_nv_idx_t *nvi, struct sock *sk)
 {
+    struct inet_sock *is = inet_sk(sk);
     __u16 family;
 
     // Read Family
     bpf_probe_read(&family, sizeof(u16), &is->sk.__sk_common.skc_family);
     // Read source and destination IPs
     if ( family == AF_INET ) { //AF_INET
-        // bpf_probe_read(&nsi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr); // bind to local address
-        bpf_probe_read(&nsi->saddr.ipv4, sizeof(u32), &is->inet_saddr);
-        bpf_probe_read(&nsi->daddr.ipv4, sizeof(u32), &is->inet_daddr);
-        if (nsi->saddr.ipv4 == 0 || nsi->daddr.ipv4 == 0) // Zero
+        // bpf_probe_read(&nvi->saddr.addr32[0], sizeof(u32), &is->inet_rcv_saddr); // bind to local address
+        bpf_probe_read(&nvi->saddr.ipv4, sizeof(u32), &is->inet_saddr);
+        bpf_probe_read(&nvi->daddr.ipv4, sizeof(u32), &is->inet_daddr);
+        if (nvi->saddr.ipv4 == 0 || nvi->daddr.ipv4 == 0) // Zero
             return AF_UNSPEC;
     }
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
     else if ( family == AF_INET6 ) {
         // struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr; // bind to local address
         struct in6_addr *addr6 = &is->sk.__sk_common.skc_v6_rcv_saddr.s6_addr;
-        bpf_probe_read(&nsi->saddr.ipv6.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+        bpf_probe_read(&nvi->saddr.ipv6.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
         addr6 = &is->sk.__sk_common.skc_v6_daddr.s6_addr;
-        bpf_probe_read(&nsi->daddr.ipv6.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+        bpf_probe_read(&nvi->daddr.ipv6.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
-        if (((nsi->saddr.ipv6.addr64[0] == 0) && (nsi->saddr.ipv6.addr64[1] == 0)) ||
-            ((nsi->daddr.ipv6.addr64[0] == 0) && (nsi->daddr.ipv6.addr64[1] == 0))) // Zero addr
+        if (((nvi->saddr.ipv6.addr64[0] == 0) && (nvi->saddr.ipv6.addr64[1] == 0)) ||
+            ((nvi->daddr.ipv6.addr64[0] == 0) && (nvi->daddr.ipv6.addr64[1] == 0))) // Zero addr
             return AF_UNSPEC;
     }
     else {
@@ -94,12 +97,12 @@ static __always_inline __u16 set_idx_value(netdata_nv_idx_t *nsi, struct inet_so
     }
 
     //Read destination port
-    bpf_probe_read(&nsi->dport, sizeof(u16), &is->inet_dport);
-    bpf_probe_read(&nsi->sport, sizeof(u16), &is->inet_sport);
+    bpf_probe_read(&nvi->dport, sizeof(u16), &is->inet_dport);
+    bpf_probe_read(&nvi->sport, sizeof(u16), &is->inet_sport);
 
     // Socket for nowhere or system looking for port
     // This can be an attack vector that needs to be addressed in another opportunity
-    if (nsi->sport == 0 || nsi->dport == 0)
+    if (nvi->sport == 0 || nvi->dport == 0)
         return AF_UNSPEC;
 
 
@@ -147,6 +150,49 @@ static __always_inline __s32 am_i_monitoring_protocol(struct sock *sk)
 
 } 
 
+static __always_inline void set_common_nv_data(netdata_nv_data_t *data,
+                                               struct sock *sk,
+                                               __u16 family,
+                                               __u16 protocol,
+                                               int state)
+{
+    const struct inet_connection_sock *icsk = inet_csk(sk);
+    const struct tcp_sock *tp = tcp_sk(sk);
+    int rx_queue, timer_active;
+
+    if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
+        icsk->icsk_pending == ICSK_TIME_REO_TIMEOUT ||
+#else
+        icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
+#endif
+        icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
+        timer_active = 1;
+    } else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
+        timer_active = 4;
+    } else if (timer_pending(&sk->sk_timer)) {
+        timer_active = 2;
+    } else {
+        timer_active = 0;
+    }
+    
+    if (sk->sk_state == TCP_LISTEN)
+        rx_queue = sk->sk_ack_backlog;
+    else
+        rx_queue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
+
+    data->state = state;
+    data->pid = bpf_get_current_pid_tgid() >> 32;
+    data->timer = 0;
+    data->retransmits = icsk->icsk_retransmits;
+    data->expires = 0;
+    data->rqueue = rx_queue;
+    data->wqueue = timer_active;
+
+    data->family = family;
+    data->protocol = protocol;
+}
+
 /************************************************************************************
  *
  *                                 External Connection
@@ -159,6 +205,18 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
     struct sock *sk = (struct sock *)PT_REGS_RC(ctx);
     if (!am_i_monitoring_protocol(sk))
         return 0;
+
+    netdata_nv_idx_t idx;
+    __u16 family = set_nv_idx_value(&idx, sk);
+    netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
+
+    if (!val && !collect_everything)
+        return 0;
+    else if (val)
+        return 0;
+    
+    netdata_nv_data_t data;
+    set_common_nv_data(&data, sk, family, IPPROTO_TCP, 0);
 
     return 0;
 }
