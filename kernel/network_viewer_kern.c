@@ -82,10 +82,10 @@ static __always_inline __u16 set_nv_idx_value(netdata_nv_idx_t *nvi, struct sock
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
     else if ( family == AF_INET6 ) {
         // struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr; // bind to local address
-        struct in6_addr *addr6 = &is->sk.__sk_common.skc_v6_rcv_saddr.s6_addr;
+        struct in6_addr *addr6 = (struct in6_addr *)&is->sk.__sk_common.skc_v6_rcv_saddr.s6_addr;
         bpf_probe_read(&nvi->saddr.ipv6.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
-        addr6 = &is->sk.__sk_common.skc_v6_daddr.s6_addr;
+        addr6 = (struct in6_addr *)&is->sk.__sk_common.skc_v6_daddr.s6_addr;
         bpf_probe_read(&nvi->daddr.ipv6.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
         if (((nvi->saddr.ipv6.addr64[0] == 0) && (nvi->saddr.ipv6.addr64[1] == 0)) ||
@@ -104,7 +104,6 @@ static __always_inline __u16 set_nv_idx_value(netdata_nv_idx_t *nvi, struct sock
     // This can be an attack vector that needs to be addressed in another opportunity
     if (nvi->sport == 0 || nvi->dport == 0)
         return AF_UNSPEC;
-
 
     return family;
 }
@@ -148,6 +147,7 @@ static __always_inline __s32 am_i_monitoring_protocol(struct sock *sk)
     if (protocol != IPPROTO_TCP && protocol != IPPROTO_UDP)
         return 0;
 
+    return 1;
 } 
 
 static __always_inline void set_common_nv_data(netdata_nv_data_t *data,
@@ -158,36 +158,44 @@ static __always_inline void set_common_nv_data(netdata_nv_data_t *data,
 {
     const struct inet_connection_sock *icsk = inet_csk(sk);
     const struct tcp_sock *tp = tcp_sk(sk);
-    int rx_queue, timer_active;
+    __u8 icsk_pending;
+    int rx_queue;
+    struct timer_list tl;
 
-    if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
+    bpf_probe_read(&icsk_pending, sizeof(u8), &icsk->icsk_pending);
+    bpf_probe_read(&tl, sizeof(struct timer_list), &sk->sk_timer);
+
+    if (icsk_pending == ICSK_TIME_RETRANS ||
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
-        icsk->icsk_pending == ICSK_TIME_REO_TIMEOUT ||
+        icsk_pending == ICSK_TIME_REO_TIMEOUT ||
 #else
-        icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
+        icsk_pending == ICSK_TIME_EARLY_RETRANS ||
 #endif
-        icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
-        timer_active = 1;
-    } else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
-        timer_active = 4;
-    } else if (timer_pending(&sk->sk_timer)) {
-        timer_active = 2;
+        icsk_pending == ICSK_TIME_LOSS_PROBE) {
+        data->wqueue = 1;
+    } else if (icsk_pending == ICSK_TIME_PROBE0) {
+        data->wqueue = 4;
+    } else if (timer_pending(&tl)) {
+        data->wqueue = 2;
     } else {
-        timer_active = 0;
+        data->wqueue = 0;
     }
     
-    if (sk->sk_state == TCP_LISTEN)
-        rx_queue = sk->sk_ack_backlog;
-    else
-        rx_queue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
+    if (state == TCP_LISTEN)
+        bpf_probe_read(&rx_queue, sizeof(rx_queue), &sk->sk_ack_backlog);
+    else {
+        u32 rcv_nxt, copied_seq;
+        bpf_probe_read(&rcv_nxt, sizeof(u32), &tp->rcv_nxt);
+        bpf_probe_read(&copied_seq, sizeof(u32), &tp->copied_seq);
+        rx_queue = max_t(int, rcv_nxt - copied_seq, 0);
+    }
 
     data->state = state;
     data->pid = bpf_get_current_pid_tgid() >> 32;
     data->timer = 0;
-    data->retransmits = icsk->icsk_retransmits;
+    bpf_probe_read(&data->retransmits, sizeof(data->retransmits), &icsk->icsk_retransmits);
     data->expires = 0;
     data->rqueue = rx_queue;
-    data->wqueue = timer_active;
 
     data->family = family;
     data->protocol = protocol;
@@ -209,14 +217,18 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
     netdata_nv_idx_t idx;
     __u16 family = set_nv_idx_value(&idx, sk);
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
-
-    if (!val && !collect_everything)
+    if (val) {
+        set_common_nv_data(val, sk, family, IPPROTO_TCP, 0);
         return 0;
-    else if (val)
+    }
+
+    if (!collect_everything)
         return 0;
     
-    netdata_nv_data_t data;
+    netdata_nv_data_t data = { };
     set_common_nv_data(&data, sk, family, IPPROTO_TCP, 0);
+
+    bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
     return 0;
 }
@@ -231,7 +243,7 @@ SEC("kretprobe/tcp_sendmsg")
 int netdata_tcp_sendmsg(struct pt_regs* ctx)
 {
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
-    if (!sk)
+    if (!sk || sk == (void *)1)
         return 0;
 
     return 0;
@@ -241,7 +253,7 @@ SEC("kprobe/tcp_retransmit_skb")
 int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
 {
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
-    if (!sk)
+    if (!sk || sk == (void *)1)
         return 0;
 
     return 0;
@@ -251,7 +263,7 @@ SEC("kprobe/tcp_set_state")
 int netdata_tcp_set_state(struct pt_regs* ctx)
 {
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
-    if (!sk)
+    if (!sk || sk == (void *)1)
         return 0;
 
     return 0;
@@ -262,7 +274,7 @@ SEC("kprobe/tcp_cleanup_rbuf")
 int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 {
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
-    if (!sk)
+    if (!sk || sk == (void *)1)
         return 0;
 
     return 0;
@@ -272,7 +284,7 @@ SEC("kretprobe/tcp_v4_connect")
 int netdata_tcp_v4_connect(struct pt_regs* ctx)
 {
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
-    if (!sk)
+    if (!sk || sk == (void *)1)
         return 0;
 
     return 0;
@@ -282,7 +294,7 @@ SEC("kretprobe/tcp_v6_connect")
 int netdata_tcp_v6_connect(struct pt_regs* ctx)
 {
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
-    if (!sk)
+    if (!sk || sk == (void *)1)
         return 0;
 
     return 0;
