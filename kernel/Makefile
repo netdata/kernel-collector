@@ -49,6 +49,7 @@ NETDATA_ALL_APPS= btrfs \
     		  mdflush \
     		  mount \
     		  msync \
+    		  network_viewer \
     		  nfs \
     		  oomkill \
     		  process \
