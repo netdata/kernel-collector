@@ -154,6 +154,7 @@ typedef struct netdata_nv_data {
     int state;
 
     __u32 pid;
+    __u32 uid;
 
     __u8  timer;
     __u8  retransmits;
