@@ -881,7 +881,6 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
 
     size_t total =  ebpf_count_programs(obj);
 
-   ebpf_set_variable(obj);
    if (ctrl && !strcmp(ctrl, ebpf_modules[14].ctrl_table))
        ebpf_set_variable(obj);
 
