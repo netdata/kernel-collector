@@ -52,15 +52,17 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "msync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .flags = NETDATA_FLAG_SOCKET, .name = "networkviewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
       .flags = NETDATA_FLAG_PROCESS, .name = "process", .update_names = NULL, .ctrl_table = "process_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SHM, .name = "shm", .update_names = NULL, .ctrl_table = "shm_ctrl" },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOFTIRQ, .name = "softirq", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
@@ -797,6 +799,52 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
     }
 }
 
+void ebpf_set_variable(struct bpf_object *obj)
+{
+    struct bpf_map *map;
+    static char *search = { "rodata" };
+
+    int tables = 0;
+    // Loop trough all maps
+    bpf_object__for_each_map(map, obj) {
+        const char *name = bpf_map__name(map);
+        if (!strstr(name, "rodata"))
+            continue;
+
+        int fd = bpf_map__fd(map);
+        ebpf_table_data_t *values;
+        uint32_t key_size;
+        uint32_t value_size;
+#ifdef LIBBPF_MAJOR_VERSION
+        enum bpf_map_type type = bpf_map__type(map);
+
+        key_size = bpf_map__key_size(map);
+        value_size = bpf_map__value_size(map);
+#else
+        const struct bpf_map_def *def = bpf_map__def(map);
+        int type = def->type;
+        key_size = def->key_size;
+        value_size = def->value_size;
+#endif
+
+        fprintf(stdlog,
+                "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
+               "                       \"Type\" : %u,\n"
+               "                       \"FD\" : %d},\n" ,
+                name, key_size, value_size, type, fd);
+
+        bool value = true;
+        int key = 0, next_key = 0;
+        while (!bpf_map_get_next_key(fd, &key, &next_key)) {
+            int ret = bpf_map_update_elem(fd, &key, &value, 0);
+            if (ret)
+                fprintf(stdlog, "\n {\"error\" : \"Add key(%u) for controller table failed.\n\"}", key);
+
+        }
+
+    }
+}
+
 /**
  * Tester
  *
@@ -832,6 +880,10 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     }
 
     size_t total =  ebpf_count_programs(obj);
+
+   ebpf_set_variable(obj);
+   if (ctrl && !strcmp(ctrl, ebpf_modules[14].ctrl_table))
+       ebpf_set_variable(obj);
 
     ebpf_attach_t load;
     int errors = ebpf_attach_programs(&load, obj, total, names);
@@ -938,6 +990,7 @@ static void ebpf_help()
                     "--hardirq          Latency for hard IRQ.\n"
                     "--mdflush          Calls for md_flush_request.\n"
                     "--mount            Calls for mount (2) and umount (2) syscalls.\n"
+                    "--networkviewer    Network Viewer.\n"
                     "--oomkill          Monitoring oomkill events.\n"
                     "--process          Monitoring process life(Threads, start, exit).\n"
                     "--shm              Calls for syscalls shmget(2), shmat (2), shmdt (2), and shmctl (2).\n"
@@ -993,6 +1046,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"hardirq",            no_argument,          0,  0 },
         {"mdflush",            no_argument,          0,  0 },
         {"mount",              no_argument,          0,  0 },
+        {"networkviewer",      no_argument,          0,  0 },
         {"oomkill",            no_argument,          0,  0 },
         {"process",            no_argument,          0,  0 },
         {"shm",                no_argument,          0,  0 },
@@ -1074,6 +1128,11 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
             case NETDATA_OPT_MOUNT:
                 {
                     flags |= NETDATA_FLAG_MOUNT;
+                    break;
+                }
+            case NETDATA_OPT_NETWORK_VIEWER:
+                {
+                    flags |= NETDATA_FLAG_NETWORK_VIEWER;
                     break;
                 }
             case NETDATA_OPT_OOMKILL:
