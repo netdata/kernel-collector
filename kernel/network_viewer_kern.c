@@ -19,8 +19,6 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
-const volatile bool collect_everything = false;
-
 /************************************************************************************
  *
  *                              Hash Table Section
@@ -240,7 +238,7 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
@@ -272,7 +270,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
@@ -298,7 +296,7 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
@@ -326,7 +324,7 @@ int netdata_tcp_set_state(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
@@ -353,7 +351,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
@@ -379,7 +377,7 @@ int netdata_tcp_v4_connect(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
@@ -405,7 +403,7 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
@@ -439,7 +437,7 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
@@ -466,7 +464,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
         return 0;
     }
 
-    if (!collect_everything)
+    if (!monitor_apps(&nv_ctrl))
         return 0;
 
     netdata_nv_data_t data = { };
