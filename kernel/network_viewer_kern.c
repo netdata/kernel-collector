@@ -209,7 +209,9 @@ static __always_inline void set_common_udp_nv_data(netdata_nv_data_t *data,
                                                    __u16 family) {
     data->protocol = IPPROTO_UDP;
     data->family = family;
-    bpf_probe_read(&data->state, sizeof(data->state), &sk->sk_state);
+    unsigned char state;
+    bpf_probe_read(&state, sizeof(state), &sk->sk_state);
+    data->state = (int)state;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
     bpf_get_current_comm(&data->name, TASK_COMM_LEN);
 #else
