@@ -56,7 +56,7 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_SOCKET, .name = "networkviewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
+      .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
@@ -799,52 +799,6 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
     }
 }
 
-void ebpf_set_variable(struct bpf_object *obj)
-{
-    struct bpf_map *map;
-    static char *search = { "rodata" };
-
-    int tables = 0;
-    // Loop trough all maps
-    bpf_object__for_each_map(map, obj) {
-        const char *name = bpf_map__name(map);
-        if (!strstr(name, "rodata"))
-            continue;
-
-        int fd = bpf_map__fd(map);
-        ebpf_table_data_t *values;
-        uint32_t key_size;
-        uint32_t value_size;
-#ifdef LIBBPF_MAJOR_VERSION
-        enum bpf_map_type type = bpf_map__type(map);
-
-        key_size = bpf_map__key_size(map);
-        value_size = bpf_map__value_size(map);
-#else
-        const struct bpf_map_def *def = bpf_map__def(map);
-        int type = def->type;
-        key_size = def->key_size;
-        value_size = def->value_size;
-#endif
-
-        fprintf(stdlog,
-                "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
-               "                       \"Type\" : %u,\n"
-               "                       \"FD\" : %d},\n" ,
-                name, key_size, value_size, type, fd);
-
-        bool value = true;
-        int key = 0, next_key = 0;
-        while (!bpf_map_get_next_key(fd, &key, &next_key)) {
-            int ret = bpf_map_update_elem(fd, &key, &value, 0);
-            if (ret)
-                fprintf(stdlog, "\n {\"error\" : \"Add key(%u) for controller table failed.\n\"}", key);
-
-        }
-
-    }
-}
-
 /**
  * Tester
  *
@@ -864,7 +818,7 @@ void ebpf_set_variable(struct bpf_object *obj)
  *
  * @return It returns 'Success' or 'Fail' depending of final result.
  */
-static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl)
+static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl, uint32_t my_kernel)
 {
     static char *result[] = { "Success", "Fail" };
 
@@ -880,9 +834,6 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     }
 
     size_t total =  ebpf_count_programs(obj);
-
-   if (ctrl && !strcmp(ctrl, ebpf_modules[14].ctrl_table))
-       ebpf_set_variable(obj);
 
     ebpf_attach_t load;
     int errors = ebpf_attach_programs(&load, obj, total, names);
@@ -931,7 +882,7 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
             ebpf_start_netdata_json(load, is_return);
             char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT, 
-                                       ebpf_modules[i].ctrl_table);
+                                       ebpf_modules[i].ctrl_table, kver);
             fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
         }
 
@@ -1317,7 +1268,7 @@ static int ebpf_write_error_exit(char *msg, int ret)
  */
 int main(int argc, char **argv)
 {
-    int my_kernel = ebpf_get_kernel_version();
+    uint32_t my_kernel = ebpf_get_kernel_version();
     int rhf_version = ebpf_get_redhat_release();
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
@@ -1345,7 +1296,7 @@ int main(int argc, char **argv)
     } else {
         if (specific_ebpf) {
             ebpf_start_external_json(specific_ebpf);
-            char *result = ebpf_tester(specific_ebpf, NULL, flags & NETDATA_FLAG_CONTENT, NULL);
+            char *result = ebpf_tester(specific_ebpf, NULL, flags & NETDATA_FLAG_CONTENT, NULL, my_kernel);
             fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
         }
     }
