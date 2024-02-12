@@ -52,15 +52,17 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "msync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
       .flags = NETDATA_FLAG_PROCESS, .name = "process", .update_names = NULL, .ctrl_table = "process_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SHM, .name = "shm", .update_names = NULL, .ctrl_table = "shm_ctrl" },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOFTIRQ, .name = "softirq", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
@@ -816,7 +818,7 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
  *
  * @return It returns 'Success' or 'Fail' depending of final result.
  */
-static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl)
+static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl, uint32_t my_kernel)
 {
     static char *result[] = { "Success", "Fail" };
 
@@ -880,7 +882,7 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
             ebpf_start_netdata_json(load, is_return);
             char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT, 
-                                       ebpf_modules[i].ctrl_table);
+                                       ebpf_modules[i].ctrl_table, kver);
             fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
         }
 
@@ -938,6 +940,7 @@ static void ebpf_help()
                     "--hardirq          Latency for hard IRQ.\n"
                     "--mdflush          Calls for md_flush_request.\n"
                     "--mount            Calls for mount (2) and umount (2) syscalls.\n"
+                    "--networkviewer    Network Viewer.\n"
                     "--oomkill          Monitoring oomkill events.\n"
                     "--process          Monitoring process life(Threads, start, exit).\n"
                     "--shm              Calls for syscalls shmget(2), shmat (2), shmdt (2), and shmctl (2).\n"
@@ -993,6 +996,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"hardirq",            no_argument,          0,  0 },
         {"mdflush",            no_argument,          0,  0 },
         {"mount",              no_argument,          0,  0 },
+        {"networkviewer",      no_argument,          0,  0 },
         {"oomkill",            no_argument,          0,  0 },
         {"process",            no_argument,          0,  0 },
         {"shm",                no_argument,          0,  0 },
@@ -1074,6 +1078,11 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
             case NETDATA_OPT_MOUNT:
                 {
                     flags |= NETDATA_FLAG_MOUNT;
+                    break;
+                }
+            case NETDATA_OPT_NETWORK_VIEWER:
+                {
+                    flags |= NETDATA_FLAG_NETWORK_VIEWER;
                     break;
                 }
             case NETDATA_OPT_OOMKILL:
@@ -1259,7 +1268,7 @@ static int ebpf_write_error_exit(char *msg, int ret)
  */
 int main(int argc, char **argv)
 {
-    int my_kernel = ebpf_get_kernel_version();
+    uint32_t my_kernel = ebpf_get_kernel_version();
     int rhf_version = ebpf_get_redhat_release();
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
@@ -1287,7 +1296,7 @@ int main(int argc, char **argv)
     } else {
         if (specific_ebpf) {
             ebpf_start_external_json(specific_ebpf);
-            char *result = ebpf_tester(specific_ebpf, NULL, flags & NETDATA_FLAG_CONTENT, NULL);
+            char *result = ebpf_tester(specific_ebpf, NULL, flags & NETDATA_FLAG_CONTENT, NULL, my_kernel);
             fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
         }
     }
