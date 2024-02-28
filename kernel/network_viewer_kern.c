@@ -195,7 +195,9 @@ static __always_inline void set_common_tcp_nv_data(netdata_nv_data_t *data,
 
     data->pid = bpf_get_current_pid_tgid() >> 32;
     data->uid = bpf_get_current_uid_gid();
-    data->ts = bpf_ktime_get_ns();
+    // Only update this data when it is a new value
+    if (!data->ts)
+        data->ts = bpf_ktime_get_ns();
     data->timer = 0;
     bpf_probe_read(&data->retransmits, sizeof(data->retransmits), &icsk->icsk_retransmits);
     data->expires = 0;
@@ -210,7 +212,10 @@ static __always_inline void set_common_udp_nv_data(netdata_nv_data_t *data,
                                                    __u16 family) {
     data->pid = bpf_get_current_pid_tgid() >> 32;
     data->uid = bpf_get_current_uid_gid();
-    data->ts = bpf_ktime_get_ns();
+    // Only update this data when it is a new value
+    if (!data->ts)
+        data->ts = bpf_ktime_get_ns();
+
     data->protocol = IPPROTO_UDP;
     data->family = family;
     unsigned char state;
@@ -440,7 +445,6 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_udp_nv_data(val, sk, family);
-        bpf_probe_read(&val->state, sizeof(sk->sk_state), &sk->sk_state);
         return 0;
     }
 
@@ -467,7 +471,6 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_udp_nv_data(val, sk, family);
-        bpf_probe_read(&val->state, sizeof(sk->sk_state), &sk->sk_state);
         return 0;
     }
 
