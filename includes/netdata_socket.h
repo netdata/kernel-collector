@@ -3,6 +3,8 @@
 #ifndef _NETDATA_NETWORK_H_
 #define _NETDATA_NETWORK_H_ 1
 
+#include <linux/in6.h>
+
 /**
  *      SOCKET
  */
@@ -140,7 +142,7 @@ enum socket_functions {
 
 union ipv46 {
     uint32_t ipv4;
-    union netdata_ip ipv6;
+    struct in6_addr ipv6;
 };
 
 typedef struct netdata_nv_idx {
