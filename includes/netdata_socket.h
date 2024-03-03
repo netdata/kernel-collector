@@ -170,6 +170,7 @@ typedef struct netdata_nv_data {
 
     __u8  timer;
     __u8  retransmits;
+    __u16 closed;
     __u32 expires;
     __u32 rqueue;
     __u32 wqueue;
