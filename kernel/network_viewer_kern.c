@@ -215,7 +215,8 @@ static __always_inline void set_common_tcp_nv_data(netdata_nv_data_t *data,
 
 static __always_inline void set_common_udp_nv_data(netdata_nv_data_t *data,
                                                    struct sock *sk,
-                                                   __u16 family) {
+                                                   __u16 family,
+                                                   NETDATA_SOCKET_DIRECTION direction) {
     data->pid = bpf_get_current_pid_tgid() >> 32;
     data->uid = bpf_get_current_uid_gid();
     // Only update this data when it is a new value
@@ -232,6 +233,9 @@ static __always_inline void set_common_udp_nv_data(netdata_nv_data_t *data,
 #else
     data->name[0] = '\0';
 #endif
+
+    if (data->direction == NETDATA_SOCKET_DIRECTION_NONE)
+        data->direction = direction;
 }
 
 /************************************************************************************
@@ -455,9 +459,10 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
 
     netdata_nv_idx_t idx = {};
     __u16 family = set_nv_idx_value(&idx, sk);
+    NETDATA_SOCKET_DIRECTION direction = (idx.sport == idx.dport) ? NETDATA_SOCKET_DIRECTION_LISTEN : NETDATA_SOCKET_DIRECTION_OUTBOUND | NETDATA_SOCKET_DIRECTION_INBOUND;
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
-        set_common_udp_nv_data(val, sk, family);
+        set_common_udp_nv_data(val, sk, family, direction);
         return 0;
     }
 
@@ -465,7 +470,7 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
         return 0;
 
     netdata_nv_data_t data = { };
-    set_common_udp_nv_data(&data, sk, family);
+    set_common_udp_nv_data(&data, sk, family, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
@@ -481,9 +486,10 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 
     netdata_nv_idx_t idx = {};
     __u16 family = set_nv_idx_value(&idx, sk);
+    NETDATA_SOCKET_DIRECTION direction = (idx.sport == idx.dport) ? NETDATA_SOCKET_DIRECTION_LISTEN : NETDATA_SOCKET_DIRECTION_OUTBOUND;
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
-        set_common_udp_nv_data(val, sk, family);
+        set_common_udp_nv_data(val, sk, family, direction);
         return 0;
     }
 
@@ -491,7 +497,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
         return 0;
 
     netdata_nv_data_t data = { };
-    set_common_udp_nv_data(&data, sk, family);
+    set_common_udp_nv_data(&data, sk, family, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
