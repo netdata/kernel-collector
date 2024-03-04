@@ -3,7 +3,8 @@
 #ifndef _NETDATA_NETWORK_H_
 #define _NETDATA_NETWORK_H_ 1
 
-#include <linux/in6.h>
+// Conflict with CO-RE code
+// #include <linux/in6.h>
 
 /**
  *      SOCKET
@@ -149,9 +150,16 @@ typedef enum __attribute__((packed)) {
     NETDATA_SOCKET_DIRECTION_LOCAL_OUTBOUND = (1 << 4), // the socket connecting 2 localhost applications
 } NETDATA_SOCKET_DIRECTION;
 
+// simplified version from https://elixir.bootlin.com/linux/v3.19.8/source/include/uapi/linux/in6.h
+struct netdata_in6_addr {
+	union {
+            __u8		u6_addr8[16];
+        } in6_u;
+};
+
 union ipv46 {
     uint32_t ipv4;
-    struct in6_addr ipv6;
+    struct netdata_in6_addr ipv6;
 };
 
 typedef struct netdata_nv_idx {
