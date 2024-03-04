@@ -3,6 +3,8 @@
 #ifndef _NETDATA_NETWORK_H_
 #define _NETDATA_NETWORK_H_ 1
 
+#include <linux/in6.h>
+
 /**
  *      SOCKET
  */
@@ -138,9 +140,18 @@ enum socket_functions {
  *      NETWORK VIEWER
  */
 
+typedef enum __attribute__((packed)) {
+    NETDATA_SOCKET_DIRECTION_NONE = 0,
+    NETDATA_SOCKET_DIRECTION_LISTEN = (1 << 0),         // a listening socket
+    NETDATA_SOCKET_DIRECTION_INBOUND = (1 << 1),        // an inbound socket connecting a remote system to a local listening socket
+    NETDATA_SOCKET_DIRECTION_OUTBOUND = (1 << 2),       // a socket initiated by this system, connecting to another system
+    NETDATA_SOCKET_DIRECTION_LOCAL_INBOUND = (1 << 3),  // the socket connecting 2 localhost applications
+    NETDATA_SOCKET_DIRECTION_LOCAL_OUTBOUND = (1 << 4), // the socket connecting 2 localhost applications
+} NETDATA_SOCKET_DIRECTION;
+
 union ipv46 {
     uint32_t ipv4;
-    union netdata_ip ipv6;
+    struct in6_addr ipv6;
 };
 
 typedef struct netdata_nv_idx {
@@ -159,13 +170,14 @@ typedef struct netdata_nv_data {
 
     __u8  timer;
     __u8  retransmits;
+    __u16 closed;
     __u32 expires;
     __u32 rqueue;
     __u32 wqueue;
 
     char name[TASK_COMM_LEN];
 
-    __u32 direction;
+    NETDATA_SOCKET_DIRECTION direction;
 
     __u16 family;
     __u16 protocol;
