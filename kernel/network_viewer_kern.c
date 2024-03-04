@@ -79,18 +79,12 @@ static __always_inline __u16 set_nv_idx_value(netdata_nv_idx_t *nvi, struct sock
     }
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
     else if ( family == AF_INET6 ) {
-        char zero_ipv6[16] = { };
         // struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr; // bind to local address
         struct in6_addr *addr6 = (struct in6_addr *)&is->sk.__sk_common.skc_v6_rcv_saddr.s6_addr;
         bpf_probe_read(&nvi->saddr.ipv6.in6_u.u6_addr8,  sizeof(__u8)*16, &addr6->s6_addr);
 
         addr6 = (struct in6_addr *)&is->sk.__sk_common.skc_v6_daddr.s6_addr;
         bpf_probe_read(&nvi->daddr.ipv6.in6_u.u6_addr8,  sizeof(__u8)*16, &addr6->s6_addr);
-
-        if (!__builtin_memcmp(&nvi->saddr.ipv6.in6_u.u6_addr8, zero_ipv6, sizeof(zero_ipv6)) ||
-            !__builtin_memcmp(&nvi->saddr.ipv6.in6_u.u6_addr8, zero_ipv6, sizeof(zero_ipv6)))
-            return AF_INET;
-
     }
     else {
         return AF_UNSPEC;
