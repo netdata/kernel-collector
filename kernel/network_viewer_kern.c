@@ -27,7 +27,7 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, netdata_nv_idx_t);
     __type(value, netdata_nv_data_t);
     __uint(max_entries, PID_MAX_DEFAULT);
@@ -262,6 +262,8 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
+
     return 0;
 }
 
@@ -295,6 +297,8 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
+
     return 0;
 }
 
@@ -321,6 +325,8 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
     set_common_tcp_nv_data(&data, sk, family, 0, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
     return 0;
 }
@@ -352,6 +358,8 @@ int netdata_tcp_set_state(struct pt_regs* ctx)
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
+
     return 0;
 }
 
@@ -380,6 +388,8 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
+
     return 0;
 }
 
@@ -407,6 +417,8 @@ int netdata_tcp_v4_connect(struct pt_regs* ctx)
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
+
     return 0;
 }
 
@@ -433,6 +445,8 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
     set_common_tcp_nv_data(&data, sk, family, 0, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
     return 0;
 }
@@ -493,6 +507,8 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
 
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
+
     return 0;
 }
 
@@ -519,6 +535,8 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     set_common_udp_nv_data(&data, sk, family, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+
+    libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
     return 0;
 }
