@@ -164,8 +164,8 @@ union ipv46 {
 
 typedef struct netdata_nv_idx {
     union ipv46 saddr;
-    __u16 sport;
     union ipv46 daddr;
+    __u16 sport;
     __u16 dport;
 } netdata_nv_idx_t;
 
