@@ -460,7 +460,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
 
     netdata_nv_idx_t idx = {};
     __u16 family = set_nv_idx_value(&idx, sk);
-    NETDATA_SOCKET_DIRECTION direction = NETDATA_SOCKET_DIRECTION_OUTBOUND;
+    NETDATA_SOCKET_DIRECTION direction = (idx.sport == idx.dport) ? NETDATA_SOCKET_DIRECTION_LISTEN : NETDATA_SOCKET_DIRECTION_OUTBOUND | NETDATA_SOCKET_DIRECTION_INBOUND;
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (!val)
         return 0;
@@ -486,13 +486,12 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
 
     netdata_nv_idx_t idx = {};
     __u16 family = set_nv_idx_value(&idx, sk);
-    NETDATA_SOCKET_DIRECTION direction;
+    NETDATA_SOCKET_DIRECTION direction = NETDATA_SOCKET_DIRECTION_NONE;
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         direction = NETDATA_SOCKET_DIRECTION_OUTBOUND;
         set_common_udp_nv_data(val, sk, family, direction);
-        if (direction !=  NETDATA_SOCKET_DIRECTION_LISTEN)
-            val->closed = 1;
+        val->closed = 1;
 
         return 0;
     }
@@ -521,10 +520,12 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 
     netdata_nv_idx_t idx = {};
     __u16 family = set_nv_idx_value(&idx, sk);
-    NETDATA_SOCKET_DIRECTION direction = NETDATA_SOCKET_DIRECTION_OUTBOUND;
+    NETDATA_SOCKET_DIRECTION direction = NETDATA_SOCKET_DIRECTION_NONE;
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
+        direction = NETDATA_SOCKET_DIRECTION_INBOUND;
         set_common_udp_nv_data(val, sk, family, direction);
+        val->closed = 1;
         return 0;
     }
 
@@ -532,6 +533,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
         return 0;
 
     netdata_nv_data_t data = { };
+    direction = NETDATA_SOCKET_DIRECTION_OUTBOUND;
     set_common_udp_nv_data(&data, sk, family, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
