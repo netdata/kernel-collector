@@ -73,7 +73,7 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_SYNC, .name = "sync_file_range", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = NULL, .ctrl_table = "swap_ctrl" },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_XFS, .name = "xfs", .update_names = NULL, .ctrl_table = "xfs_ctrl" },
