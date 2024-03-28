@@ -71,9 +71,9 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_SYNC, .name = "syncfs", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "sync_file_range", .update_names = NULL, .ctrl_table = NULL },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = NULL, .ctrl_table = "swap_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8,
+      .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = NULL, .ctrl_table = "swap_ctrl" },
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_XFS, .name = "xfs", .update_names = NULL, .ctrl_table = "xfs_ctrl" },
@@ -212,7 +212,7 @@ int ebpf_get_redhat_release()
  */
 static char *ebpf_select_kernel_name(uint32_t selector)
 {
-    static char *kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16" };
+    static char *kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8" };
 
     return kernel_names[selector];
 }
@@ -237,7 +237,9 @@ static int ebpf_select_max_index(int rhf_version, uint32_t kver)
         else if (kver >= NETDATA_EBPF_KERNEL_4_11)
             return 3;
     } else { // Kernels from kernel.org
-        if (kver >= NETDATA_EBPF_KERNEL_5_16)
+        if (kver >= NETDATA_EBPF_KERNEL_6_8)
+            return 10;
+	else if (kver >= NETDATA_EBPF_KERNEL_5_16)
             return 9;
         else if (kver >= NETDATA_EBPF_KERNEL_5_15)
             return 8;
