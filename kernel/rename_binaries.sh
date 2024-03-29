@@ -16,6 +16,7 @@ parse_kernel_version() {
 select_kernel_version() {
     KVER=$(parse_kernel_version "${1}" "${2}")
 
+    VER6_8_0="006008"
     VER5_16_0="005016"
     VER5_15_0="005015"
     VER5_14_0="005014"
@@ -32,6 +33,8 @@ select_kernel_version() {
         KSELECTED="3.10";
     elif [ "${KVER}" -eq "${VER4_18_0}" ]; then
         KSELECTED="4.18";
+    elif [ "${KVER}" -ge "${VER6_8_0}" ]; then
+        KSELECTED="6.8";
     elif [ "${KVER}" -ge "${VER5_16_0}" ]; then
         KSELECTED="5.16";
     elif [ "${KVER}" -ge "${VER5_15_0}" ]; then
@@ -64,3 +67,4 @@ KNAME=$(select_kernel_version "${1}" "${2}")
 
 cp "r${NAME}_kern.o" "../rnetdata_ebpf_${NAME}.${KNAME}.o"
 cp "p${NAME}_kern.o" "../pnetdata_ebpf_${NAME}.${KNAME}.o"
+

@@ -71,7 +71,11 @@ struct bpf_map_def SEC("maps") swap_ctrl = {
  *
  ***********************************************************************************/
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(6,7,255))
+SEC("kprobe/swap_read_folio")
+#else
 SEC("kprobe/swap_readpage")
+#endif
 int netdata_swap_readpage(struct pt_regs* ctx)
 {
     netdata_swap_access_t data = {};
