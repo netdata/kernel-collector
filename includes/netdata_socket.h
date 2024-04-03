@@ -173,6 +173,7 @@ typedef struct netdata_nv_data {
     int state;
 
     __u32 pid;
+    __u32 tgid;
     __u32 uid;
     __u64 ts;
 
