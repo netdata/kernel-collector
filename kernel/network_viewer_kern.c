@@ -192,6 +192,7 @@ static __always_inline void set_common_tcp_nv_data(netdata_nv_data_t *data,
 
     __u32 tgid = 0;
     data->pid = netdata_get_pid(&nv_ctrl, &tgid);
+    data->tgid = tgid;
     data->uid = bpf_get_current_uid_gid();
     // Only update this data when it is a new value
     if (!data->ts)
@@ -214,6 +215,7 @@ static __always_inline void set_common_udp_nv_data(netdata_nv_data_t *data,
                                                    NETDATA_SOCKET_DIRECTION direction) {
     __u32 tgid = 0;
     data->pid = netdata_get_pid(&nv_ctrl, &tgid);
+    data->tgid = tgid;
     data->uid = bpf_get_current_uid_gid();
     // Only update this data when it is a new value
     if (!data->ts)
