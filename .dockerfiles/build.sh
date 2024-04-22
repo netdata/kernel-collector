@@ -5,7 +5,7 @@ set -e
 build() {
   echo "[XXX]: Preparing kernel headers for ${KERNEL_VERSION}..."
   (
-    if [ "${KERNEL_VERSION}" !=  "3.10.0-1160.76.1.el7" ]; then
+    if [ "${KERNEL_VERSION}" !=  "3.10.0-1160.108.1.el7" ]; then
        make defconfig -C /usr/src/linux
     else
        make silentoldconfig -C /usr/src/linux
