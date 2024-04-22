@@ -11,7 +11,6 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
@@ -36,28 +35,6 @@ struct {
     __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } shm_ctrl SEC(".maps");
-#else
-struct bpf_map_def SEC("maps") tbl_shm = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_SHM_END
-};
-
-struct bpf_map_def SEC("maps") tbl_pid_shm = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(netdata_shm_t),
-    .max_entries = PID_MAX_DEFAULT
-};
-
-struct bpf_map_def SEC("maps") shm_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
 
 #if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
 SEC("ksyscall/shmget")

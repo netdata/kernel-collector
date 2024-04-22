@@ -25,7 +25,6 @@
  *     
  ***********************************************************************************/
 
-// #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
@@ -57,38 +56,6 @@ struct {
     __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } btrfs_ctrl SEC(".maps");
-/*
-#else
-
-struct bpf_map_def SEC("maps") tbl_btrfs = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_FS_MAX_ELEMENTS
-};
-
-struct bpf_map_def SEC("maps") tbl_ext_addr = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = 1
-};
-
-struct bpf_map_def SEC("maps") tmp_btrfs = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = 4192
-};
-
-struct bpf_map_def SEC("maps") btrfs_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
-*/
 
 /************************************************************************************
  *     

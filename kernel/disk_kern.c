@@ -23,7 +23,6 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 //Hardware
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
@@ -50,37 +49,6 @@ struct {
     __type(value, __u64);
     __uint(max_entries, NETDATA_CONTROLLER_END);
 } disk_ctrl SEC(".maps");
-
-#else
-
-//Hardware
-struct bpf_map_def SEC("maps") tbl_disk_iocall = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(block_key_t),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_DISK_HISTOGRAM_LENGTH
-};
-
-// Temporary use only
-struct bpf_map_def SEC("maps") tmp_disk_tp_stat = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    .type = BPF_MAP_TYPE_HASH,
-#else
-    .type = BPF_MAP_TYPE_PERCPU_HASH,
-#endif
-    .key_size = sizeof(netdata_disk_key_t),
-    .value_size = sizeof(__u64),
-    .max_entries = 8192
-};
-
-struct bpf_map_def SEC("maps") disk_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-
-#endif
 
 /************************************************************************************
  *     

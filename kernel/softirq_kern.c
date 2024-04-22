@@ -15,21 +15,12 @@
  ***********************************************************************************/
 
 // maps from irq index to latency.
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
         __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
         __type(key, __u32);
         __type(value, softirq_val_t);
         __uint(max_entries, NETDATA_SOFTIRQ_MAX_IRQS);
 } tbl_softirq SEC(".maps");
-#else
-struct bpf_map_def SEC("maps") tbl_softirq = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(softirq_val_t),
-    .max_entries = NETDATA_SOFTIRQ_MAX_IRQS
-};
-#endif
 
 /************************************************************************************
  *                                SOFTIRQ SECTION

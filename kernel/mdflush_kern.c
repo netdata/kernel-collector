@@ -12,7 +12,6 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
 struct {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -23,16 +22,6 @@ struct {
     __type(value, mdflush_val_t);
     __uint(max_entries, 1024);
 } tbl_mdflush SEC(".maps");
-
-#else
-
-struct bpf_map_def SEC("maps") tbl_mdflush = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(mdflush_key_t),
-    .value_size = sizeof(mdflush_val_t),
-    .max_entries = 1024
-};
-#endif
 
 SEC("kprobe/md_flush_request")
 int netdata_md_flush_request(struct pt_regs *ctx)
