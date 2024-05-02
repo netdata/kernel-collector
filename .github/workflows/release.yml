@@ -70,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: artifacts-${{ matrix.kernel_version }}
+          name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
           path: artifacts
 
   create-release:
