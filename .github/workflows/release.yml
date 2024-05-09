@@ -96,8 +96,8 @@ jobs:
               tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -xvf "${pkg}"
             done
             tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}-all.tar.xz" ./
-            tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" --exlude='*.*[0-9].*[0-9].o' -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}-rhf.tar.xz" ./
-            tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" --exlude='*rhf.*' -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
+#            tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" --exlude='*.*[0-9].*[0-9].o' -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}-rhf.tar.xz" ./
+#           tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" --exlude='*rhf.*' -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
           done
           cd final-artifacts && sha256sum ./*.tar.xz > sha256sums.txt
       - name: Create Release
