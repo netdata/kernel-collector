@@ -19,7 +19,9 @@ RUN yum update -y && \
                    python-docutils redhat-rpm-config rpm-build sh-utils tar \
                    xmlto xz zlib-devel glibc-headers
 
-RUN yum install -y centos-release-scl && \
+RUN yum-config-manager --add-repo=https://copr.fedoraproject.org/coprs/rhscl/centos-release-scl/repo/epel-7/rhscl-centos-release-scl-epel-7.repo
+sudo yum install centos-release-scl \
+    yum install -y centos-release-scl && \
     yum-config-manager --enable rhel-server-rhscl-7-rpms && \
     yum install -y llvm-toolset-7.0*
 
