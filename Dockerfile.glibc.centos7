@@ -1,9 +1,9 @@
-FROM centos:7.9.2009 AS build
+FROM netdata/legacy:centos7 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
 
-ENV KERNEL_VERSION=3.10.0-1160.108.1.el7
+ENV KERNEL_VERSION=3.10.0-1160.118.1.el7
 
 ENV _LIBC=glibc
 
