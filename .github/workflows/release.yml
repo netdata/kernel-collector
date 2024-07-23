@@ -86,6 +86,7 @@ jobs:
               mkdir -p "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"
               tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -xvf "${pkg}"
             done
+            if [ "${libc}" == "glibc" ]; then cp -R CentOS7/glibc/* "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"; fi
             tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
           done
           cd final-artifacts && sha256sum ./*.tar.xz > sha256sums.txt
