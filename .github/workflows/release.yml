@@ -25,20 +25,13 @@ jobs:
           - '4.16.18'
           - '4.18.0'
           - '4.14.291'
-          - '3.10.0'
         libc:
           - static
           - glibc
           - musl
         exclude:
-          # excludes static on 3.10.0 (https://github.com/netdata/kernel-collector/issues/153)
-          - kernel_version: 3.10.0
-            libc: static
           - kernel_version: 5.4.17
             libc: static
-          # excludes musl on 3.10.0
-          - kernel_version: 3.10.0
-            libc: musl
           - kernel_version: 5.4.17
             libc: musl
     runs-on: ubuntu-latest
@@ -56,8 +49,6 @@ jobs:
             os=oracle8
           elif [ ${{ matrix.kernel_version }} = "4.18.0" ]; then
             os=centos8
-          elif [ ${{ matrix.kernel_version }} = "3.10.0" ]; then
-            os=centos7
           else
             os=generic
           fi
