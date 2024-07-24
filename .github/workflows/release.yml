@@ -81,6 +81,7 @@ jobs:
           echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Consolidate Artifacts
         run: |
+          git checkout .
           mkdir -p final-artifacts
           for libc in static glibc musl; do
             for pkg in artifacts/netdata_ebpf-*_*-${libc}.tar.xz; do
