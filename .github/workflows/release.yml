@@ -42,6 +42,8 @@ jobs:
           submodules: true
           fetch-depth: 0
           lfs: true
+      - name: Checkout LFS objects
+        run: git lfs checkout    
       - name: Run build.sh
         run: |
           if [ ${{ matrix.kernel_version }} = "5.14.0" ]; then
@@ -81,7 +83,6 @@ jobs:
           echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Consolidate Artifacts
         run: |
-          git checkout .
           mkdir -p final-artifacts
           for libc in static glibc musl; do
             for pkg in artifacts/netdata_ebpf-*_*-${libc}.tar.xz; do
