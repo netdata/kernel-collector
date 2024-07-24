@@ -72,6 +72,14 @@ jobs:
     needs: build-artifacts
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+          lfs: true
+      - name: Checkout LFS objects
+        run: git lfs checkout    
       - name: Download all Artifacts
         uses: actions/download-artifact@v4
         with:
