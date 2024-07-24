@@ -41,6 +41,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
+          lfs: true
       - name: Run build.sh
         run: |
           if [ ${{ matrix.kernel_version }} = "5.14.0" ]; then
