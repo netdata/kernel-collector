@@ -10,9 +10,9 @@ typedef struct netdata_dc_stat {
     __u32 gid;
     char name[TASK_COMM_LEN];
 
-    __u64 references;
-    __u64 slow;
-    __u64 missed;
+    __u32 references;
+    __u32 slow;
+    __u32 missed;
 } netdata_dc_stat_t;
 
 enum directory_cache_counters {
