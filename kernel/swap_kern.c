@@ -89,7 +89,7 @@ int netdata_swap_readpage(struct pt_regs* ctx)
 
     netdata_swap_access_t *fill = netdata_get_pid_structure(&key, &tgid, &swap_ctrl, &tbl_pid_swap);
     if (fill) {
-        libnetdata_update_u64(&fill->read, 1);
+        libnetdata_update_u32(&fill->read, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
         libnetdata_update_uid_gid(&data.uid, &data.gid);
@@ -123,7 +123,7 @@ int netdata_swap_writepage(struct pt_regs* ctx)
 
     netdata_swap_access_t *fill = netdata_get_pid_structure(&key, &tgid, &swap_ctrl, &tbl_pid_swap);
     if (fill) {
-        libnetdata_update_u64(&fill->write, 1);
+        libnetdata_update_u32(&fill->write, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
         libnetdata_update_uid_gid(&data.uid, &data.gid);

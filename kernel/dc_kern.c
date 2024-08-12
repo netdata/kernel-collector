@@ -85,7 +85,7 @@ int netdata_lookup_fast(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
     if (fill) {
-        libnetdata_update_u64(&fill->references, 1);
+        libnetdata_update_u32(&fill->references, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
         libnetdata_update_uid_gid(&data.uid, &data.gid);
@@ -120,7 +120,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
     if (fill) {
-        libnetdata_update_u64(&fill->slow, 1);
+        libnetdata_update_u32(&fill->slow, 1);
     } else {
         data.ct = bpf_ktime_get_ns();
         libnetdata_update_uid_gid(&data.uid, &data.gid);
@@ -142,7 +142,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
         libnetdata_update_global(&dcstat_global, NETDATA_KEY_DC_MISS, 1);
         fill = netdata_get_pid_structure(&key, &tgid, &dcstat_ctrl, &dcstat_pid);
         if (fill) {
-            libnetdata_update_u64(&fill->missed, 1);
+            libnetdata_update_u32(&fill->missed, 1);
         }
     }
 

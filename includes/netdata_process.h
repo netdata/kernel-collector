@@ -44,8 +44,6 @@ struct netdata_pid_stat_t {
     __u32 create_thread;                //Start syscall (fork, clone, forkv)
 
     __u32 task_err;
-
-    __u8 removeme;
 };
 
 enum process_counters {

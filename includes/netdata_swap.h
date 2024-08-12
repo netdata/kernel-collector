@@ -10,8 +10,8 @@ typedef struct netdata_swap_access {
     __u32 gid;
     char name[TASK_COMM_LEN];
 
-    __u64 read;
-    __u64 write;
+    __u32 read;
+    __u32 write;
 } netdata_swap_access_t;
 
 enum swap_counters {
