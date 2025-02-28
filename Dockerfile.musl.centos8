@@ -1,4 +1,4 @@
-FROM alpine:3.20 AS build
+FROM alpine:3.21 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
@@ -22,7 +22,7 @@ RUN mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} && \
     mkdir -p /usr/src/kernels && \
     cd /usr/src && \
     ln -s ~/rpmbuild/SOURCES/linux-${LOCAL_KERNEL_VERSION} linux && \
-    ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/13.2.1/include/stdarg.h /usr/src/linux/include/
+    ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/14.2.0/include/stdarg.h /usr/src/linux/include/
 
 WORKDIR /kernel-collector
 
