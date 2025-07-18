@@ -59,7 +59,7 @@ jobs:
       - name: List Artifacts
         run: |
           ls -lah artifacts
-          test -f artifacts/netdata_ebpf-*.tar.gz
+          test -f artifacts/netdata_ebpf-*.tar
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         if: success()
@@ -93,7 +93,7 @@ jobs:
         run: |
           mkdir -p final-artifacts
           for libc in static glibc musl; do
-            for pkg in artifacts/netdata_ebpf-*_*-${libc}.tar.gz; do
+            for pkg in artifacts/netdata_ebpf-*_*-${libc}.tar; do
               mkdir -p "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"
               tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -xvf "${pkg}"
             done
