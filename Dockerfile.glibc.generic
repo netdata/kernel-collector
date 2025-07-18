@@ -12,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y build-essential autoconf automake coreutils pkg-config \
                        bc libelf-dev libssl-dev clang-tools-14 libclang-14-dev \
-                       llvm-14 rsync bison flex tar xz-utils wget
+                       llvm-18 rsync bison flex tar xz-utils wget
 
 RUN mkdir -p /usr/src && \
     cd /usr/src && \
@@ -24,7 +24,7 @@ COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
 RUN /patch_kernel.sh
 
-ENV PATH=/usr/lib/llvm-14/bin:$PATH
+ENV PATH=/usr/lib/llvm-18/bin:$PATH
 
 WORKDIR /kernel-collector
 
