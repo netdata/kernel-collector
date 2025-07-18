@@ -11,8 +11,8 @@ ENV _LIBC=glibc
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y build-essential autoconf automake coreutils pkg-config \
-                       bc libelf-dev libssl-dev clang-tools-14 libclang-14-dev \
-                       llvm-18 rsync bison flex tar xz-utils wget
+                       bc libelf-dev libssl-dev clang-tools-18 libclang-18-dev \
+                       clang-18 llvm-18 rsync bison flex tar xz-utils wget
 
 RUN mkdir -p /usr/src && \
     cd /usr/src && \
