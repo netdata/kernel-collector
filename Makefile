@@ -20,7 +20,7 @@ EXTRA_CFLAGS += -fno-stack-protector
 all: $(KERNEL_PROGRAM)
 	tar -cf artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)$(RHF)-$(_LIBC).tar [pr]netdata_ebpf_*.o
 	if [ "$${DEBUG:-0}" -eq 1 ]; then tar -uvf artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)$(RHF)-$(_LIBC).tar tools/check-kernel-config.sh; fi
-	gz artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)$(RHF)-$(_LIBC).tar
+	gzip artifacts/netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)$(RHF)-$(_LIBC).tar
 	( cd artifacts; sha256sum netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)$(RHF)-$(_LIBC).tar.gz > netdata_ebpf-$(FIRST_KERNEL_VERSION)_$(VER_MAJOR).$(VER_MINOR)$(RHF)-$(_LIBC).tar.gz.sha256sum )
 
 dev:
