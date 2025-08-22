@@ -109,7 +109,11 @@ int netdata_swap_readpage(struct pt_regs* ctx)
     return 0;
 }
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(6,16,0))
+SEC("kprobe/__swap_writepage")
+#else
 SEC("kprobe/swap_writepage")
+#endif
 int netdata_swap_writepage(struct pt_regs* ctx)
 {
     netdata_swap_access_t data = {};
