@@ -65,8 +65,13 @@ NETDATA_ALL_APPS= btrfs \
     		  zfs \
     		  #
 
+# Kernel newer than 6.16.0 ( 397312 = 6 * 65536 + 16 * 256)
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 397312 ; echo $$?),0)
+NETDATA_APPS= swap \
+	      #
+
 # Kernel newer than 6.8.0 ( 395264 = 6 * 65536 + 8 * 256)
-ifeq ($(shell test $(CURRENT_KERNEL) -ge 395264 ; echo $$?),0)
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 395264 ; echo $$?),0)
 NETDATA_APPS= swap \
 	      #
 # Kernel newer than 5.15.256 ( 331776 = 5 * 65536 + 16 * 256)
