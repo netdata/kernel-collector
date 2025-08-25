@@ -20,6 +20,14 @@ typedef struct netdata_sched_process_fork {
     int child_pid;            // offset:44;      size:4; signed:1;
 } netdata_sched_process_fork_t;
 
+typedef struct netdata_sched_process_fork_v2 {
+    __u64 pad;                // This is not used with eBPF
+    char parent_comm[4];      // offset:8;       size:4;        signed:1;
+    int parent_pid;           // offset:12;      size:4; signed:1;
+    char child_comm[4];       // offset:16;      size:4;        signed:1;
+    int child_pid;            // offset:20;      size:4; signed:1;
+} netdata_sched_process_fork_v2_t;
+
 // /sys/kernel/tracing/events/sched/sched_process_exec/format
 typedef struct netdata_sched_process_exec {
     __u64 pad;      // This is not used with eBPF
