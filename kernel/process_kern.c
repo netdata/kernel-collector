@@ -169,7 +169,11 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
 }
 
 SEC("tracepoint/sched/sched_process_fork")
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,16,0))
+int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork_v2 *ptr)
+#else
 int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr)
+#endif
 {
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
