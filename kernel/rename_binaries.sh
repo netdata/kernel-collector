@@ -16,6 +16,7 @@ parse_kernel_version() {
 select_kernel_version() {
     KVER=$(parse_kernel_version "${1}" "${2}")
 
+    VER6_12_0="006012"
     VER6_8_0="006008"
     VER5_16_0="005016"
     VER5_15_0="005015"
@@ -33,6 +34,8 @@ select_kernel_version() {
         KSELECTED="3.10";
     elif [ "${KVER}" -eq "${VER4_18_0}" ]; then
         KSELECTED="4.18";
+    elif [ "${KVER}" -ge "${VER6_12_0}" ]; then
+        KSELECTED="6.12";
     elif [ "${KVER}" -ge "${VER6_8_0}" ]; then
         KSELECTED="6.8";
     elif [ "${KVER}" -ge "${VER5_16_0}" ]; then
