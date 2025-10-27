@@ -82,7 +82,7 @@ jobs:
       - name: Checkout LFS objects
         run: git lfs checkout
       - name: Download all Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           pattern: artifacts-*
           path: artifacts
