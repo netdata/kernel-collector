@@ -1,4 +1,4 @@
-FROM almalinux:9 AS build
+FROM almalinux:10 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
