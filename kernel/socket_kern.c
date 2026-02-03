@@ -25,79 +25,11 @@
  *
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_SOCKET_COUNTER);
-} tbl_global_sock SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __type(key, netdata_socket_idx_t);
-    __type(value, netdata_socket_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_nd_socket SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __type(key, __u64);
-    __type(value, void *);
-    __uint(max_entries, 4096);
-} tbl_nv_udp SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, netdata_passive_connection_idx_t);
-    __type(value, netdata_passive_connection_t);
-    __uint(max_entries, 1024);
-} tbl_lports SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} socket_ctrl SEC(".maps");
-
-#else
-struct bpf_map_def SEC("maps") tbl_global_sock = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries =  NETDATA_SOCKET_COUNTER
-};
-
-struct bpf_map_def SEC("maps") tbl_nd_socket = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(netdata_socket_idx_t),
-    .value_size = sizeof(netdata_socket_t),
-    .max_entries =  PID_MAX_DEFAULT,
-};
-
-struct bpf_map_def SEC("maps") tbl_nv_udp = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u64),
-    .value_size = sizeof(void *),
-    .max_entries = 4096
-};
-
-struct bpf_map_def SEC("maps") tbl_lports = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(netdata_passive_connection_idx_t),
-    .value_size = sizeof(netdata_passive_connection_t),
-    .max_entries =  1024
-};
-
-struct bpf_map_def SEC("maps") socket_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-
-#endif
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_global_sock, __u32, __u64, NETDATA_SOCKET_COUNTER);
+NETDATA_BPF_PERCPU_HASH_DEF(tbl_nd_socket, netdata_socket_idx_t, netdata_socket_t, PID_MAX_DEFAULT);
+NETDATA_BPF_PERCPU_HASH_DEF(tbl_nv_udp, __u64, void *, 4096);
+NETDATA_BPF_HASH_DEF(tbl_lports, netdata_passive_connection_idx_t, netdata_passive_connection_t, 1024);
+NETDATA_BPF_ARRAY_DEF(socket_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *

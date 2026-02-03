@@ -23,49 +23,9 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u32);
-    __type(value, struct netdata_vfs_stat_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_vfs_pid SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_VFS_COUNTER);
-} tbl_vfs_stats  SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} vfs_ctrl SEC(".maps");
-#else
-struct bpf_map_def SEC("maps") tbl_vfs_pid = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(struct netdata_vfs_stat_t),
-    .max_entries = PID_MAX_DEFAULT
-};
-
-struct bpf_map_def SEC("maps") tbl_vfs_stats = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries =  NETDATA_VFS_COUNTER
-};
-
-struct bpf_map_def SEC("maps") vfs_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
+NETDATA_BPF_HASH_DEF(tbl_vfs_pid, __u32, struct netdata_vfs_stat_t, PID_MAX_DEFAULT);
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_vfs_stats, __u32, __u64, NETDATA_VFS_COUNTER);
+NETDATA_BPF_ARRAY_DEF(vfs_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *     

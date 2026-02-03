@@ -20,54 +20,9 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_FS_MAX_ELEMENTS);
-} tbl_xfs SEC(".maps");
-
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries,  4192);
-} tmp_xfs SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} xfs_ctrl SEC(".maps");
-
-#else
-struct bpf_map_def SEC("maps") tbl_xfs = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_FS_MAX_ELEMENTS
-};
-
-struct bpf_map_def SEC("maps") tmp_xfs = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = 4192
-};
-
-struct bpf_map_def SEC("maps") xfs_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_xfs, __u32, __u64, NETDATA_FS_MAX_ELEMENTS);
+NETDATA_BPF_HASH_DEF(tmp_xfs, __u32, __u64, 4192);
+NETDATA_BPF_ARRAY_DEF(xfs_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *     

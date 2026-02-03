@@ -19,20 +19,9 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_FS_MAX_ELEMENTS);
-} tbl_nfs SEC(".maps");
-
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_nfs, __u32, __u64, NETDATA_FS_MAX_ELEMENTS);
+NETDATA_BPF_HASH_DEF(tmp_nfs, __u32, __u64, 4192);
+NETDATA_BPF_ARRAY_DEF(nfs_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
     __type(key, __u32);
     __type(value, __u64);
     __uint(max_entries,  4192);

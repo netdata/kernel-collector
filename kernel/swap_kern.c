@@ -17,53 +17,9 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_SWAP_END);
-} tbl_swap  SEC(".maps");
-
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
-    __type(key, __u32);
-    __type(value, netdata_swap_access_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_pid_swap SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} swap_ctrl SEC(".maps");
-#else
-struct bpf_map_def SEC("maps") tbl_swap = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_SWAP_END
-};
-
-struct bpf_map_def SEC("maps") tbl_pid_swap = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(netdata_swap_access_t),
-    .max_entries = PID_MAX_DEFAULT
-};
-
-struct bpf_map_def SEC("maps") swap_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_swap, __u32, __u64, NETDATA_SWAP_END);
+NETDATA_BPF_HASH_DEF(tbl_pid_swap, __u32, netdata_swap_access_t, PID_MAX_DEFAULT);
+NETDATA_BPF_ARRAY_DEF(swap_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *

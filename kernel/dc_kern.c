@@ -15,20 +15,9 @@
  *
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_DIRECTORY_CACHE_END);
-} dcstat_global SEC(".maps");
-
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
+NETDATA_BPF_PERCPU_ARRAY_DEF(dcstat_global, __u32, __u64, NETDATA_DIRECTORY_CACHE_END);
+NETDATA_BPF_HASH_DEF(dcstat_pid, __u32, netdata_dc_stat_t, PID_MAX_DEFAULT);
+NETDATA_BPF_PERCPU_ARRAY_DEF(dcstat_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
     __type(key, __u32);
     __type(value, netdata_dc_stat_t);
     __uint(max_entries, PID_MAX_DEFAULT);

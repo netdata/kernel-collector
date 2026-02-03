@@ -15,41 +15,8 @@
  *                                 MAPS
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
-    __type(key, hardirq_key_t);
-    __type(value, hardirq_val_t);
-    __uint(max_entries, NETDATA_HARDIRQ_MAX_IRQS);
-} tbl_hardirq SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, hardirq_val_t);
-    __uint(max_entries, NETDATA_HARDIRQ_STATIC_END);
-} tbl_hardirq_static SEC(".maps");
-
-#else
-struct bpf_map_def SEC("maps") tbl_hardirq = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(hardirq_key_t),
-    .value_size = sizeof(hardirq_val_t),
-    .max_entries = NETDATA_HARDIRQ_MAX_IRQS
-};
-
-// maps from enum index to latency.
-struct bpf_map_def SEC("maps") tbl_hardirq_static = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(hardirq_val_t),
-    .max_entries = NETDATA_HARDIRQ_STATIC_END
-};
-#endif
+NETDATA_BPF_HASH_DEF(tbl_hardirq, hardirq_key_t, hardirq_val_t, NETDATA_HARDIRQ_MAX_IRQS);
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_hardirq_static, __u32, hardirq_val_t, NETDATA_HARDIRQ_STATIC_END);
 
 /************************************************************************************
  *                                HARDIRQ SECTION

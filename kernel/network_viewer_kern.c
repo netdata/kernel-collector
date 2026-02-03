@@ -25,36 +25,8 @@
  *
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, netdata_nv_idx_t);
-    __type(value, netdata_nv_data_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_nv_socket SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} nv_ctrl SEC(".maps");
-
-#else
-struct bpf_map_def SEC("maps") tbl_nv_socket = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(netdata_nv_idx_t),
-    .value_size = sizeof(netdata_nv_data_t),
-    .max_entries =  PID_MAX_DEFAULT,
-};
-
-struct bpf_map_def SEC("maps") nv_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
+NETDATA_BPF_HASH_DEF(tbl_nv_socket, netdata_nv_idx_t, netdata_nv_data_t, PID_MAX_DEFAULT);
+NETDATA_BPF_ARRAY_DEF(nv_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *

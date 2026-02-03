@@ -11,53 +11,9 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_SHM_END);
-} tbl_shm  SEC(".maps");
-
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
-    __type(key, __u32);
-    __type(value, netdata_shm_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_pid_shm SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} shm_ctrl SEC(".maps");
-#else
-struct bpf_map_def SEC("maps") tbl_shm = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_SHM_END
-};
-
-struct bpf_map_def SEC("maps") tbl_pid_shm = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(netdata_shm_t),
-    .max_entries = PID_MAX_DEFAULT
-};
-
-struct bpf_map_def SEC("maps") shm_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_shm, __u32, __u64, NETDATA_SHM_END);
+NETDATA_BPF_HASH_DEF(tbl_pid_shm, __u32, netdata_shm_t, PID_MAX_DEFAULT);
+NETDATA_BPF_ARRAY_DEF(shm_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 #if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
 SEC("ksyscall/shmget")
