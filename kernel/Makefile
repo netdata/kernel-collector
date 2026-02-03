@@ -6,6 +6,7 @@ LIBBPF_HEADERS = ../.local_libbpf
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 EXTRA_CFLAGS += -fno-stack-protector
+EXTRA_CFLAGS += -DCONFIG_CC_HAS_ASM_INLINE=0
 
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated/uapi
@@ -114,7 +115,6 @@ libbpf:
 	cd $(LIBBPF)/src && /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR) && $(MAKE) CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
 %_kern.o: %_kern.c libbpf
-	if [ -w $(KERNELSOURCE)/include/generated/autoconf.h ]; then  if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' $(KERNELSOURCE)/include/generated/autoconf.h; fi ; fi
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
 	    	-Wno-compare-distinct-pointer-types \
