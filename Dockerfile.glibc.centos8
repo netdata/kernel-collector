@@ -1,4 +1,4 @@
-FROM almalinux:9 AS build
+FROM almalinux:10 AS build
 
 ARG ARCH=x86
 ENV ARCH=$ARCH
@@ -33,7 +33,7 @@ RUN cd ~/rpmbuild/SOURCES && \
 
 RUN cd /usr/src && \
     ln -s ~/rpmbuild/SOURCES/linux-${KERNEL_VERSION} linux && \
-    ln -s /usr/lib/gcc/x86_64-redhat-linux/11/include/stdarg.h /usr/src/linux/include/
+    ln -s /usr/lib/gcc/x86_64-redhat-linux/14/include/stdarg.h /usr/src/linux/include/
 
 COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
