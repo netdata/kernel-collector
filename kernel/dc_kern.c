@@ -18,42 +18,6 @@
 NETDATA_BPF_PERCPU_ARRAY_DEF(dcstat_global, __u32, __u64, NETDATA_DIRECTORY_CACHE_END);
 NETDATA_BPF_HASH_DEF(dcstat_pid, __u32, netdata_dc_stat_t, PID_MAX_DEFAULT);
 NETDATA_BPF_PERCPU_ARRAY_DEF(dcstat_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
-    __type(key, __u32);
-    __type(value, netdata_dc_stat_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} dcstat_pid SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} dcstat_ctrl SEC(".maps");
-
-#else
-
-struct bpf_map_def SEC("maps") dcstat_global = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_DIRECTORY_CACHE_END
-};
-
-struct bpf_map_def SEC("maps") dcstat_pid = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(netdata_dc_stat_t),
-    .max_entries = PID_MAX_DEFAULT
-};
-
-struct bpf_map_def SEC("maps") dcstat_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-
-#endif
 
 /************************************************************************************
  *
