@@ -120,24 +120,30 @@ libbpf:
 	    	-Wno-compare-distinct-pointer-types \
 	    	-Wno-gnu-variable-sized-type-not-at-end \
 	    	-Wno-tautological-compare \
-	    	-fno-asynchronous-unwind-tables \
+		-Wno-duplicate-decl-specifier \
+		-Wno-address-of-packed-member \
+		-Wno-macro-redefined \
+		-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=0 \
 		-D__BPF_TRACING__ \
 		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
-		-O2 -g -emit-llvm -c $<
+		-O2 -g -emit-llvm $< -o $(<:.c=.ll)
 	$(LLC) -march=bpf -filetype=obj -o r$@ $(<:.c=.ll)
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-	    	-Wno-compare-distinct-pointer-types \
-	    	-Wno-gnu-variable-sized-type-not-at-end \
-	    	-Wno-tautological-compare \
-	    	-fno-asynchronous-unwind-tables \
+		-Wno-compare-distinct-pointer-types \
+		-Wno-gnu-variable-sized-type-not-at-end \
+		-Wno-tautological-compare \
+		-Wno-duplicate-decl-specifier \
+		-Wno-address-of-packed-member \
+		-Wno-macro-redefined \
+		-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=2 \
 		-D__BPF_TRACING__ \
 		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
-		-O2 -g -emit-llvm -c $<
+		-O2 -g -emit-llvm $< -o $(<:.c=.ll)
 	$(LLC) -march=bpf -filetype=obj -o p$@ $(<:.c=.ll)
 	/bin/bash rename_binaries.sh "$(VER_MAJOR)" "$(VER_MINOR)" "$@"
 
