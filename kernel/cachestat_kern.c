@@ -17,14 +17,13 @@ NETDATA_BPF_PERCPU_ARRAY_DEF(cstat_global, __u32, __u64, NETDATA_CACHESTAT_END);
 NETDATA_BPF_HASH_DEF(cstat_pid, __u32, netdata_cachestat_t, PID_MAX_DEFAULT);
 NETDATA_BPF_ARRAY_DEF(cstat_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
-static __always_inline void netdata_cachestat_update_existing(__u32 global_key, __u32 *field)
+static __always_inline void netdata_cachestat_update_existing(__u32 *field)
 {
-    libnetdata_update_global(&cstat_global, global_key, 1);
     if (field)
         libnetdata_update_u32(field, 1);
 }
 
-static __always_inline void netdata_cachestat_create_new_entry(__u32 global_key, __u32 *field, __u32 tgid)
+static __always_inline void netdata_cachestat_create_new_entry(__u32 *field, __u32 tgid)
 {
     netdata_cachestat_t data = {};
 
@@ -55,6 +54,8 @@ static __always_inline void netdata_cachestat_create_new_entry(__u32 global_key,
 SEC("kprobe/add_to_page_cache_lru")
 int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, 1);
+
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
@@ -64,11 +65,11 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        netdata_cachestat_update_existing(NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, &fill->add_to_page_cache_lru);
+        netdata_cachestat_update_existing(&fill->add_to_page_cache_lru);
         return 0;
     }
 
-    netdata_cachestat_create_new_entry(NETDATA_KEY_CALLS_ADD_TO_PAGE_CACHE_LRU, &data.add_to_page_cache_lru, tgid);
+    netdata_cachestat_create_new_entry(&data.add_to_page_cache_lru, tgid);
 
     return 0;
 }
@@ -76,6 +77,8 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
 SEC("kprobe/mark_page_accessed")
 int netdata_mark_page_accessed(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, 1);
+
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
@@ -85,11 +88,11 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        netdata_cachestat_update_existing(NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, &fill->mark_page_accessed);
+        netdata_cachestat_update_existing(&fill->mark_page_accessed);
         return 0;
     }
 
-    netdata_cachestat_create_new_entry(NETDATA_KEY_CALLS_MARK_PAGE_ACCESSED, &data.mark_page_accessed, tgid);
+    netdata_cachestat_create_new_entry(&data.mark_page_accessed, tgid);
 
     return 0;
 }
@@ -111,6 +114,8 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
         return 0;
 #endif
 
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
+
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
@@ -120,11 +125,11 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        netdata_cachestat_update_existing(NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, &fill->account_page_dirtied);
+        netdata_cachestat_update_existing(&fill->account_page_dirtied);
         return 0;
     }
 
-    netdata_cachestat_create_new_entry(NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, &data.account_page_dirtied, tgid);
+    netdata_cachestat_create_new_entry(&data.account_page_dirtied, tgid);
 
     return 0;
 }
@@ -136,6 +141,8 @@ SEC("kprobe/account_page_dirtied")
 #endif
 int netdata_account_page_dirtied(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, 1);
+
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
@@ -145,11 +152,11 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        netdata_cachestat_update_existing(NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, &fill->account_page_dirtied);
+        netdata_cachestat_update_existing(&fill->account_page_dirtied);
         return 0;
     }
 
-    netdata_cachestat_create_new_entry(NETDATA_KEY_CALLS_ACCOUNT_PAGE_DIRTIED, &data.account_page_dirtied, tgid);
+    netdata_cachestat_create_new_entry(&data.account_page_dirtied, tgid);
 
     return 0;
 }
@@ -158,6 +165,8 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
 SEC("kprobe/mark_buffer_dirty")
 int netdata_mark_buffer_dirty(struct pt_regs* ctx)
 {
+    libnetdata_update_global(&cstat_global, NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, 1);
+
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
@@ -167,11 +176,11 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
 
     fill = netdata_get_pid_structure(&key, &tgid, &cstat_ctrl, &cstat_pid);
     if (fill) {
-        netdata_cachestat_update_existing(NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, &fill->mark_buffer_dirty);
+        netdata_cachestat_update_existing(&fill->mark_buffer_dirty);
         return 0;
     }
 
-    netdata_cachestat_create_new_entry(NETDATA_KEY_CALLS_MARK_BUFFER_DIRTY, &data.mark_buffer_dirty, tgid);
+    netdata_cachestat_create_new_entry(&data.mark_buffer_dirty, tgid);
 
     return 0;
 }
