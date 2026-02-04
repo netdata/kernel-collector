@@ -61,7 +61,7 @@ int netdata_lookup_fast(struct pt_regs* ctx)
     if (!monitor_apps(&dcstat_ctrl))
         return 0;
 
-    netdata_dc_stat_t *fill, data = {};
+    netdata_dc_stat_t *fill;
     __u32 key = 0;
     __u32 tgid = 0;
 
@@ -71,6 +71,7 @@ int netdata_lookup_fast(struct pt_regs* ctx)
         return 0;
     }
 
+    netdata_dc_stat_t data = {};
     netdata_dc_create_new_entry(&data.references, tgid);
 
     return 0;
@@ -86,7 +87,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
     if (!monitor_apps(&dcstat_ctrl))
         return 0;
 
-    netdata_dc_stat_t *fill, data = {};
+    netdata_dc_stat_t *fill;
     __u32 key = 0;
     __u32 tgid = 0;
 
@@ -94,6 +95,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
     if (fill) {
         netdata_dc_update_existing(&fill->slow);
     } else {
+        netdata_dc_stat_t data = {};
         netdata_dc_create_new_entry(&data.slow, tgid);
     }
 

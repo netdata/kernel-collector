@@ -59,7 +59,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    netdata_cachestat_t *fill, data = {};
+    netdata_cachestat_t *fill;
     __u32 key = 0;
     __u32 tgid = 0;
 
@@ -69,6 +69,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
         return 0;
     }
 
+    netdata_cachestat_t data = {};
     netdata_cachestat_create_new_entry(&data.add_to_page_cache_lru, tgid);
 
     return 0;
@@ -82,7 +83,7 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    netdata_cachestat_t *fill, data = {};
+    netdata_cachestat_t *fill;
     __u32 key = 0;
     __u32 tgid = 0;
 
@@ -92,6 +93,7 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
         return 0;
     }
 
+    netdata_cachestat_t data = {};
     netdata_cachestat_create_new_entry(&data.mark_page_accessed, tgid);
 
     return 0;
@@ -119,7 +121,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    netdata_cachestat_t *fill, data = {};
+    netdata_cachestat_t *fill;
     __u32 key = 0;
     __u32 tgid = 0;
 
@@ -129,6 +131,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
         return 0;
     }
 
+    netdata_cachestat_t data = {};
     netdata_cachestat_create_new_entry(&data.account_page_dirtied, tgid);
 
     return 0;
@@ -146,7 +149,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    netdata_cachestat_t *fill, data = {};
+    netdata_cachestat_t *fill;
     __u32 key = 0;
     __u32 tgid = 0;
 
@@ -156,6 +159,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
         return 0;
     }
 
+    netdata_cachestat_t data = {};
     netdata_cachestat_create_new_entry(&data.account_page_dirtied, tgid);
 
     return 0;
@@ -170,7 +174,7 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    netdata_cachestat_t *fill, data = {};
+    netdata_cachestat_t *fill;
     __u32 key = 0;
     __u32 tgid = 0;
 
@@ -180,6 +184,7 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
         return 0;
     }
 
+    netdata_cachestat_t data = {};
     netdata_cachestat_create_new_entry(&data.mark_buffer_dirty, tgid);
 
     return 0;
