@@ -14,9 +14,9 @@
 #include "netdata_ebpf.h"
 
 /************************************************************************************
- *     
+ *
  *                                 MAP Section
- *     
+ *
  ***********************************************************************************/
 
 NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_ext4, __u32, __u64, NETDATA_FS_MAX_ELEMENTS);
@@ -24,176 +24,119 @@ NETDATA_BPF_HASH_DEF(tmp_ext4, __u32, __u64, 4192);
 NETDATA_BPF_ARRAY_DEF(ext4_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
- *     
- *                                 ENTRY Section
- *     
+ *
+ *                                 Helper Functions
+ *
  ***********************************************************************************/
 
-static __always_inline int netdata_ext4_entry()
+static __always_inline void netdata_ext4_store_bin(__u32 bin, __u32 selection)
 {
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
-    __u64 ts = bpf_ktime_get_ns();
-
-    bpf_map_update_elem(&tmp_ext4, &pid, &ts, BPF_ANY);
-
-    libnetdata_update_global(&ext4_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
-
-    return 0;
-}
-
-SEC("kprobe/ext4_file_read_iter")
-int netdata_ext4_file_read_iter(struct pt_regs *ctx) 
-{
-    return netdata_ext4_entry();
-}
-
-SEC("kprobe/ext4_file_write_iter")
-int netdata_ext4_file_write_iter(struct pt_regs *ctx) 
-{
-    return netdata_ext4_entry();
-}
-
-SEC("kprobe/ext4_file_open")
-int netdata_ext4_file_open(struct pt_regs *ctx) 
-{
-    return netdata_ext4_entry();
-}
-
-SEC("kprobe/ext4_sync_file")
-int netdata_ext4_sync_file(struct pt_regs *ctx) 
-{
-    return netdata_ext4_entry();
-}
-
-/************************************************************************************
- *     
- *                                 END Section
- *     
- ***********************************************************************************/
-
-static void netdata_ext4_store_bin(__u32 bin, __u32 selection)
-{
-    __u64 *fill, data;
     __u32 idx = selection * NETDATA_FS_MAX_BINS + bin;
     if (idx >= NETDATA_FS_MAX_ELEMENTS)
         return;
 
-    fill = bpf_map_lookup_elem(&tbl_ext4, &idx);
+    __u64 *fill = bpf_map_lookup_elem(&tbl_ext4, &idx);
     if (fill) {
         libnetdata_update_u64(fill, 1);
-		return;
-    } 
+        return;
+    }
 
-    data = 1;
-    bpf_map_update_elem(&tbl_ext4, &idx, &data, BPF_ANY);
-
+    bpf_map_update_elem(&tbl_ext4, &idx, &(unsigned long long){1}, BPF_ANY);
     libnetdata_update_global(&ext4_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_DEL, 1);
 }
 
-SEC("kretprobe/ext4_file_read_iter")
-int netdata_ret_ext4_ext4_file_read_iter(struct pt_regs *ctx)
+static __always_inline int netdata_ext4_ret(struct pt_regs *ctx, __u32 selector)
 {
-    __u64 *fill, data;
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 bin, pid = (__u32)(pid_tgid >> 32);
+    __u32 pid = (__u32)(pid_tgid >> 32);
 
-    fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
+    __u64 *fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
     if (!fill)
         return 0;
 
-    data = bpf_ktime_get_ns() - *fill;
+    __u64 data = bpf_ktime_get_ns() - *fill;
     bpf_map_delete_elem(&tmp_ext4, &pid);
 
-    // Skip entries with backward time
-    if ( (s64)data < 0)
+    if ((s64)data < 0)
         return 0;
 
-    // convert to microseconds
     data /= 1000;
-    bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
-    netdata_ext4_store_bin(bin, NETDATA_KEY_CALLS_READ);
+    __u32 bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
+    netdata_ext4_store_bin(bin, selector);
 
     return 0;
+}
+
+/************************************************************************************
+ *
+ *                                 ENTRY Section
+ *
+ ***********************************************************************************/
+
+SEC("kprobe/ext4_file_read_iter")
+int netdata_ext4_file_read_iter(struct pt_regs *ctx)
+{
+    __u32 pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_map_update_elem(&tmp_ext4, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
+    libnetdata_update_global(&ext4_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    return 0;
+}
+
+SEC("kprobe/ext4_file_write_iter")
+int netdata_ext4_file_write_iter(struct pt_regs *ctx)
+{
+    __u32 pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_map_update_elem(&tmp_ext4, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
+    libnetdata_update_global(&ext4_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    return 0;
+}
+
+SEC("kprobe/ext4_file_open")
+int netdata_ext4_file_open(struct pt_regs *ctx)
+{
+    __u32 pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_map_update_elem(&tmp_ext4, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
+    libnetdata_update_global(&ext4_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    return 0;
+}
+
+SEC("kprobe/ext4_sync_file")
+int netdata_ext4_sync_file(struct pt_regs *ctx)
+{
+    __u32 pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_map_update_elem(&tmp_ext4, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
+    libnetdata_update_global(&ext4_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    return 0;
+}
+
+/************************************************************************************
+ *
+ *                                 END Section
+ *
+ ***********************************************************************************/
+
+SEC("kretprobe/ext4_file_read_iter")
+int netdata_ret_ext4_file_read_iter(struct pt_regs *ctx)
+{
+    return netdata_ext4_ret(ctx, NETDATA_KEY_CALLS_READ);
 }
 
 SEC("kretprobe/ext4_file_write_iter")
 int netdata_ret_ext4_file_write_iter(struct pt_regs *ctx)
 {
-    __u64 *fill, data;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 bin, pid = (__u32)(pid_tgid >> 32);
-
-    fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
-    if (!fill)
-        return 0;
-
-    data = bpf_ktime_get_ns() - *fill;
-    bpf_map_delete_elem(&tmp_ext4, &pid);
-
-    // Skip entries with backward time
-    if ( (s64)data < 0)
-        return 0;
-
-    // convert to microseconds
-    data /= 1000;
-    bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
-    netdata_ext4_store_bin(bin, NETDATA_KEY_CALLS_WRITE);
-
-    return 0;
+    return netdata_ext4_ret(ctx, NETDATA_KEY_CALLS_WRITE);
 }
 
 SEC("kretprobe/ext4_file_open")
 int netdata_ret_ext4_file_open(struct pt_regs *ctx)
 {
-    __u64 *fill, data;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 bin, pid = (__u32)(pid_tgid >> 32);
-
-    fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
-    if (!fill)
-        return 0;
-
-    data = bpf_ktime_get_ns() - *fill;
-    bpf_map_delete_elem(&tmp_ext4, &pid);
-
-    // Skip entries with backward time
-    if ( (s64)data < 0)
-        return 0;
-
-    // convert to microseconds
-    data /= 1000;
-    bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
-    netdata_ext4_store_bin(bin, NETDATA_KEY_CALLS_OPEN);
-
-    return 0;
+    return netdata_ext4_ret(ctx, NETDATA_KEY_CALLS_OPEN);
 }
 
 SEC("kretprobe/ext4_sync_file")
-int netdata_ret_ext4_sync_file(struct pt_regs *ctx) 
+int netdata_ret_ext4_sync_file(struct pt_regs *ctx)
 {
-    __u64 *fill, data;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 bin, pid = (__u32)(pid_tgid >> 32);
-
-    fill = bpf_map_lookup_elem(&tmp_ext4, &pid);
-    if (!fill)
-        return 0;
-
-    data = bpf_ktime_get_ns() - *fill;
-    bpf_map_delete_elem(&tmp_ext4, &pid);
-
-    // Skip entries with backward time
-    if ( (s64)data < 0)
-        return 0;
-
-    // convert to microseconds
-    data /= 1000;
-    bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
-    netdata_ext4_store_bin(bin, NETDATA_KEY_CALLS_SYNC);
-
-    return 0;
+    return netdata_ext4_ret(ctx, NETDATA_KEY_CALLS_SYNC);
 }
 
 char _license[] SEC("license") = "GPL";
-
