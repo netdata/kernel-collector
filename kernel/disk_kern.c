@@ -27,11 +27,12 @@ NETDATA_BPF_ARRAY_DEF(disk_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
  *
  ***********************************************************************************/
 
-static __always_inline netdata_disk_key_t netdata_disk_key(struct netdata_block_rq_issue *ptr)
+static __always_inline netdata_disk_key_t netdata_disk_key(void *ptr)
 {
+    struct netdata_block_rq_issue *issue = ptr;
     netdata_disk_key_t key = {
-        .dev = ptr->dev,
-        .sector = (ptr->sector < 0) ? 0 : ptr->sector
+        .dev = issue->dev,
+        .sector = (issue->sector < 0) ? 0 : issue->sector
     };
     return key;
 }
