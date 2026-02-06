@@ -16,9 +16,8 @@ NETDATA_BPF_HASH_DEF(tbl_oomkill, int, __u8, NETDATA_OOMKILL_MAX_ENTRIES);
 
 SEC("tracepoint/oom/mark_victim")
 int netdata_oom_mark_victim(struct netdata_oom_mark_victim_entry *ptr) {
-    int key = ptr->pid;
-    u8 val = 0;
-    bpf_map_update_elem(&tbl_oomkill, &key, &val, BPF_ANY);
+    u8 zero = 0;
+    bpf_map_update_elem(&tbl_oomkill, &ptr->pid, &zero, BPF_ANY);
     return 0;
 }
 
