@@ -77,7 +77,7 @@ static __always_inline __u16 set_nv_idx_value(netdata_nv_idx_t *nvi, struct sock
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0))
 static __always_inline u8 select_protocol(struct sock *sk)
 {
-    u8 protocol = 0;
+    u8 protocol;
 
     int gso_max_segs_offset = offsetof(struct sock, sk_gso_max_segs);
     int sk_lingertime_offset = offsetof(struct sock, sk_lingertime);
@@ -95,7 +95,7 @@ static __always_inline u8 select_protocol(struct sock *sk)
 
     return protocol;
 }
-#endif // Kernel version 5.6.0
+#endif
 
 static __always_inline __s32 am_i_monitoring_protocol(struct sock *sk)
 {
@@ -104,7 +104,6 @@ static __always_inline __s32 am_i_monitoring_protocol(struct sock *sk)
         return 0;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
-    protocol = 0;
     bpf_probe_read(&protocol, sizeof(u16), &sk->sk_protocol);
 #else
     protocol = (u16) select_protocol(sk);
@@ -196,7 +195,7 @@ static __always_inline void set_common_udp_nv_data(netdata_nv_data_t *data,
     data->protocol = IPPROTO_UDP;
     data->family = family;
     unsigned char state;
-    bpf_probe_read(&state, sizeof(state), &sk->sk_state);
+    bpf_probe_read(&state, sizeof(state), (void *)&sk->sk_state);
     data->state = (int)state;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
     bpf_get_current_comm(&data->name, TASK_COMM_LEN);
