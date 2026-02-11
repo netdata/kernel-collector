@@ -23,19 +23,17 @@ NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_softirq, __u32, softirq_val_t, NETDATA_SOFTIRQ_
 SEC("tracepoint/irq/softirq_entry")
 int netdata_softirq_entry(struct netdata_softirq_entry *ptr)
 {
-    softirq_val_t *valp, val = {};
     u32 vec = ptr->vec;
 
-    // out-of-range index.
     if (vec > NETDATA_SOFTIRQ_MAX_IRQS-1) {
         return 0;
     }
 
-    valp = bpf_map_lookup_elem(&tbl_softirq, &vec);
+    softirq_val_t *valp = bpf_map_lookup_elem(&tbl_softirq, &vec);
     if (valp) {
         valp->ts = bpf_ktime_get_ns();
     } else {
-        val.latency = 0;
+        softirq_val_t val = {};
         val.ts = bpf_ktime_get_ns();
         bpf_map_update_elem(&tbl_softirq, &vec, &val, BPF_ANY);
     }
@@ -46,20 +44,17 @@ int netdata_softirq_entry(struct netdata_softirq_entry *ptr)
 SEC("tracepoint/irq/softirq_exit")
 int netdata_softirq_exit(struct netdata_softirq_exit *ptr)
 {
-    softirq_val_t *valp;
     u32 vec = ptr->vec;
 
-    // out-of-range index.
     if (vec > NETDATA_SOFTIRQ_MAX_IRQS-1) {
         return 0;
     }
 
-    valp = bpf_map_lookup_elem(&tbl_softirq, &vec);
+    softirq_val_t *valp = bpf_map_lookup_elem(&tbl_softirq, &vec);
     if (!valp) {
         return 0;
     }
 
-    // get time diff and convert to microseconds.
     u64 latency = (bpf_ktime_get_ns() - valp->ts) / 1000;
     libnetdata_update_u64(&valp->latency, latency);
 
