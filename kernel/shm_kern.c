@@ -22,20 +22,18 @@ SEC("kprobe/" NETDATA_SYSCALL(shmget))
 #endif
 int netdata_syscall_shmget(struct pt_regs *ctx)
 {
-    netdata_shm_t data = {};
-
     libnetdata_update_global(&tbl_shm, NETDATA_KEY_SHMGET_CALL, 1);
 
-    // check if apps is enabled; if not, don't record apps data.
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&shm_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &tgid, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u32(&fill->get, 1);
     } else {
+        netdata_shm_t data = {};
         data.ct = bpf_ktime_get_ns();
         libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
@@ -44,7 +42,6 @@ int netdata_syscall_shmget(struct pt_regs *ctx)
 #else
         data.name[0] = '\0';
 #endif
-
         data.get = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
 
@@ -61,20 +58,18 @@ SEC("kprobe/" NETDATA_SYSCALL(shmat))
 #endif
 int netdata_syscall_shmat(struct pt_regs *ctx)
 {
-    netdata_shm_t data = {};
-
     libnetdata_update_global(&tbl_shm, NETDATA_KEY_SHMAT_CALL, 1);
 
-    // check if apps is enabled; if not, don't record apps data.
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&shm_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &tgid, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u32(&fill->at, 1);
     } else {
+        netdata_shm_t data = {};
         data.ct = bpf_ktime_get_ns();
         libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
@@ -83,7 +78,6 @@ int netdata_syscall_shmat(struct pt_regs *ctx)
 #else
         data.name[0] = '\0';
 #endif
-
         data.at = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
 
@@ -100,20 +94,18 @@ SEC("kprobe/" NETDATA_SYSCALL(shmdt))
 #endif
 int netdata_syscall_shmdt(struct pt_regs *ctx)
 {
-    netdata_shm_t data = {};
-
     libnetdata_update_global(&tbl_shm, NETDATA_KEY_SHMDT_CALL, 1);
 
-    // check if apps is enabled; if not, don't record apps data.
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&shm_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &tgid, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u32(&fill->dt, 1);
     } else {
+        netdata_shm_t data = {};
         data.ct = bpf_ktime_get_ns();
         libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
@@ -122,7 +114,6 @@ int netdata_syscall_shmdt(struct pt_regs *ctx)
 #else
         data.name[0] = '\0';
 #endif
-
         data.dt = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
 
@@ -139,20 +130,18 @@ SEC("kprobe/" NETDATA_SYSCALL(shmctl))
 #endif
 int netdata_syscall_shmctl(struct pt_regs *ctx)
 {
-    netdata_shm_t data = {};
-
     libnetdata_update_global(&tbl_shm, NETDATA_KEY_SHMCTL_CALL, 1);
 
-    // check if apps is enabled; if not, don't record apps data.
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&shm_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     netdata_shm_t *fill = netdata_get_pid_structure(&key, &tgid, &shm_ctrl, &tbl_pid_shm);
     if (fill) {
         libnetdata_update_u32(&fill->ctl, 1);
     } else {
+        netdata_shm_t data = {};
         data.ct = bpf_ktime_get_ns();
         libnetdata_update_uid_gid(&data.uid, &data.gid);
         data.tgid = tgid;
@@ -161,7 +150,6 @@ int netdata_syscall_shmctl(struct pt_regs *ctx)
 #else
         data.name[0] = '\0';
 #endif
-
         data.ctl = 1;
         bpf_map_update_elem(&tbl_pid_shm, &key, &data, BPF_ANY);
 
