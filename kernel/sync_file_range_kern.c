@@ -9,35 +9,18 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
-/************************************************************************************
- *     
- *                                 MAPS
- *     
- ***********************************************************************************/
-
 NETDATA_BPF_ARRAY_DEF(tbl_syncfr, __u32, __u64, NETDATA_SYNC_END);
-
-/************************************************************************************
- *
- *                               SYNC_FILE_RANGE SECTION
- *
- ***********************************************************************************/
 
 #if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION >= 1)
 SEC("ksyscall/sync_file_range")
 #else
 SEC("kprobe/" NETDATA_SYSCALL(sync_file_range))
 #endif
-int netdata_syscall_sync(struct pt_regs* ctx)
+int netdata_syscall_sync_file_range(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_syncfr, NETDATA_KEY_SYNC_CALL, 1);
 
     return 0;
 }
 
-/************************************************************************************
- *
- *                             END SYNC_FILE_RANGE SECTION
- *
- ***********************************************************************************/
-
+char _license[] SEC("license") = "GPL";
