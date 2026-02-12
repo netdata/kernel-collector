@@ -73,39 +73,38 @@ static __always_inline int netdata_zfs_ret(struct pt_regs *ctx, __u32 selector)
  *
  ***********************************************************************************/
 
+static __always_inline void netdata_zfs_start(struct pt_regs *ctx)
+{
+    __u32 pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_map_update_elem(&tmp_zfs, &pid, &(__u64){bpf_ktime_get_ns()}, BPF_ANY);
+    libnetdata_update_global(&zfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+}
+
 SEC("kprobe/zpl_iter_read")
 int netdata_zpl_iter_read(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_zfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
-    libnetdata_update_global(&zfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    netdata_zfs_start(ctx);
     return 0;
 }
 
 SEC("kprobe/zpl_iter_write")
 int netdata_zpl_iter_write(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_zfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
-    libnetdata_update_global(&zfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    netdata_zfs_start(ctx);
     return 0;
 }
 
 SEC("kprobe/zpl_open")
 int netdata_zpl_open(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_zfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
-    libnetdata_update_global(&zfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    netdata_zfs_start(ctx);
     return 0;
 }
 
 SEC("kprobe/zpl_fsync")
 int netdata_zpl_fsync(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_zfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
-    libnetdata_update_global(&zfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    netdata_zfs_start(ctx);
     return 0;
 }
 

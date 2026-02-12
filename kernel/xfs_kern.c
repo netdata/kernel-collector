@@ -14,21 +14,16 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
-/************************************************************************************
- *
- *                                 MAP Section
- *
- ***********************************************************************************/
-
 NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_xfs, __u32, __u64, NETDATA_FS_MAX_ELEMENTS);
 NETDATA_BPF_HASH_DEF(tmp_xfs, __u32, __u64, 4192);
 NETDATA_BPF_ARRAY_DEF(xfs_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
-/************************************************************************************
- *
- *                                 Helper Functions
- *
- ***********************************************************************************/
+static __always_inline void netdata_xfs_entry(struct pt_regs *ctx)
+{
+    __u32 pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_map_update_elem(&tmp_xfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
+    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+}
 
 static __always_inline void netdata_xfs_store_bin(__u32 bin, __u32 selection)
 {
@@ -68,53 +63,33 @@ static __always_inline int netdata_xfs_ret(struct pt_regs *ctx, __u32 selector)
     return 0;
 }
 
-/************************************************************************************
- *
- *                                 ENTRY Section
- *
- ***********************************************************************************/
-
 SEC("kprobe/xfs_file_read_iter")
 int netdata_xfs_file_read_iter(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_xfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
-    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    netdata_xfs_entry(ctx);
     return 0;
 }
 
 SEC("kprobe/xfs_file_write_iter")
 int netdata_xfs_file_write_iter(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_xfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
-    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    netdata_xfs_entry(ctx);
     return 0;
 }
 
 SEC("kprobe/xfs_file_open")
 int netdata_xfs_file_open(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_xfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
-    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    netdata_xfs_entry(ctx);
     return 0;
 }
 
 SEC("kprobe/xfs_file_fsync")
 int netdata_xfs_file_fsync(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_xfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
-    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    netdata_xfs_entry(ctx);
     return 0;
 }
-
-/************************************************************************************
- *
- *                                 END Section
- *
- ***********************************************************************************/
 
 SEC("kretprobe/xfs_file_read_iter")
 int netdata_ret_xfs_file_read_iter(struct pt_regs *ctx)
