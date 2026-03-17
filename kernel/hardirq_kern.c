@@ -15,7 +15,7 @@
  ***********************************************************************************/
 
 NETDATA_BPF_HASH_DEF(tbl_hardirq, hardirq_key_t, hardirq_val_t, NETDATA_HARDIRQ_MAX_IRQS);
-NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_hardirq_static, __u32, hardirq_val_t, NETDATA_HARDIRQ_STATIC_END);
+NETDATA_BPF_ARRAY_DEF(tbl_hardirq_static, __u32, hardirq_val_t, NETDATA_HARDIRQ_STATIC_END);
 
 /************************************************************************************
  *                                HARDIRQ SECTION
