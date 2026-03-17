@@ -21,13 +21,27 @@ NETDATA_BPF_ARRAY_DEF(tbl_hardirq_static, __u32, hardirq_val_t, NETDATA_HARDIRQ_
  *                                HARDIRQ SECTION
  ***********************************************************************************/
 
+static __always_inline int netdata_hardirq_ctx_irq(void *ctx)
+{
+    int irq = 0;
+
+    /*
+     * Read only the IRQ identifier from the tracepoint payload.
+     * This keeps hardirq independent from unused context fields that can
+     * interfere with user-ring metadata consumers.
+     */
+    bpf_probe_read(&irq, sizeof(irq), (char *)ctx + sizeof(__u64));
+
+    return irq;
+}
+
 SEC("tracepoint/irq/irq_handler_entry")
-int netdata_irq_handler_entry(struct netdata_irq_handler_entry *ptr)
+int netdata_irq_handler_entry(void *ctx)
 {
     hardirq_key_t key = {0};
     hardirq_val_t val = {0};
 
-    key.irq = ptr->irq;
+    key.irq = netdata_hardirq_ctx_irq(ctx);
     hardirq_val_t *valp = bpf_map_lookup_elem(&tbl_hardirq, &key);
     if (valp) {
         valp->ts = bpf_ktime_get_ns();
@@ -41,11 +55,11 @@ int netdata_irq_handler_entry(struct netdata_irq_handler_entry *ptr)
 }
 
 SEC("tracepoint/irq/irq_handler_exit")
-int netdata_irq_handler_exit(struct netdata_irq_handler_exit *ptr)
+int netdata_irq_handler_exit(void *ctx)
 {
     hardirq_key_t key = {0};
 
-    key.irq = ptr->irq;
+    key.irq = netdata_hardirq_ctx_irq(ctx);
     hardirq_val_t *valp = bpf_map_lookup_elem(&tbl_hardirq, &key);
     if (!valp) {
         return 0;
@@ -62,8 +76,9 @@ int netdata_irq_handler_exit(struct netdata_irq_handler_exit *ptr)
  ***********************************************************************************/
 
 #define HARDIRQ_STATIC_GEN_ENTRY(__type, __enum_idx) \
-int netdata_irq_ ##__type(struct netdata_irq_vectors_entry *ptr) \
+int netdata_irq_ ##__type(void *ctx) \
 { \
+    (void)ctx; \
     __u32 key = __enum_idx; \
     hardirq_val_t val = {0}; \
     hardirq_val_t *valp = bpf_map_lookup_elem(&tbl_hardirq_static, &key); \
@@ -78,8 +93,9 @@ int netdata_irq_ ##__type(struct netdata_irq_vectors_entry *ptr) \
 }
 
 #define HARDIRQ_STATIC_GEN_EXIT(__type, __enum_idx) \
-int netdata_irq_ ##__type(struct netdata_irq_vectors_exit *ptr) \
+int netdata_irq_ ##__type(void *ctx) \
 { \
+    (void)ctx; \
     __u32 key = __enum_idx; \
     hardirq_val_t *valp = bpf_map_lookup_elem(&tbl_hardirq_static, &key); \
     if (!valp) { \
