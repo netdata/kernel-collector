@@ -22,52 +22,9 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u32);
-    __type(value, struct netdata_pid_stat_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_pid_stats SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_GLOBAL_COUNTER);
-} tbl_total_stats SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} process_ctrl SEC(".maps");
-
-#else
-
-struct bpf_map_def SEC("maps") tbl_pid_stats = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(struct netdata_pid_stat_t),
-    .max_entries = PID_MAX_DEFAULT
-};
-
-struct bpf_map_def SEC("maps") tbl_total_stats = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries =  NETDATA_GLOBAL_COUNTER
-};
-
-struct bpf_map_def SEC("maps") process_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-
-#endif
+NETDATA_BPF_HASH_DEF(tbl_pid_stats, __u32, struct netdata_pid_stat_t, PID_MAX_DEFAULT);
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_total_stats, __u32, __u64, NETDATA_GLOBAL_COUNTER);
+NETDATA_BPF_ARRAY_DEF(process_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *
@@ -78,7 +35,7 @@ struct bpf_map_def SEC("maps") process_ctrl = {
 static inline void netdata_fill_common_process_data(struct netdata_pid_stat_t *data)
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 tgid = (__u32)pid_tgid >>32;
+    __u32 tgid = (__u32)(pid_tgid >> 32);
     __u32 pid = (__u32)pid_tgid;
 
     data->ct = bpf_ktime_get_ns();
@@ -105,14 +62,14 @@ int netdata_tracepoint_sched_process_exit(struct netdata_sched_process_exit *ptr
     struct netdata_pid_stat_t *fill;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_DO_EXIT, 1);
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
-        libnetdata_update_u32(&fill->exit_call, 1) ;
+        libnetdata_update_u32(&fill->exit_call, 1);
     }
 
     return 0;
@@ -124,14 +81,14 @@ int netdata_release_task(struct pt_regs* ctx)
     struct netdata_pid_stat_t *fill;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_RELEASE_TASK, 1);
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
-        libnetdata_update_u32(&fill->release_call, 1) ;
+        libnetdata_update_u32(&fill->release_call, 1);
 
         libnetdata_update_global(&process_ctrl, NETDATA_CONTROLLER_PID_TABLE_DEL, 1);
     }
@@ -144,18 +101,17 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
 {
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
-    // This is necessary, because it represents the main function to start a thread
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_PROCESS, 1);
 
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
-        libnetdata_update_u32(&fill->create_process, 1) ;
+        libnetdata_update_u32(&fill->create_process, 1);
     } else {
         netdata_fill_common_process_data(&data);
         data.create_process = 1;
@@ -169,29 +125,40 @@ int netdata_tracepoint_sched_process_exec(struct netdata_sched_process_exec *ptr
 }
 
 SEC("tracepoint/sched/sched_process_fork")
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,16,0))
-int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork_v2 *ptr)
-#else
-int netdata_tracepoint_sched_process_fork(struct netdata_sched_process_fork *ptr)
-#endif
+int netdata_tracepoint_sched_process_fork(void *ctx)
 {
     struct netdata_pid_stat_t data = { };
     struct netdata_pid_stat_t *fill;
 
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_PROCESS, 1);
 
-    // Parent ID = 1 means that init called process/thread creation
+    /*
+     * Read parent_pid and child_pid via byte offsets to avoid direct typed-context
+     * dereference, which can interfere with user-ring metadata consumers on newer kernels.
+     * Offsets come from /sys/kernel/tracing/events/sched/sched_process_fork/format.
+     */
+    int parent_pid = 0, child_pid = 0;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,16,0))
+    /* fork_v2: u64 pad(0) + char[4](8) + int parent_pid(12) + char[4](16) + int child_pid(20) */
+    bpf_probe_read(&parent_pid, sizeof(parent_pid), (char *)ctx + 12);
+    bpf_probe_read(&child_pid,  sizeof(child_pid),  (char *)ctx + 20);
+#else
+    /* fork_v1: u64 pad(0) + char[16](8) + int parent_pid(24) + char[16](28) + int child_pid(44) */
+    bpf_probe_read(&parent_pid, sizeof(parent_pid), (char *)ctx + 24);
+    bpf_probe_read(&child_pid,  sizeof(child_pid),  (char *)ctx + 44);
+#endif
+
     int thread = 0;
-    if (ptr->parent_pid != ptr->child_pid && ptr->parent_pid != 1) {
+    if (parent_pid != child_pid && parent_pid != 1) {
         thread = 1;
         libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_THREAD, 1);
     }
 
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
@@ -239,22 +206,22 @@ int netdata_fork(struct pt_regs* ctx)
 #if NETDATASEL < 2
     if (ret < 0) {
         libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_PROCESS, 1);
-    } 
+    }
 #endif
 
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_u32(&fill->task_err, 1) ;
-        } 
+            libnetdata_update_u32(&fill->task_err, 1);
+        }
 #endif
     } else {
         netdata_fill_common_process_data(&data);
@@ -290,22 +257,22 @@ int netdata_sys_clone(struct pt_regs *ctx)
 #if NETDATASEL < 2
     if (ret < 0) {
         libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_ERROR_PROCESS, 1);
-    } 
+    }
 #endif
 
-    __u32 key = 0;
-    __u32 tgid = 0;
     if (!monitor_apps(&process_ctrl))
         return 0;
 
+    __u32 key = 0;
+    __u32 tgid = 0;
     fill = netdata_get_pid_structure(&key, &tgid, &process_ctrl, &tbl_pid_stats);
     if (fill) {
         fill->release_call = 0;
 
 #if NETDATASEL < 2
         if (ret < 0) {
-            libnetdata_update_u32(&fill->task_err, 1) ;
-        } 
+            libnetdata_update_u32(&fill->task_err, 1);
+        }
 #endif
     } else {
         netdata_fill_common_process_data(&data);

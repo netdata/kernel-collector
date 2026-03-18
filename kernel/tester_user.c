@@ -18,10 +18,13 @@
 #include "tester_user.h"
 
 static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_lookup_fast",
-                                                   .function_to_attach = "lookup_fast",
-                                                   .optional = NULL,
-                                                   .retprobe = 0},
-                                                  {.program_name = NULL}};
+                                                    .function_to_attach = "lookup_fast",
+                                                    .optional = NULL,
+                                                    .retprobe = 0},
+                                                   {.program_name = NULL,
+                                                    .function_to_attach = NULL,
+                                                    .optional = NULL,
+                                                    .retprobe = 0}};
 
 // Versions 3_10, 4_18 and 5_14 must be always present to keep compatibility with RH family
 // Version 4_14, 4_16 must be present for syscalls with old name convention
@@ -601,6 +604,24 @@ static inline void ebpf_values_accumulator(ebpf_table_data_t *values)
 }
 
 /**
+ * Check and update counter
+ *
+ * @param fd    the file descriptor for the table.
+ * @param key   the key to lookup.
+ * @param filled   pointer to filled counter.
+ * @param zero     pointer to zero counter.
+ */
+static inline void ebpf_check_and_update_counter(int fd, uint32_t key, uint32_t *filled, uint32_t *zero)
+{
+    uint32_t value[NETDATA_CONTROLLER_END];
+    if (bpf_map_lookup_elem(fd, &key, value)) {
+        (*zero)++;
+    } else {
+        (*filled)++;
+    }
+}
+
+/**
  * Read Table
  *
  * Read values from specified table.
@@ -684,20 +705,16 @@ static void ebpf_write_common_json_vector(ebpf_table_data_t *values, int fd)
 static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
 {
     uint32_t value = 0;
-    uint32_t zero = 0; 
+    uint32_t zero = 0;
 
-    uint32_t key, read[nprocesses];
+    uint32_t key;
     for (key = 0; key < NETDATA_CONTROLLER_END; key++) {
-        if (bpf_map_lookup_elem(fd, &key, read)) {
-            zero++;
-        } else {
-            value++;
-        }
+        ebpf_check_and_update_counter(fd, key, &value, &zero);
     }
     fprintf(stdlog,
             "                                    "
-            "{ \"Iteration\" : 1, \"Total\" : %u, \"Filled\" : %u, \"Zero\" : %d }\n",
-            value + zero,  value, zero); 
+            "{ \"Iteration\" : 1, \"Total\" : %u, \"Filled\" : %u, \"Zero\" : %u }\n",
+            value + zero,  value, zero);
 }
 
 /**
@@ -766,7 +783,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
 }
 
 /**
- * Fill Control table 
+ * Fill Control table
  *
  * Fill control table with data allowing eBPF collectors to store specific data.
  *
@@ -778,24 +795,23 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
     struct bpf_map *map;
 
     bpf_object__for_each_map(map, obj) {
-        // We only few datas fro the controller
         const char *name = bpf_map__name(map);
         if (strcmp(name, ctrl))
             continue;
 
         int fd = bpf_map__fd(map);
 
-        unsigned int i, end;
+        unsigned int end;
 #ifdef LIBBPF_MAJOR_VERSION
         end = bpf_map__max_entries(map);
 #else
         const struct bpf_map_def *def = bpf_map__def(map);
         end = def->max_entries;
 #endif
-        uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level, 0, 0, 0, 0};
+        uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level, 0, 0, 0, 0 };
+        unsigned int i;
         for (i = 0; i < end; i++) {
-             int ret = bpf_map_update_elem(fd, &i, &values[i], 0);
-             if (ret)
+             if (bpf_map_update_elem(fd, &i, &values[i], 0))
                  fprintf(stdlog, "\"error\" : \"Add key(%u) for controller table failed.\",", i);
         }
     }
@@ -1208,7 +1224,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
     }
 
     // When user does not specify any flag, we will use common value
-    if (!(flags & (NETDATA_FLAG_ALL & ~(NETDATA_FLAG_CONTENT))))
+    if (!(flags & (NETDATA_FLAG_ALL & ~NETDATA_FLAG_CONTENT)))
         flags |= ebpf_set_common_flag();
 
     // The necessary tracepoint was made in kernel 4.14, so we cannot

@@ -14,232 +14,105 @@
 #include "bpf_helpers.h"
 #include "netdata_ebpf.h"
 
-/************************************************************************************
- *     
- *                                 MAP Section
- *     
- ***********************************************************************************/
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_xfs, __u32, __u64, NETDATA_FS_MAX_ELEMENTS);
+NETDATA_BPF_HASH_DEF(tmp_xfs, __u32, __u64, 4192);
+NETDATA_BPF_ARRAY_DEF(xfs_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_FS_MAX_ELEMENTS);
-} tbl_xfs SEC(".maps");
+static __always_inline void netdata_xfs_entry(struct pt_regs *ctx)
+{
+    __u32 pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_map_update_elem(&tmp_xfs, &pid, &(unsigned long long){bpf_ktime_get_ns()}, BPF_ANY);
+    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+}
 
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries,  4192);
-} tmp_xfs SEC(".maps");
+static __always_inline void netdata_xfs_store_bin(__u32 bin, __u32 selection)
+{
+    __u32 idx = selection * NETDATA_FS_MAX_BINS + bin;
+    if (idx >= NETDATA_FS_MAX_ELEMENTS)
+        return;
 
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} xfs_ctrl SEC(".maps");
+    __u64 *fill = bpf_map_lookup_elem(&tbl_xfs, &idx);
+    if (fill) {
+        libnetdata_update_u64(fill, 1);
+        return;
+    }
 
-#else
-struct bpf_map_def SEC("maps") tbl_xfs = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_FS_MAX_ELEMENTS
-};
+    bpf_map_update_elem(&tbl_xfs, &idx, &(unsigned long long){1}, BPF_ANY);
+    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_DEL, 1);
+}
 
-struct bpf_map_def SEC("maps") tmp_xfs = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = 4192
-};
-
-struct bpf_map_def SEC("maps") xfs_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
-
-/************************************************************************************
- *     
- *                                 ENTRY Section
- *     
- ***********************************************************************************/
-
-static __always_inline int netdata_xfs_entry()
+static __always_inline int netdata_xfs_ret(struct pt_regs *ctx, __u32 selector)
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = (__u32)(pid_tgid >> 32);
-    __u64 ts = bpf_ktime_get_ns();
 
-    bpf_map_update_elem(&tmp_xfs, &pid, &ts, BPF_ANY);
+    __u64 *fill = bpf_map_lookup_elem(&tmp_xfs, &pid);
+    if (!fill)
+        return 0;
 
-    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
+    __u64 data = bpf_ktime_get_ns() - *fill;
+    bpf_map_delete_elem(&tmp_xfs, &pid);
+
+    if ((s64)data < 0)
+        return 0;
+
+    data /= 1000;
+    __u32 bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
+    netdata_xfs_store_bin(bin, selector);
 
     return 0;
 }
 
 SEC("kprobe/xfs_file_read_iter")
-int netdata_xfs_file_read_iter(struct pt_regs *ctx) 
+int netdata_xfs_file_read_iter(struct pt_regs *ctx)
 {
-    return netdata_xfs_entry();
+    netdata_xfs_entry(ctx);
+    return 0;
 }
 
 SEC("kprobe/xfs_file_write_iter")
-int netdata_xfs_file_write_iter(struct pt_regs *ctx) 
+int netdata_xfs_file_write_iter(struct pt_regs *ctx)
 {
-    return netdata_xfs_entry();
+    netdata_xfs_entry(ctx);
+    return 0;
 }
 
 SEC("kprobe/xfs_file_open")
-int netdata_xfs_file_open(struct pt_regs *ctx) 
+int netdata_xfs_file_open(struct pt_regs *ctx)
 {
-    return netdata_xfs_entry();
+    netdata_xfs_entry(ctx);
+    return 0;
 }
 
 SEC("kprobe/xfs_file_fsync")
-int netdata_xfs_file_fsync(struct pt_regs *ctx) 
+int netdata_xfs_file_fsync(struct pt_regs *ctx)
 {
-    return netdata_xfs_entry();
-}
-
-/************************************************************************************
- *     
- *                                 END Section
- *     
- ***********************************************************************************/
-
-static void netdata_xfs_store_bin(__u32 bin, __u32 selection)
-{
-    __u64 *fill, data;
-    __u32 idx = selection * NETDATA_FS_MAX_BINS + bin;
-    if (idx >= NETDATA_FS_MAX_ELEMENTS)
-        return;
-
-    fill = bpf_map_lookup_elem(&tbl_xfs, &idx);
-    if (fill) {
-        libnetdata_update_u64(fill, 1);
-		return;
-    } 
-
-    data = 1;
-    bpf_map_update_elem(&tbl_xfs, &idx, &data, BPF_ANY);
-
-    libnetdata_update_global(&xfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_DEL, 1);
+    netdata_xfs_entry(ctx);
+    return 0;
 }
 
 SEC("kretprobe/xfs_file_read_iter")
 int netdata_ret_xfs_file_read_iter(struct pt_regs *ctx)
 {
-    __u64 *fill, data;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 bin, pid = (__u32)(pid_tgid >> 32);
-
-    fill = bpf_map_lookup_elem(&tmp_xfs, &pid);
-    if (!fill)
-        return 0;
-
-    data = bpf_ktime_get_ns() - *fill;
-    bpf_map_delete_elem(&tmp_xfs, &pid);
-
-    // Skip entries with backward time
-    if ( (s64)data < 0)
-        return 0;
-
-    // convert to microseconds
-    data /= 1000;
-    bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
-    netdata_xfs_store_bin(bin, NETDATA_KEY_CALLS_READ);
-
-    return 0;
+    return netdata_xfs_ret(ctx, NETDATA_KEY_CALLS_READ);
 }
 
 SEC("kretprobe/xfs_file_write_iter")
 int netdata_ret_xfs_file_write_iter(struct pt_regs *ctx)
 {
-    __u64 *fill, data;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 bin, pid = (__u32)(pid_tgid >> 32);
-
-    fill = bpf_map_lookup_elem(&tmp_xfs, &pid);
-    if (!fill)
-        return 0;
-
-    data = bpf_ktime_get_ns() - *fill;
-    bpf_map_delete_elem(&tmp_xfs, &pid);
-
-    // Skip entries with backward time
-    if ( (s64)data < 0)
-        return 0;
-
-    // convert to microseconds
-    data /= 1000;
-    bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
-    netdata_xfs_store_bin(bin, NETDATA_KEY_CALLS_WRITE);
-
-    return 0;
+    return netdata_xfs_ret(ctx, NETDATA_KEY_CALLS_WRITE);
 }
 
 SEC("kretprobe/xfs_file_open")
 int netdata_ret_xfs_file_open(struct pt_regs *ctx)
 {
-    __u64 *fill, data;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 bin, pid = (__u32)(pid_tgid >> 32);
-
-    fill = bpf_map_lookup_elem(&tmp_xfs, &pid);
-    if (!fill)
-        return 0;
-
-    data = bpf_ktime_get_ns() - *fill;
-    bpf_map_delete_elem(&tmp_xfs, &pid);
-
-    // Skip entries with backward time
-    if ( (s64)data < 0)
-        return 0;
-
-    // convert to microseconds
-    data /= 1000;
-    bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
-    netdata_xfs_store_bin(bin, NETDATA_KEY_CALLS_OPEN);
-
-    return 0;
+    return netdata_xfs_ret(ctx, NETDATA_KEY_CALLS_OPEN);
 }
 
 SEC("kretprobe/xfs_file_fsync")
-int netdata_ret_xfs_file_fsync(struct pt_regs *ctx) 
+int netdata_ret_xfs_file_fsync(struct pt_regs *ctx)
 {
-    __u64 *fill, data;
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 bin, pid = (__u32)(pid_tgid >> 32);
-
-    fill = bpf_map_lookup_elem(&tmp_xfs, &pid);
-    if (!fill)
-        return 0;
-
-    data = bpf_ktime_get_ns() - *fill;
-    bpf_map_delete_elem(&tmp_xfs, &pid);
-
-    // Skip entries with backward time
-    if ( (s64)data < 0)
-        return 0;
-
-    // convert to microseconds
-    data /= 1000;
-    bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
-    netdata_xfs_store_bin(bin, NETDATA_KEY_CALLS_SYNC);
-
-    return 0;
+    return netdata_xfs_ret(ctx, NETDATA_KEY_CALLS_SYNC);
 }
 
 char _license[] SEC("license") = "GPL";
-

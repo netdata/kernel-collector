@@ -25,79 +25,11 @@
  *
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_SOCKET_COUNTER);
-} tbl_global_sock SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __type(key, netdata_socket_idx_t);
-    __type(value, netdata_socket_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_nd_socket SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-    __type(key, __u64);
-    __type(value, void *);
-    __uint(max_entries, 4096);
-} tbl_nv_udp SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, netdata_passive_connection_idx_t);
-    __type(value, netdata_passive_connection_t);
-    __uint(max_entries, 1024);
-} tbl_lports SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} socket_ctrl SEC(".maps");
-
-#else
-struct bpf_map_def SEC("maps") tbl_global_sock = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries =  NETDATA_SOCKET_COUNTER
-};
-
-struct bpf_map_def SEC("maps") tbl_nd_socket = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(netdata_socket_idx_t),
-    .value_size = sizeof(netdata_socket_t),
-    .max_entries =  PID_MAX_DEFAULT,
-};
-
-struct bpf_map_def SEC("maps") tbl_nv_udp = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u64),
-    .value_size = sizeof(void *),
-    .max_entries = 4096
-};
-
-struct bpf_map_def SEC("maps") tbl_lports = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(netdata_passive_connection_idx_t),
-    .value_size = sizeof(netdata_passive_connection_t),
-    .max_entries =  1024
-};
-
-struct bpf_map_def SEC("maps") socket_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-
-#endif
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_global_sock, __u32, __u64, NETDATA_SOCKET_COUNTER);
+NETDATA_BPF_PERCPU_HASH_DEF(tbl_nd_socket, netdata_socket_idx_t, netdata_socket_t, PID_MAX_DEFAULT);
+NETDATA_BPF_PERCPU_HASH_DEF(tbl_nv_udp, __u64, void *, 4096);
+NETDATA_BPF_HASH_DEF(tbl_lports, netdata_passive_connection_idx_t, netdata_passive_connection_t, 1024);
+NETDATA_BPF_ARRAY_DEF(socket_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *
@@ -124,12 +56,11 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
     // Check necessary according https://elixir.bootlin.com/linux/v5.6.14/source/include/net/sock.h#L199
 #if IS_ENABLED(CONFIG_IPV6)
     else if ( family == AF_INET6 ) {
-        // struct in6_addr *addr6 = &is->sk.sk_v6_rcv_saddr; // bind to local address
-        struct in6_addr *addr6 = &is->sk.__sk_common.skc_v6_rcv_saddr.s6_addr;
-        bpf_probe_read(&nsi->saddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+        __u8 (*addr6)[16] = &is->sk.__sk_common.skc_v6_rcv_saddr.s6_addr;
+        bpf_probe_read(&nsi->saddr.addr8,  sizeof(__u8)*16, addr6);
 
         addr6 = &is->sk.__sk_common.skc_v6_daddr.s6_addr;
-        bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, &addr6->s6_addr);
+        bpf_probe_read(&nsi->daddr.addr8,  sizeof(__u8)*16, addr6);
 
         if (((nsi->saddr.addr64[0] == 0) && (nsi->saddr.addr64[1] == 72057594037927936)) ||  // Loopback
             ((nsi->daddr.addr64[0] == 0) && (nsi->daddr.addr64[1] == 72057594037927936)))
@@ -153,7 +84,6 @@ static __always_inline __u16 set_idx_value(netdata_socket_idx_t *nsi, struct ine
     //if (nsi->sport == 0 || nsi->dport == 0)
     if (nsi->dport == 0)
         return AF_UNSPEC;
-
 
     __u32 tgid = 0;
     nsi->pid = netdata_get_pid(&socket_ctrl, &tgid);
@@ -228,14 +158,12 @@ static __always_inline  void update_socket_table(struct pt_regs* ctx,
     if (family == AF_UNSPEC)
         return;
 
-    netdata_socket_t *val;
-    netdata_socket_t data = { };
-
-    val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
+    netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (val) {
         update_socket_stats(val, sent, received, retransmitted, protocol);
         val->tcp.state = state;
     } else {
+        netdata_socket_t data = { };
         update_socket_common(&data, protocol, family);
         data.tcp.state = state;
         update_socket_stats(&data, sent, received, retransmitted, protocol);
@@ -273,16 +201,12 @@ static __always_inline void update_pid_connection(struct pt_regs* ctx)
 {
     netdata_socket_idx_t idx = { };
 
-    netdata_socket_t *stored;
-    netdata_socket_t data = { };
-
     struct inet_sock *is = inet_sk((struct sock *)PT_REGS_PARM1(ctx));
-
     __u16 family = set_idx_value(&idx, is);
     if (family == AF_UNSPEC)
         return;
 
-    stored = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
+    netdata_socket_t *stored = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &idx);
     if (stored) {
         stored->ct = bpf_ktime_get_ns();
 
@@ -291,6 +215,7 @@ static __always_inline void update_pid_connection(struct pt_regs* ctx)
         else
             libnetdata_update_u32(&stored->tcp.ipv6_connect, 1);
     } else {
+        netdata_socket_t data = { };
         update_socket_common(&data, IPPROTO_TCP, family);
         if (family == AF_INET)
             data.tcp.ipv4_connect = 1;
@@ -312,15 +237,12 @@ static __always_inline void update_pid_connection(struct pt_regs* ctx)
 SEC("kretprobe/inet_csk_accept")
 int netdata_inet_csk_accept(struct pt_regs* ctx)
 {
-    netdata_passive_connection_t data = { };
-    netdata_passive_connection_idx_t idx = { };
     struct sock *sk = (struct sock *)PT_REGS_RC(ctx);
-    u16 protocol;
     if (!sk)
         return 0;
 
+    u16 protocol;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
-    protocol = 0;
     bpf_probe_read(&protocol, sizeof(u16), &sk->sk_protocol);
 #else
     protocol = (u16) select_protocol(sk);
@@ -329,20 +251,21 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
     if (protocol != IPPROTO_TCP && protocol != IPPROTO_UDP)
         return 0;
 
+    netdata_passive_connection_idx_t idx = { };
     idx.protocol = protocol;
     bpf_probe_read(&idx.port, sizeof(u16), &sk->__sk_common.skc_num);
 
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 tgid = (__u32)pid_tgid >>32;
+    __u32 tgid = pid_tgid >> 32;
     __u32 pid = (__u32)pid_tgid;
 
     netdata_passive_connection_t *value = (netdata_passive_connection_t *)bpf_map_lookup_elem(&tbl_lports, &idx);
     if (value) {
-        // Update PID, because process can die.
         value->tgid = tgid;
         value->pid = pid;
         libnetdata_update_u64(&value->counter, 1);
     } else {
+        netdata_passive_connection_t data = { };
         data.tgid = tgid;
         data.pid = pid;
         data.counter = 1;
@@ -357,13 +280,11 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
     if (family == AF_UNSPEC)
         return 0;
 
-    netdata_socket_t *val;
-    netdata_socket_t nv_data = { };
-
-    val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &nv_idx);
+    netdata_socket_t *val = (netdata_socket_t *) bpf_map_lookup_elem(&tbl_nd_socket, &nv_idx);
     if (val) {
         libnetdata_update_u32(&val->external_origin, 1);
     } else {
+        netdata_socket_t nv_data = { };
         update_socket_common(&nv_data, protocol, family);
         nv_data.external_origin = 1;
 

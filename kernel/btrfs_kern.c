@@ -25,68 +25,10 @@
  *     
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_FS_MAX_ELEMENTS);
-} tbl_btrfs SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries,  1);
-} tbl_ext_addr SEC(".maps");
-
-struct {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
-    __uint(type, BPF_MAP_TYPE_HASH);
-#else
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-#endif
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries,  4192);
-} tmp_btrfs SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} btrfs_ctrl SEC(".maps");
-#else
-
-struct bpf_map_def SEC("maps") tbl_btrfs = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_FS_MAX_ELEMENTS
-};
-
-struct bpf_map_def SEC("maps") tbl_ext_addr = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = 1
-};
-
-struct bpf_map_def SEC("maps") tmp_btrfs = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = 4192
-};
-
-struct bpf_map_def SEC("maps") btrfs_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
+NETDATA_BPF_PERCPU_ARRAY_DEF(tbl_btrfs, __u32, __u64, NETDATA_FS_MAX_ELEMENTS);
+NETDATA_BPF_HASH_DEF(tbl_ext_addr, __u32, __u64, 1);
+NETDATA_BPF_HASH_DEF(tmp_btrfs, __u32, __u64, 4192);
+NETDATA_BPF_ARRAY_DEF(btrfs_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *     

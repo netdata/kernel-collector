@@ -6,6 +6,7 @@ LIBBPF_HEADERS = ../.local_libbpf
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 EXTRA_CFLAGS += -fno-stack-protector
+EXTRA_CFLAGS += -DCONFIG_CC_HAS_ASM_INLINE=0
 
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated/uapi
@@ -114,30 +115,35 @@ libbpf:
 	cd $(LIBBPF)/src && /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR) && $(MAKE) CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
 %_kern.o: %_kern.c libbpf
-	if [ -w $(KERNELSOURCE)/include/generated/autoconf.h ]; then  if [ "$(CURRENT_KERNEL)" -ge 328448 ]; then sed -i -e 's/\(#define CONFIG_CC_HAS_ASM_INLINE 1\)/\/\/\1/' $(KERNELSOURCE)/include/generated/autoconf.h; fi ; fi
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
 	    	-Wno-compare-distinct-pointer-types \
 	    	-Wno-gnu-variable-sized-type-not-at-end \
 	    	-Wno-tautological-compare \
-	    	-fno-asynchronous-unwind-tables \
+		-Wno-duplicate-decl-specifier \
+		-Wno-address-of-packed-member \
+		-Wno-macro-redefined \
+		-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=0 \
 		-D__BPF_TRACING__ \
 		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
-		-O2 -g -emit-llvm -c $<
+		-O2 -g -emit-llvm $< -o $(<:.c=.ll)
 	$(LLC) -march=bpf -filetype=obj -o r$@ $(<:.c=.ll)
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-	    	-Wno-compare-distinct-pointer-types \
-	    	-Wno-gnu-variable-sized-type-not-at-end \
-	    	-Wno-tautological-compare \
-	    	-fno-asynchronous-unwind-tables \
+		-Wno-compare-distinct-pointer-types \
+		-Wno-gnu-variable-sized-type-not-at-end \
+		-Wno-tautological-compare \
+		-Wno-duplicate-decl-specifier \
+		-Wno-address-of-packed-member \
+		-Wno-macro-redefined \
+		-fno-asynchronous-unwind-tables \
 		-DNETDATASEL=2 \
 		-D__BPF_TRACING__ \
 		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
-		-O2 -g -emit-llvm -c $<
+		-O2 -g -emit-llvm $< -o $(<:.c=.ll)
 	$(LLC) -march=bpf -filetype=obj -o p$@ $(<:.c=.ll)
 	/bin/bash rename_binaries.sh "$(VER_MAJOR)" "$(VER_MINOR)" "$@"
 

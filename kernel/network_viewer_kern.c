@@ -25,36 +25,8 @@
  *
  ***********************************************************************************/
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, netdata_nv_idx_t);
-    __type(value, netdata_nv_data_t);
-    __uint(max_entries, PID_MAX_DEFAULT);
-} tbl_nv_socket SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, __u32);
-    __type(value, __u64);
-    __uint(max_entries, NETDATA_CONTROLLER_END);
-} nv_ctrl SEC(".maps");
-
-#else
-struct bpf_map_def SEC("maps") tbl_nv_socket = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(netdata_nv_idx_t),
-    .value_size = sizeof(netdata_nv_data_t),
-    .max_entries =  PID_MAX_DEFAULT,
-};
-
-struct bpf_map_def SEC("maps") nv_ctrl = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = NETDATA_CONTROLLER_END
-};
-#endif
+NETDATA_BPF_HASH_DEF(tbl_nv_socket, netdata_nv_idx_t, netdata_nv_data_t, PID_MAX_DEFAULT);
+NETDATA_BPF_ARRAY_DEF(nv_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
 
 /************************************************************************************
  *
@@ -105,7 +77,7 @@ static __always_inline __u16 set_nv_idx_value(netdata_nv_idx_t *nvi, struct sock
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0))
 static __always_inline u8 select_protocol(struct sock *sk)
 {
-    u8 protocol = 0;
+    u8 protocol;
 
     int gso_max_segs_offset = offsetof(struct sock, sk_gso_max_segs);
     int sk_lingertime_offset = offsetof(struct sock, sk_lingertime);
@@ -123,7 +95,7 @@ static __always_inline u8 select_protocol(struct sock *sk)
 
     return protocol;
 }
-#endif // Kernel version 5.6.0
+#endif
 
 static __always_inline __s32 am_i_monitoring_protocol(struct sock *sk)
 {
@@ -132,7 +104,6 @@ static __always_inline __s32 am_i_monitoring_protocol(struct sock *sk)
         return 0;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
-    protocol = 0;
     bpf_probe_read(&protocol, sizeof(u16), &sk->sk_protocol);
 #else
     protocol = (u16) select_protocol(sk);
@@ -224,7 +195,7 @@ static __always_inline void set_common_udp_nv_data(netdata_nv_data_t *data,
     data->protocol = IPPROTO_UDP;
     data->family = family;
     unsigned char state;
-    bpf_probe_read(&state, sizeof(state), &sk->sk_state);
+    bpf_probe_read(&state, sizeof(state), (void *)&sk->sk_state);
     data->state = (int)state;
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
     bpf_get_current_comm(&data->name, TASK_COMM_LEN);
