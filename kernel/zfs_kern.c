@@ -47,15 +47,14 @@ static __always_inline void netdata_zfs_store_bin(__u32 bin, __u32 selection)
 
 static __always_inline int netdata_zfs_ret(struct pt_regs *ctx, __u32 selector)
 {
-    __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = (__u32)(pid_tgid >> 32);
+    __u32 tid = (__u32)bpf_get_current_pid_tgid();
 
-    __u64 *fill = bpf_map_lookup_elem(&tmp_zfs, &pid);
+    __u64 *fill = bpf_map_lookup_elem(&tmp_zfs, &tid);
     if (!fill)
         return 0;
 
     __u64 data = bpf_ktime_get_ns() - *fill;
-    bpf_map_delete_elem(&tmp_zfs, &pid);
+    bpf_map_delete_elem(&tmp_zfs, &tid);
 
     if ((s64)data < 0)
         return 0;
@@ -75,8 +74,8 @@ static __always_inline int netdata_zfs_ret(struct pt_regs *ctx, __u32 selector)
 
 static __always_inline void netdata_zfs_start(struct pt_regs *ctx)
 {
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_map_update_elem(&tmp_zfs, &pid, &(__u64){bpf_ktime_get_ns()}, BPF_ANY);
+    __u32 tid = (__u32)bpf_get_current_pid_tgid();
+    bpf_map_update_elem(&tmp_zfs, &tid, &(__u64){bpf_ktime_get_ns()}, BPF_ANY);
     libnetdata_update_global(&zfs_ctrl, NETDATA_CONTROLLER_TEMP_TABLE_ADD, 1);
 }
 
