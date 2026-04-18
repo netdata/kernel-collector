@@ -75,6 +75,23 @@ typedef struct netdata_dns_packet {
     char domain[NETDATA_DNS_MAX_DOMAIN_LENGTH];
 } netdata_dns_packet_t;
 
+typedef struct netdata_dns_debug {
+    const char *stage;
+    const char *operation;
+    int error_code;
+    int maps_requested;
+    int iterations;
+    int capture_seconds;
+    int program_fd;
+    int sockfd;
+    int dns_ports_found;
+    int dns_ports_fd;
+    uint32_t dns_ports_key_size;
+    uint32_t dns_ports_value_size;
+    uint32_t dns_ports_max_entries;
+    int dns_ports_type;
+} netdata_dns_debug_t;
+
 static uint16_t dns_read_u16(const uint8_t *src)
 {
     return ((uint16_t)src[0] << 8) | src[1];
@@ -115,6 +132,27 @@ static void dns_format_ip(char *dst, size_t len, uint8_t family, const uint8_t *
 {
     if (!inet_ntop(family, src, dst, len))
         snprintf(dst, len, "invalid");
+}
+
+static const char *dns_describe_error(int err, char *buffer, size_t length)
+{
+    int code = err;
+
+    if (!code)
+        return "No error information";
+
+    if (code < 0)
+        code = -code;
+
+    snprintf(buffer, length, "%s", strerror(code));
+    return buffer;
+}
+
+static void dns_set_error(netdata_dns_debug_t *debug, const char *stage, const char *operation, int error_code)
+{
+    debug->stage = stage;
+    debug->operation = operation;
+    debug->error_code = error_code;
 }
 
 static int dns_read_name(const uint8_t *data, size_t length, size_t offset, char *dst, size_t dst_len, size_t *next)
@@ -718,7 +756,48 @@ static void dns_write_results_json(FILE *stdlog, const netdata_dns_collector_t *
             "        }");
 }
 
-static int dns_configure_ports(struct bpf_object *obj, const uint16_t *ports, size_t port_count, FILE *stdlog)
+static void dns_write_failure_debug(FILE *stdlog, const uint16_t *ports, size_t port_count,
+                                    const netdata_dns_debug_t *debug)
+{
+    char error_buffer[128];
+    size_t i;
+
+    fprintf(stdlog,
+            "        \"Debug\" : {\n"
+            "            \"Info\" : { \"Stage\" : \"%s\",\n"
+            "                       \"Operation\" : \"%s\",\n"
+            "                       \"Error Code\" : %d,\n"
+            "                       \"Error Message\" : \"%s\",\n"
+            "                       \"Maps Requested\" : %d,\n"
+            "                       \"Iterations\" : %d,\n"
+            "                       \"Capture Seconds\" : %d,\n"
+            "                       \"Program FD\" : %d,\n"
+            "                       \"Socket FD\" : %d,\n"
+            "                       \"dns_ports Found\" : %d,\n"
+            "                       \"dns_ports FD\" : %d,\n"
+            "                       \"dns_ports Type\" : %d,\n"
+            "                       \"dns_ports Key Size\" : %u,\n"
+            "                       \"dns_ports Value Size\" : %u,\n"
+            "                       \"dns_ports Max Entries\" : %u,\n"
+            "                       \"Configured Ports\" : [",
+            debug->stage ? debug->stage : "unknown",
+            debug->operation ? debug->operation : "unknown",
+            debug->error_code,
+            dns_describe_error(debug->error_code, error_buffer, sizeof(error_buffer)),
+            debug->maps_requested, debug->iterations, debug->capture_seconds,
+            debug->program_fd, debug->sockfd, debug->dns_ports_found,
+            debug->dns_ports_fd, debug->dns_ports_type, debug->dns_ports_key_size,
+            debug->dns_ports_value_size, debug->dns_ports_max_entries);
+
+    for (i = 0; i < port_count; i++) {
+        fprintf(stdlog, "%s%u", i ? ", " : "", ports[i]);
+    }
+
+    fprintf(stdlog, "]\n                      }\n        }\n");
+}
+
+static int dns_configure_ports(struct bpf_object *obj, const uint16_t *ports, size_t port_count,
+                               netdata_dns_debug_t *debug)
 {
     struct bpf_map *map;
     const char *name = "dns_ports";
@@ -733,9 +812,26 @@ static int dns_configure_ports(struct bpf_object *obj, const uint16_t *ports, si
             continue;
 
         fd = bpf_map__fd(map);
+        debug->dns_ports_found = 1;
+        debug->dns_ports_fd = fd;
+#ifdef LIBBPF_MAJOR_VERSION
+        debug->dns_ports_type = bpf_map__type(map);
+        debug->dns_ports_key_size = bpf_map__key_size(map);
+        debug->dns_ports_value_size = bpf_map__value_size(map);
+        debug->dns_ports_max_entries = bpf_map__max_entries(map);
+#else
+        {
+            const struct bpf_map_def *def = bpf_map__def(map);
+
+            debug->dns_ports_type = def->type;
+            debug->dns_ports_key_size = def->key_size;
+            debug->dns_ports_value_size = def->value_size;
+            debug->dns_ports_max_entries = def->max_entries;
+        }
+#endif
         for (i = 0; i < port_count; i++) {
             if (bpf_map_update_elem(fd, &ports[i], &enabled, BPF_ANY)) {
-                fprintf(stdlog, "\"error\" : \"Cannot update dns port %u map entry.\",", ports[i]);
+                dns_set_error(debug, "configure_ports", "bpf_map_update_elem", errno ? -errno : -1);
                 return -1;
             }
         }
@@ -743,7 +839,7 @@ static int dns_configure_ports(struct bpf_object *obj, const uint16_t *ports, si
         return 0;
     }
 
-    fprintf(stdlog, "\"error\" : \"Cannot find dns_ports map.\",");
+    dns_set_error(debug, "configure_ports", "find_dns_ports_map", -ENOENT);
     return -1;
 }
 
@@ -759,33 +855,40 @@ static struct bpf_program *dns_find_socket_filter_program(struct bpf_object *obj
     return NULL;
 }
 
-static int dns_open_capture_socket(int program_fd)
+static int dns_open_capture_socket(int program_fd, netdata_dns_debug_t *debug)
 {
     struct sockaddr_ll bind_addr = { };
     int sockfd;
     struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
 
+    debug->program_fd = program_fd;
     sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-    if (sockfd < 0)
+    if (sockfd < 0) {
+        dns_set_error(debug, "open_capture_socket", "socket", errno ? -errno : -1);
         return -1;
+    }
 
     bind_addr.sll_family = AF_PACKET;
     bind_addr.sll_protocol = htons(ETH_P_ALL);
     if (bind(sockfd, (struct sockaddr *)&bind_addr, sizeof(bind_addr))) {
+        dns_set_error(debug, "open_capture_socket", "bind", errno ? -errno : -1);
         close(sockfd);
         return -1;
     }
 
     if (setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_BPF, &program_fd, sizeof(program_fd))) {
+        dns_set_error(debug, "open_capture_socket", "setsockopt(SO_ATTACH_BPF)", errno ? -errno : -1);
         close(sockfd);
         return -1;
     }
 
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout))) {
+        dns_set_error(debug, "open_capture_socket", "setsockopt(SO_RCVTIMEO)", errno ? -errno : -1);
         close(sockfd);
         return -1;
     }
 
+    debug->sockfd = sockfd;
     return sockfd;
 }
 
@@ -836,20 +939,43 @@ const char *ebpf_socket_filter_tester(struct bpf_object *obj, uint32_t maps, FIL
     int sockfd;
     int capture_seconds = iterations * NETDATA_DNS_CAPTURE_INTERVAL;
     netdata_dns_collector_t collector = { };
+    netdata_dns_debug_t debug = { .stage = "initializing",
+                                  .operation = "initialize",
+                                  .maps_requested = !!maps,
+                                  .iterations = iterations,
+                                  .capture_seconds = capture_seconds,
+                                  .program_fd = -1,
+                                  .sockfd = -1,
+                                  .dns_ports_fd = -1 };
 
-    if (bpf_object__load(obj))
-        return result[1];
+    {
+        int load_error = bpf_object__load(obj);
+        if (load_error) {
+            dns_set_error(&debug, "load_object", "bpf_object__load", load_error);
+            dns_write_failure_debug(stdlog, ports, port_count, &debug);
+            return result[1];
+        }
+    }
 
     prog = dns_find_socket_filter_program(obj);
-    if (!prog)
+    if (!prog) {
+        dns_set_error(&debug, "find_socket_filter_program", "bpf_object__for_each_program", -ENOENT);
+        dns_write_failure_debug(stdlog, ports, port_count, &debug);
         return result[1];
+    }
 
-    if (dns_configure_ports(obj, ports, port_count, stdlog))
-        return result[1];
+    debug.program_fd = bpf_program__fd(prog);
 
-    sockfd = dns_open_capture_socket(bpf_program__fd(prog));
-    if (sockfd < 0)
+    if (dns_configure_ports(obj, ports, port_count, &debug)) {
+        dns_write_failure_debug(stdlog, ports, port_count, &debug);
         return result[1];
+    }
+
+    sockfd = dns_open_capture_socket(debug.program_fd, &debug);
+    if (sockfd < 0) {
+        dns_write_failure_debug(stdlog, ports, port_count, &debug);
+        return result[1];
+    }
 
     if (maps) {
         dns_collect_packets(sockfd, &collector, capture_seconds);

@@ -175,6 +175,9 @@ typedef struct ebpf_attach {
     struct bpf_link **links;
     size_t success;
     size_t fail;
+    int last_error;
+    const char *failed_program_name;
+    int failed_program_type;
 } ebpf_attach_t;
 
 typedef struct ebpf_table_data {

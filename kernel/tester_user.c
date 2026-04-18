@@ -1,4 +1,5 @@
 // Standard libraries
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -162,6 +163,71 @@ next_token:
 
     if (!dns_port_count)
         ebpf_add_dns_port(NETDATA_DNS_DEFAULT_PORT);
+}
+
+static const char *ebpf_describe_error(int err, char *buffer, size_t length)
+{
+    int code = err;
+
+    if (!code)
+        return "No error information";
+
+    if (code < 0)
+        code = -code;
+
+    snprintf(buffer, length, "%s", strerror(code));
+    return buffer;
+}
+
+static void ebpf_write_program_inventory(struct bpf_object *obj)
+{
+    struct bpf_program *prog;
+    int first = 1;
+
+    fprintf(stdlog, "[");
+    if (obj) {
+        bpf_object__for_each_program(prog, obj) {
+            const char *name = bpf_program__name(prog);
+
+            fprintf(stdlog,
+                    "%s{ \"Name\" : \"%s\", \"Type\" : %d }",
+                    first ? "" : ", ", name ? name : "unknown", bpf_program__get_type(prog));
+            first = 0;
+        }
+    }
+
+    fprintf(stdlog, "]");
+}
+
+static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, int err,
+                                     int socket_filter_detected, size_t total, const ebpf_attach_t *load)
+{
+    char error_buffer[128];
+    const char *error_message = ebpf_describe_error(err, error_buffer, sizeof(error_buffer));
+
+    fprintf(stdlog,
+            "        \"Debug\" : {\n"
+            "            \"Info\" : { \"Stage\" : \"%s\",\n"
+            "                       \"Error Code\" : %d,\n"
+            "                       \"Error Message\" : \"%s\",\n"
+            "                       \"Socket Filter Detected\" : %d,\n"
+            "                       \"Program Count\" : %zu,\n"
+            "                       \"Attach Success\" : %zu,\n"
+            "                       \"Attach Fail\" : %zu",
+            stage, err, error_message, socket_filter_detected, total,
+            load ? load->success : 0, load ? load->fail : 0);
+
+    if (load && load->failed_program_name) {
+        fprintf(stdlog,
+                ",\n"
+                "                       \"Failed Program\" : \"%s\",\n"
+                "                       \"Failed Program Type\" : %d",
+                load->failed_program_name, load->failed_program_type);
+    }
+
+    fprintf(stdlog, ",\n                       \"Programs\" : ");
+    ebpf_write_program_inventory(obj);
+    fprintf(stdlog, "\n                      }\n        }\n");
 }
 
 /****************************************************************************************************
@@ -490,9 +556,12 @@ static ebpf_specify_name_t *ebpf_find_names(ebpf_specify_name_t *names, const ch
  */
 static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, size_t total, ebpf_specify_name_t *names)
 {
+    memset(load, 0, sizeof(*load));
     load->links = calloc(total , sizeof(struct bpf_link *));
-    if (!load->links)
+    if (!load->links) {
+        load->last_error = -ENOMEM;
         return -1;
+    }
 
     struct bpf_link **links = load->links;
     size_t i = 0;
@@ -514,6 +583,9 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
             links[i] = bpf_program__attach(prog);
 
         if (libbpf_get_error(links[i])) {
+            load->last_error = (int)libbpf_get_error(links[i]);
+            load->failed_program_name = bpf_program__name(prog);
+            load->failed_program_type = bpf_program__get_type(prog);
             links[i] = NULL;
         } else
             i++;
@@ -908,28 +980,39 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
 static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl, uint32_t my_kernel)
 {
     static char *result[] = { "Success", "Fail" };
+    int socket_filter_detected;
+    size_t total;
 
     struct bpf_object *obj =  bpf_object__open_file(filename, NULL);
     if (libbpf_get_error(obj)) {
+        ebpf_write_failure_debug(NULL, "open_file", (int)libbpf_get_error(obj), 0, 0, NULL);
         bpf_object__close(obj);
         return result[1];
     }
 
-    if (ebpf_object_has_socket_filter(obj)) {
+    total = ebpf_count_programs(obj);
+    socket_filter_detected = ebpf_object_has_socket_filter(obj);
+    if (socket_filter_detected) {
         char *ret = (char *)ebpf_socket_filter_tester(obj, maps, stdlog, end_iteration, dns_ports, dns_port_count);
         bpf_object__close(obj);
         return ret;
     }
     
-    if (bpf_object__load(obj)) {
-        bpf_object__close(obj);
-        return result[1];
+    {
+        int load_error = bpf_object__load(obj);
+        if (load_error) {
+            ebpf_write_failure_debug(obj, "object_load", load_error, socket_filter_detected, total, NULL);
+            bpf_object__close(obj);
+            return result[1];
+        }
     }
 
-    size_t total =  ebpf_count_programs(obj);
-
-    ebpf_attach_t load;
+    ebpf_attach_t load = { 0 };
     int errors = ebpf_attach_programs(&load, obj, total, names);
+    if (errors || load.fail) {
+        ebpf_write_failure_debug(obj, errors ? "attach_setup" : "attach_programs",
+                                 load.last_error, socket_filter_detected, total, &load);
+    }
 
     if (!errors && maps) {
         if (ctrl) {
@@ -951,7 +1034,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
 
     bpf_object__close(obj);
 
-    return (load.success == total) ? result[0] : result[1];
+    return (!errors && load.success == total) ? result[0] : result[1];
 }
 
 /**
