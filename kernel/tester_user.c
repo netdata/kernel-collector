@@ -16,6 +16,7 @@
 
 // Libbpf
 #include "tester_user.h"
+#include "tester_dns.h"
 
 static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_lookup_fast",
                                                     .function_to_attach = "lookup_fast",
@@ -57,6 +58,8 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .flags = NETDATA_FLAG_DNS, .name = "dns", .update_names = NULL, .ctrl_table = NULL },
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
@@ -90,10 +93,76 @@ char *specific_ebpf = NULL;
 char *netdata_path = NULL;
 char *log_path = NULL;
 #define NETDATA_DEFAULT_PROCESS_NUMBER 4096
+#define NETDATA_DNS_MAX_PORTS 32
+#define NETDATA_DNS_DEFAULT_PORT 53
 long nprocesses;
 FILE *stdlog = NULL;
 int end_iteration = 1;
 enum netdata_apps_level map_level = NETDATA_APPS_LEVEL_REAL_PARENT ;
+static uint16_t dns_ports[NETDATA_DNS_MAX_PORTS] = { NETDATA_DNS_DEFAULT_PORT };
+static size_t dns_port_count = 1;
+static int dns_ports_overridden = 0;
+
+static void ebpf_add_dns_port(uint16_t port)
+{
+    size_t i;
+
+    for (i = 0; i < dns_port_count; i++) {
+        if (dns_ports[i] == port)
+            return;
+    }
+
+    if (dns_port_count >= NETDATA_DNS_MAX_PORTS) {
+        fprintf(stdlog, "\"Error\" : \"Maximum number of DNS ports (%d) reached.\",\n", NETDATA_DNS_MAX_PORTS);
+        return;
+    }
+
+    dns_ports[dns_port_count++] = port;
+}
+
+static void ebpf_parse_dns_port_list(const char *input)
+{
+    char *copy;
+    char *cursor;
+    char *token;
+
+    if (!dns_ports_overridden) {
+        dns_port_count = 0;
+        dns_ports_overridden = 1;
+    }
+
+    copy = strdup(input);
+    if (!copy) {
+        fprintf(stdlog, "\"Error\" : \"Cannot duplicate DNS port list.\",\n");
+        return;
+    }
+
+    cursor = NULL;
+    token = strtok_r(copy, ",", &cursor);
+    while (token) {
+        char *endptr = NULL;
+        unsigned long port;
+
+        if (!*token)
+            goto next_token;
+
+        port = strtoul(token, &endptr, 10);
+        if (*endptr || port == 0 || port > UINT16_MAX) {
+            fprintf(stdlog, "\"Error\" : \"DNS port value (%s) is not valid.\",\n", token);
+            goto next_token;
+        }
+
+        ebpf_add_dns_port((uint16_t)port);
+
+next_token:
+        token = strtok_r(NULL, ",", &cursor);
+    }
+
+    free(copy);
+
+    if (!dns_port_count)
+        ebpf_add_dns_port(NETDATA_DNS_DEFAULT_PORT);
+}
 
 /****************************************************************************************************
  *
@@ -845,6 +914,12 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
         bpf_object__close(obj);
         return result[1];
     }
+
+    if (ebpf_object_has_socket_filter(obj)) {
+        char *ret = (char *)ebpf_socket_filter_tester(obj, maps, stdlog, end_iteration, dns_ports, dns_port_count);
+        bpf_object__close(obj);
+        return ret;
+    }
     
     if (bpf_object__load(obj)) {
         bpf_object__close(obj);
@@ -940,6 +1015,7 @@ static void ebpf_help()
                     "--common           Test eBPF programs that does not need specific module to be loaded.\n"
                     "                   This option does not test mdflush, ext4, nfs, zfs, xfs and btrfs.\n"
                     "--load-binary      Load a given eBPF program into  kernel.\n"
+                    "--dns-port         Comma separated list of DNS ports to monitor. Default value is 53.\n"
                     "--netdata-path     Directory where eBPF programs are present.\n"
                     "--log-path         Filename to write log information. When this option is not given,\n"
                     "                   software will use stderr.\n\n"
@@ -963,6 +1039,7 @@ static void ebpf_help()
                     "--process          Monitoring process life(Threads, start, exit).\n"
                     "--shm              Calls for syscalls shmget(2), shmat (2), shmdt (2), and shmctl (2).\n"
                     "--socket           Monitoring for TCP and UDP traffic.\n"
+                    "--dns              Monitoring DNS traffic with socket/dns_filter and local aggregation.\n"
                     "--softirq          Latency for soft IRQ.\n"
                     "--swap             Monitor the exact time that processes try to execute IO events in swap.\n"
                     "--vfs              Monitor Virtual Filesystem functions.\n"
@@ -1019,6 +1096,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"process",            no_argument,          0,  0 },
         {"shm",                no_argument,          0,  0 },
         {"socket",             no_argument,          0,  0 },
+        {"dns",                no_argument,          0,  0 },
         {"softirq",            no_argument,          0,  0 },
         {"swap",               no_argument,          0,  0 },
         {"vfs",                no_argument,          0,  0 },
@@ -1031,6 +1109,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"all",                no_argument,          0,  0 },
         {"common",             no_argument,          0,  0 },
         {"load-binary",        required_argument,    0,  0 },
+        {"dns-port",           required_argument,    0,  0 },
         {"netdata-path",       required_argument,    0,  0 },
         {"log-path",           required_argument,    0,  0 },
         {"content",            no_argument,          0,  0 },
@@ -1123,6 +1202,11 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                     flags |= NETDATA_FLAG_SOCKET;
                     break;
                 }
+            case NETDATA_OPT_DNS:
+                {
+                    flags |= NETDATA_FLAG_DNS;
+                    break;
+                }
             case NETDATA_OPT_SOFTIRQ:
                 {
                     flags |= NETDATA_FLAG_SOFTIRQ;
@@ -1173,6 +1257,11 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                 {
                     specific_ebpf = optarg;
                     flags |= NETDATA_FLAG_LOAD_BINARY;
+                    break;
+                }
+            case NETDATA_OPT_DNS_PORT:
+                {
+                    ebpf_parse_dns_port_list(optarg);
                     break;
                 }
             case NETDATA_OPT_CONTENT:
@@ -1327,4 +1416,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-

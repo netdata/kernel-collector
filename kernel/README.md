@@ -11,6 +11,7 @@ have:
 - `ext4_kern.c`: provides ext4 monitoring.
 - `fdatasync_kern.c`: monitor calls for syscall `fdatasync`.
 - `fsync_kern.c`: monitor calls for syscall `fsync`.
+- `dns_kern.c`: provides DNS packet filtering for the local DNS tester path.
 - `hardirq_kern.c`: provides hard interrupt (hard IRQ) latency monitoring.
 - `mdflush_kern.c`: monitor flushes at the md driver level.
 - `mount_kern.c`: monitor calls for syscalls `mount` and `umount`.
