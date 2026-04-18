@@ -1,4 +1,5 @@
 // Standard libraries
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -16,6 +17,7 @@
 
 // Libbpf
 #include "tester_user.h"
+#include "tester_dns.h"
 
 static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_lookup_fast",
                                                     .function_to_attach = "lookup_fast",
@@ -57,6 +59,8 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .flags = NETDATA_FLAG_DNS, .name = "dns", .update_names = NULL, .ctrl_table = NULL },
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
@@ -90,10 +94,141 @@ char *specific_ebpf = NULL;
 char *netdata_path = NULL;
 char *log_path = NULL;
 #define NETDATA_DEFAULT_PROCESS_NUMBER 4096
+#define NETDATA_DNS_MAX_PORTS 32
+#define NETDATA_DNS_DEFAULT_PORT 53
 long nprocesses;
 FILE *stdlog = NULL;
 int end_iteration = 1;
 enum netdata_apps_level map_level = NETDATA_APPS_LEVEL_REAL_PARENT ;
+static uint16_t dns_ports[NETDATA_DNS_MAX_PORTS] = { NETDATA_DNS_DEFAULT_PORT };
+static size_t dns_port_count = 1;
+static int dns_ports_overridden = 0;
+
+static void ebpf_add_dns_port(uint16_t port)
+{
+    size_t i;
+
+    for (i = 0; i < dns_port_count; i++) {
+        if (dns_ports[i] == port)
+            return;
+    }
+
+    if (dns_port_count >= NETDATA_DNS_MAX_PORTS) {
+        fprintf(stdlog, "\"Error\" : \"Maximum number of DNS ports (%d) reached.\",\n", NETDATA_DNS_MAX_PORTS);
+        return;
+    }
+
+    dns_ports[dns_port_count++] = port;
+}
+
+static void ebpf_parse_dns_port_list(const char *input)
+{
+    char *copy;
+    char *cursor;
+    char *token;
+
+    if (!dns_ports_overridden) {
+        dns_port_count = 0;
+        dns_ports_overridden = 1;
+    }
+
+    copy = strdup(input);
+    if (!copy) {
+        fprintf(stdlog, "\"Error\" : \"Cannot duplicate DNS port list.\",\n");
+        return;
+    }
+
+    cursor = NULL;
+    token = strtok_r(copy, ",", &cursor);
+    while (token) {
+        char *endptr = NULL;
+        unsigned long port;
+
+        if (!*token)
+            goto next_token;
+
+        port = strtoul(token, &endptr, 10);
+        if (*endptr || port == 0 || port > UINT16_MAX) {
+            fprintf(stdlog, "\"Error\" : \"DNS port value (%s) is not valid.\",\n", token);
+            goto next_token;
+        }
+
+        ebpf_add_dns_port((uint16_t)port);
+
+next_token:
+        token = strtok_r(NULL, ",", &cursor);
+    }
+
+    free(copy);
+
+    if (!dns_port_count)
+        ebpf_add_dns_port(NETDATA_DNS_DEFAULT_PORT);
+}
+
+static const char *ebpf_describe_error(int err, char *buffer, size_t length)
+{
+    int code = err;
+
+    if (!code)
+        return "No error information";
+
+    if (code < 0)
+        code = -code;
+
+    snprintf(buffer, length, "%s", strerror(code));
+    return buffer;
+}
+
+static void ebpf_write_program_inventory(struct bpf_object *obj)
+{
+    struct bpf_program *prog;
+    int first = 1;
+
+    fprintf(stdlog, "[");
+    if (obj) {
+        bpf_object__for_each_program(prog, obj) {
+            const char *name = bpf_program__name(prog);
+
+            fprintf(stdlog,
+                    "%s{ \"Name\" : \"%s\", \"Type\" : %d }",
+                    first ? "" : ", ", name ? name : "unknown", bpf_program__get_type(prog));
+            first = 0;
+        }
+    }
+
+    fprintf(stdlog, "]");
+}
+
+static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, int err,
+                                     int socket_filter_detected, size_t total, const ebpf_attach_t *load)
+{
+    char error_buffer[128];
+    const char *error_message = ebpf_describe_error(err, error_buffer, sizeof(error_buffer));
+
+    fprintf(stdlog,
+            "        \"Debug\" : {\n"
+            "            \"Info\" : { \"Stage\" : \"%s\",\n"
+            "                       \"Error Code\" : %d,\n"
+            "                       \"Error Message\" : \"%s\",\n"
+            "                       \"Socket Filter Detected\" : %d,\n"
+            "                       \"Program Count\" : %zu,\n"
+            "                       \"Attach Success\" : %zu,\n"
+            "                       \"Attach Fail\" : %zu",
+            stage, err, error_message, socket_filter_detected, total,
+            load ? load->success : 0, load ? load->fail : 0);
+
+    if (load && load->failed_program_name) {
+        fprintf(stdlog,
+                ",\n"
+                "                       \"Failed Program\" : \"%s\",\n"
+                "                       \"Failed Program Type\" : %d",
+                load->failed_program_name, load->failed_program_type);
+    }
+
+    fprintf(stdlog, ",\n                       \"Programs\" : ");
+    ebpf_write_program_inventory(obj);
+    fprintf(stdlog, "\n                      }\n        }\n");
+}
 
 /****************************************************************************************************
  *
@@ -421,9 +556,12 @@ static ebpf_specify_name_t *ebpf_find_names(ebpf_specify_name_t *names, const ch
  */
 static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, size_t total, ebpf_specify_name_t *names)
 {
+    memset(load, 0, sizeof(*load));
     load->links = calloc(total , sizeof(struct bpf_link *));
-    if (!load->links)
+    if (!load->links) {
+        load->last_error = -ENOMEM;
         return -1;
+    }
 
     struct bpf_link **links = load->links;
     size_t i = 0;
@@ -445,6 +583,9 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
             links[i] = bpf_program__attach(prog);
 
         if (libbpf_get_error(links[i])) {
+            load->last_error = (int)libbpf_get_error(links[i]);
+            load->failed_program_name = bpf_program__name(prog);
+            load->failed_program_type = bpf_program__get_type(prog);
             links[i] = NULL;
         } else
             i++;
@@ -839,22 +980,39 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
 static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl, uint32_t my_kernel)
 {
     static char *result[] = { "Success", "Fail" };
+    int socket_filter_detected;
+    size_t total;
 
     struct bpf_object *obj =  bpf_object__open_file(filename, NULL);
     if (libbpf_get_error(obj)) {
+        ebpf_write_failure_debug(NULL, "open_file", (int)libbpf_get_error(obj), 0, 0, NULL);
         bpf_object__close(obj);
         return result[1];
+    }
+
+    total = ebpf_count_programs(obj);
+    socket_filter_detected = ebpf_object_has_socket_filter(obj);
+    if (socket_filter_detected) {
+        char *ret = (char *)ebpf_socket_filter_tester(obj, maps, stdlog, end_iteration, dns_ports, dns_port_count);
+        bpf_object__close(obj);
+        return ret;
     }
     
-    if (bpf_object__load(obj)) {
-        bpf_object__close(obj);
-        return result[1];
+    {
+        int load_error = bpf_object__load(obj);
+        if (load_error) {
+            ebpf_write_failure_debug(obj, "object_load", load_error, socket_filter_detected, total, NULL);
+            bpf_object__close(obj);
+            return result[1];
+        }
     }
 
-    size_t total =  ebpf_count_programs(obj);
-
-    ebpf_attach_t load;
+    ebpf_attach_t load = { 0 };
     int errors = ebpf_attach_programs(&load, obj, total, names);
+    if (errors || load.fail) {
+        ebpf_write_failure_debug(obj, errors ? "attach_setup" : "attach_programs",
+                                 load.last_error, socket_filter_detected, total, &load);
+    }
 
     if (!errors && maps) {
         if (ctrl) {
@@ -876,7 +1034,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
 
     bpf_object__close(obj);
 
-    return (load.success == total) ? result[0] : result[1];
+    return (!errors && load.success == total) ? result[0] : result[1];
 }
 
 /**
@@ -940,6 +1098,7 @@ static void ebpf_help()
                     "--common           Test eBPF programs that does not need specific module to be loaded.\n"
                     "                   This option does not test mdflush, ext4, nfs, zfs, xfs and btrfs.\n"
                     "--load-binary      Load a given eBPF program into  kernel.\n"
+                    "--dns-port         Comma separated list of DNS ports to monitor. Default value is 53.\n"
                     "--netdata-path     Directory where eBPF programs are present.\n"
                     "--log-path         Filename to write log information. When this option is not given,\n"
                     "                   software will use stderr.\n\n"
@@ -963,6 +1122,7 @@ static void ebpf_help()
                     "--process          Monitoring process life(Threads, start, exit).\n"
                     "--shm              Calls for syscalls shmget(2), shmat (2), shmdt (2), and shmctl (2).\n"
                     "--socket           Monitoring for TCP and UDP traffic.\n"
+                    "--dns              Monitoring DNS traffic with socket/dns_filter and local aggregation.\n"
                     "--softirq          Latency for soft IRQ.\n"
                     "--swap             Monitor the exact time that processes try to execute IO events in swap.\n"
                     "--vfs              Monitor Virtual Filesystem functions.\n"
@@ -1019,6 +1179,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"process",            no_argument,          0,  0 },
         {"shm",                no_argument,          0,  0 },
         {"socket",             no_argument,          0,  0 },
+        {"dns",                no_argument,          0,  0 },
         {"softirq",            no_argument,          0,  0 },
         {"swap",               no_argument,          0,  0 },
         {"vfs",                no_argument,          0,  0 },
@@ -1031,6 +1192,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"all",                no_argument,          0,  0 },
         {"common",             no_argument,          0,  0 },
         {"load-binary",        required_argument,    0,  0 },
+        {"dns-port",           required_argument,    0,  0 },
         {"netdata-path",       required_argument,    0,  0 },
         {"log-path",           required_argument,    0,  0 },
         {"content",            no_argument,          0,  0 },
@@ -1123,6 +1285,11 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                     flags |= NETDATA_FLAG_SOCKET;
                     break;
                 }
+            case NETDATA_OPT_DNS:
+                {
+                    flags |= NETDATA_FLAG_DNS;
+                    break;
+                }
             case NETDATA_OPT_SOFTIRQ:
                 {
                     flags |= NETDATA_FLAG_SOFTIRQ;
@@ -1173,6 +1340,11 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                 {
                     specific_ebpf = optarg;
                     flags |= NETDATA_FLAG_LOAD_BINARY;
+                    break;
+                }
+            case NETDATA_OPT_DNS_PORT:
+                {
+                    ebpf_parse_dns_port_list(optarg);
                     break;
                 }
             case NETDATA_OPT_CONTENT:
@@ -1327,4 +1499,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-

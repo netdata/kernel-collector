@@ -146,8 +146,10 @@ directory with contents like the following:
 ```
 pnetdata_ebpf_process.<kernel version>.o
 pnetdata_ebpf_socket.<kernel version>.o
+pnetdata_ebpf_dns.<kernel version>.o
 rnetdata_ebpf_process.<kernel version>.o
 rnetdata_ebpf_socket.<kernel version>.o
+rnetdata_ebpf_dns.<kernel version>.o
 ...
 ```
 

@@ -114,6 +114,7 @@ enum netdata_thread_flag {
     NETDATA_FLAG_ZFS = 1 << 20,
     NETDATA_FLAG_LOAD_BINARY = 1 << 21,
     NETDATA_FLAG_CONTENT = 1 << 22,
+    NETDATA_FLAG_DNS = 1 << 23,
 
     NETDATA_FLAG_FS =  (uint64_t)(NETDATA_FLAG_BTRFS | NETDATA_FLAG_EXT4 | NETDATA_FLAG_VFS | NETDATA_FLAG_NFS | NETDATA_FLAG_XFS | NETDATA_FLAG_ZFS),
     NETDATA_FLAG_ALL = 0XFFFFFFFFFFFFFFFF
@@ -135,6 +136,7 @@ enum netdata_thread_OPT {
     NETDATA_OPT_PROCESS,
     NETDATA_OPT_SHM,
     NETDATA_OPT_SOCKET,
+    NETDATA_OPT_DNS,
     NETDATA_OPT_SOFTIRQ,
     NETDATA_OPT_SWAP,
     NETDATA_OPT_VFS,
@@ -146,6 +148,7 @@ enum netdata_thread_OPT {
     NETDATA_OPT_ALL,
     NETDATA_OPT_COMMON,
     NETDATA_OPT_LOAD_BINARY,
+    NETDATA_OPT_DNS_PORT,
     NETDATA_OPT_NETDATA_PATH,
     NETDATA_OPT_LOG_PATH,
     NETDATA_OPT_CONTENT,
@@ -172,6 +175,9 @@ typedef struct ebpf_attach {
     struct bpf_link **links;
     size_t success;
     size_t fail;
+    int last_error;
+    const char *failed_program_name;
+    int failed_program_type;
 } ebpf_attach_t;
 
 typedef struct ebpf_table_data {
@@ -188,4 +194,3 @@ typedef struct ebpf_table_data {
 } ebpf_table_data_t;
 
 #endif  /* NETDATA_LEGACY_TESTER */
-
