@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -97,6 +99,7 @@ type options struct {
 	iterations   int
 	mapLevel     int
 	dnsPorts     []uint16
+	unitTest     bool
 	showHelp     bool
 }
 
@@ -230,6 +233,9 @@ func run() int {
 	if parseCode != 0 || opts.showHelp {
 		return parseCode
 	}
+	if opts.unitTest {
+		return runUnitTests()
+	}
 
 	writer := bufio.NewWriter(logger.writer)
 	defer writer.Flush()
@@ -316,6 +322,7 @@ func helpText(exe string) string {
 		"Load eBPF binaries printing final status of the test.\n\n"+
 		"The following global options are available:\n"+
 		"--help             Prints this help.\n"+
+		"--unit-test        Run Go unit tests for gotests and exit.\n"+
 		"--all              Test all netdata eBPF programs.\n"+
 		"--common           Test eBPF programs that does not need specific module to be loaded.\n"+
 		"                   This option does not test mdflush, ext4, nfs, zfs, xfs and btrfs.\n"+
@@ -354,7 +361,8 @@ func helpText(exe string) string {
 		"Exit status:\n"+
 		"0  if OK.\n"+
 		"1  if kernel version cannot load eBPF programs.\n"+
-		"2  if software cannot adjust memory\n", exe)
+		"2  if software cannot adjust memory or cannot start unit tests.\n"+
+		"When --unit-test is used, the process returns the go test exit status.\n", exe)
 }
 
 func setCommonFlag() uint64 {
@@ -416,6 +424,8 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 			fmt.Fprint(os.Stdout, helpText(filepath.Base(os.Args[0])))
 			opts.showHelp = true
 			return opts, 0
+		case "unit-test":
+			opts.unitTest = true
 		case "all":
 			opts.flags |= flagAll
 		case "common":
@@ -462,11 +472,11 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		}
 	}
 
-	if opts.flags&(flagAll&^flagContent) == 0 {
+	if !opts.unitTest && opts.flags&(flagAll&^flagContent) == 0 {
 		opts.flags |= setCommonFlag()
 	}
 
-	if kernelVersion < netdataEBPFKernel414 {
+	if !opts.unitTest && kernelVersion < netdataEBPFKernel414 {
 		opts.flags &^= flagOOMKill
 	}
 
@@ -996,4 +1006,118 @@ func dnsFormatIP(family uint8, raw [16]byte) string {
 	}
 
 	return ip.String()
+}
+
+const gotestsModuleName = "github.com/netdata/kernel-collector/gotests"
+
+func runUnitTests() int {
+	workDir, err := locateUnitTestDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot locate gotests module directory: %v\n", err)
+		return 2
+	}
+
+	goBinary, err := exec.LookPath("go")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot find go tool: %v\n", err)
+		return 2
+	}
+
+	cmd := exec.Command(goBinary, "test", "./...")
+	cmd.Dir = workDir
+	cmd.Env = unitTestEnv(os.Environ())
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return exitErr.ExitCode()
+		}
+
+		fmt.Fprintf(os.Stderr, "cannot run go test: %v\n", err)
+		return 2
+	}
+
+	return 0
+}
+
+func locateUnitTestDir() (string, error) {
+	cwd, _ := os.Getwd()
+	executable, _ := os.Executable()
+	return resolveUnitTestDir(cwd, executable)
+}
+
+func resolveUnitTestDir(cwd string, executable string) (string, error) {
+	candidates := []string{cwd}
+	if cwd != "" {
+		candidates = append(candidates, filepath.Join(cwd, "gotests"))
+	}
+
+	if executable != "" {
+		exeDir := filepath.Dir(executable)
+		candidates = append(candidates, exeDir, filepath.Join(exeDir, "gotests"))
+	}
+
+	seen := map[string]struct{}{}
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+
+		candidate = filepath.Clean(candidate)
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+
+		if dir, ok := findGoModuleDir(candidate, gotestsModuleName); ok {
+			return dir, nil
+		}
+	}
+
+	return "", fmt.Errorf("module %s not found from cwd=%q executable=%q", gotestsModuleName, cwd, executable)
+}
+
+func findGoModuleDir(start string, moduleName string) (string, bool) {
+	for current := filepath.Clean(start); ; {
+		if isGoModuleDir(current, moduleName) {
+			return current, true
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", false
+		}
+
+		current = parent
+	}
+}
+
+func isGoModuleDir(dir string, moduleName string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		return false
+	}
+
+	moduleLine := "module " + moduleName
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.TrimSpace(line) == moduleLine {
+			return true
+		}
+	}
+
+	return false
+}
+
+func unitTestEnv(env []string) []string {
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "GOCACHE=") {
+			return env
+		}
+	}
+
+	cloned := append([]string{}, env...)
+	cloned = append(cloned, "GOCACHE="+filepath.Join(os.TempDir(), "kernel-collector-gocache"))
+	return cloned
 }
