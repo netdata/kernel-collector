@@ -13,6 +13,6 @@
 *.a
 
 kernel/legacy_test
+tests/legacy_test
 .local_libbpf/bpf
 .local_libbpf/pkgconfig
-

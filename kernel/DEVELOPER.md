@@ -5,7 +5,7 @@ This MD file was added to help developers starting with eBPF development.
 In this repo we are using the same [pattern](https://elixir.bootlin.com/linux/v4.20.17/source/samples/bpf) that was used before
 [BTF](https://docs.kernel.org/bpf/btf.html) was released. All source files ending with `_kern.c` are eBPF codes
 loaded inside `kernel ring`. We do no have a `_user.c` for each one of `_kern.c` files, because we have a common loader for
-all (`tester_user.c`).
+all (`tests/tester_user.c`).
 
 ## Libbpf
 
@@ -97,12 +97,11 @@ The tester is not compiled by default. To compile it and run all common tests ru
 
 ```sh
 make dev
-for j in `seq 0 2`; do for i in `ls *.o`; do ./kernel/legacy_test --content --pid $j --load-binary $i --log-path $i_pid$i.txt; 2>> err >> out; done; done
+for j in `seq 0 2`; do for i in `ls *.o`; do ./tests/legacy_test --content --pid $j --load-binary $i --log-path $i_pid$i.txt; 2>> err >> out; done; done
 ```
 
 You can take a look in all options available for tests running:
 
 ```sh
-./kernel/legacy_test --help
+./tests/legacy_test --help
 ```
-
