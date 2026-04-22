@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -529,6 +530,204 @@ func parseDNSPortList(w io.Writer, input string, existing []uint16) []uint16 {
 	return ports
 }
 
+func resolveBinaryDir(netdataPath string) string {
+	if netdataPath == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "."
+		}
+
+		return cwd
+	}
+
+	resolved, err := filepath.Abs(netdataPath)
+	if err == nil {
+		return resolved
+	}
+
+	return netdataPath
+}
+
+func candidateMatches(filename string, moduleName string, isReturn bool, version string, rhfVersion int) bool {
+	prefix := fmt.Sprintf("%cnetdata_ebpf_%s.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName)
+	if !strings.HasPrefix(filename, prefix) || !strings.HasSuffix(filename, ".o") {
+		return false
+	}
+
+	rest := strings.TrimSuffix(strings.TrimPrefix(filename, prefix), ".o")
+	if !strings.HasPrefix(rest, version) {
+		return false
+	}
+	if len(rest) > len(version) && rest[len(version)] != '.' {
+		return false
+	}
+
+	hasRHF := strings.Contains(rest, ".rhf")
+	if rhfVersion != -1 {
+		return hasRHF
+	}
+
+	return !hasRHF
+}
+
+func discoverCandidates(moduleName string, isReturn bool, version string, rhfVersion int, netdataPath string) []string {
+	path := resolveBinaryDir(netdataPath)
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil
+	}
+
+	candidates := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !candidateMatches(entry.Name(), moduleName, isReturn, version, rhfVersion) {
+			continue
+		}
+
+		candidates = append(candidates, filepath.Join(path, entry.Name()))
+	}
+
+	sort.Strings(candidates)
+	return candidates
+}
+
+func fallbackPerCPUMapSupport(rhfVersion int, kernelVersion int) bool {
+	if rhfVersion > 0 && kernelVersion < netdataMinimumEBPFKernel {
+		return false
+	}
+
+	return kernelVersion >= netdataMinimumEBPFKernel || rhfVersion > 0
+}
+
+func detectSupportedMapTypes(rhfVersion int, kernelVersion int) map[uint32]bool {
+	supported := map[uint32]bool{
+		bpfMapTypeHash:        kernelVersion >= netdataMinimumEBPFKernel || rhfVersion > 0,
+		bpfMapTypeArray:       kernelVersion >= netdataMinimumEBPFKernel || rhfVersion > 0,
+		bpfMapTypePerCPUHash:  fallbackPerCPUMapSupport(rhfVersion, kernelVersion),
+		bpfMapTypePerCPUArray: fallbackPerCPUMapSupport(rhfVersion, kernelVersion),
+	}
+
+	for _, mapType := range []uint32{bpfMapTypeHash, bpfMapTypeArray, bpfMapTypePerCPUHash, bpfMapTypePerCPUArray} {
+		if probe := probeMapTypeSupport(mapType); probe >= 0 {
+			supported[mapType] = probe > 0
+		}
+	}
+
+	return supported
+}
+
+func mapTypeName(mapType uint32) string {
+	switch mapType {
+	case bpfMapTypeHash:
+		return "hash"
+	case bpfMapTypeArray:
+		return "array"
+	case bpfMapTypePerCPUHash:
+		return "percpu_hash"
+	case bpfMapTypePerCPUArray:
+		return "percpu_array"
+	default:
+		return fmt.Sprintf("type_%d", mapType)
+	}
+}
+
+func writeSupportedMapTypes(w io.Writer, supported map[uint32]bool) {
+	names := make([]string, 0, 4)
+	for _, mapType := range []uint32{bpfMapTypeHash, bpfMapTypeArray, bpfMapTypePerCPUHash, bpfMapTypePerCPUArray} {
+		if supported[mapType] {
+			names = append(names, fmt.Sprintf("\"%s\"", mapTypeName(mapType)))
+		}
+	}
+
+	fmt.Fprintf(w, "[%s]", strings.Join(names, ", "))
+}
+
+func writeObjectMapTypes(w io.Writer, obj *bpfObject) {
+	seen := map[uint32]bool{}
+	names := make([]string, 0, 4)
+
+	if obj != nil {
+		for m := obj.firstMap(); m != nil; m = obj.nextMap(m) {
+			mapType := m.meta().Type
+			if seen[mapType] {
+				continue
+			}
+
+			seen[mapType] = true
+			names = append(names, fmt.Sprintf("\"%s\"", mapTypeName(mapType)))
+		}
+	}
+
+	fmt.Fprintf(w, "        \"Map Types Used\" : [%s],\n", strings.Join(names, ", "))
+}
+
+func firstUnsupportedMapType(mapTypes []uint32, supported map[uint32]bool) (uint32, bool) {
+	for _, mapType := range mapTypes {
+		if allowed, ok := supported[mapType]; ok && !allowed {
+			return mapType, true
+		}
+	}
+
+	return 0, false
+}
+
+func candidateMapTypes(filename string) ([]uint32, int) {
+	obj, errCode := openBPFObject(filename)
+	if errCode != 0 {
+		return nil, errCode
+	}
+	defer obj.close()
+
+	mapTypes := make([]uint32, 0, 8)
+	for m := obj.firstMap(); m != nil; m = obj.nextMap(m) {
+		mapTypes = append(mapTypes, m.meta().Type)
+	}
+
+	return mapTypes, 0
+}
+
+func filterCompatibleCandidates(candidates []string, supported map[uint32]bool) ([]string, string, uint32) {
+	compatible := make([]string, 0, len(candidates))
+	var incompatible string
+	var unsupportedType uint32
+
+	for _, candidate := range candidates {
+		mapTypes, errCode := candidateMapTypes(candidate)
+		if errCode != 0 {
+			compatible = append(compatible, candidate)
+			continue
+		}
+
+		if mapType, ok := firstUnsupportedMapType(mapTypes, supported); ok {
+			if incompatible == "" {
+				incompatible = candidate
+				unsupportedType = mapType
+			}
+			continue
+		}
+
+		compatible = append(compatible, candidate)
+	}
+
+	return compatible, incompatible, unsupportedType
+}
+
+func writeMapCompatibilityDebug(w io.Writer, unsupportedType uint32, supported map[uint32]bool) {
+	errCode := -int(syscall.EOPNOTSUPP)
+	fmt.Fprintf(w,
+		"        \"Debug\" : {\n"+
+			"            \"Info\" : { \"Stage\" : \"map_compatibility\",\n"+
+			"                       \"Error Code\" : %d,\n"+
+			"                       \"Error Message\" : \"%s\",\n"+
+			"                       \"Unsupported Map Type\" : \"%s\",\n"+
+			"                       \"Supported Map Types\" : ",
+		errCode, describeError(errCode), mapTypeName(unsupportedType))
+	writeSupportedMapTypes(w, supported)
+	fmt.Fprint(w, ",\n                       \"Programs\" : []\n                      }\n        }\n")
+}
+
 func fillNames() {
 	updateNames(dcOptionalNames)
 	updateNames(zfsOptionalNames)
@@ -583,18 +782,34 @@ func updateNames(names []specifyName) {
 }
 
 func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bool, opts options, nprocesses int) {
-	load := make([]byte, 0, 256)
-	_ = load
+	supportedMapTypes := detectSupportedMapTypes(rhfVersion, kernelVersion)
+
 	for _, mod := range ebpfModules {
 		if opts.flags&mod.flags == 0 {
 			continue
 		}
 
 		idx := selectIndex(mod.kernels, rhfVersion, kernelVersion)
-		filename := mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath)
-		startNetdataJSON(w, filename, isReturn)
-		result := ebpfTester(w, filename, mod.updateNames, opts.flags&flagContent != 0, mod.ctrlTable, opts, nprocesses)
-		fmt.Fprintf(w, "    },\n    \"Status\" :  \"%s\"\n},\n", result)
+		version := selectKernelName(idx)
+		candidates := discoverCandidates(mod.name, isReturn, version, rhfVersion, opts.netdataPath)
+		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
+
+		if len(compatible) == 0 {
+			if incompatible != "" {
+				startNetdataJSON(w, incompatible, isReturn)
+				writeMapCompatibilityDebug(w, unsupportedType, supportedMapTypes)
+				fmt.Fprintf(w, "    },\n    \"Status\" :  \"%s\"\n},\n", "Fail")
+				continue
+			}
+
+			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath)}
+		}
+
+		for _, filename := range compatible {
+			startNetdataJSON(w, filename, isReturn)
+			result := ebpfTester(w, filename, mod.updateNames, opts.flags&flagContent != 0, mod.ctrlTable, opts, nprocesses)
+			fmt.Fprintf(w, "    },\n    \"Status\" :  \"%s\"\n},\n", result)
+		}
 	}
 }
 
@@ -706,6 +921,8 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 		return failure
 	}
 	defer obj.close()
+
+	writeObjectMapTypes(w, obj)
 
 	total := obj.countPrograms()
 	socketFilterDetected := obj.hasSocketFilter()

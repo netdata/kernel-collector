@@ -86,6 +86,93 @@ func TestKernelSelectionHelpers(t *testing.T) {
 	}
 }
 
+func TestCandidateSelectionHelpers(t *testing.T) {
+	t.Run("matches expected module, version, family, and probe type", func(t *testing.T) {
+		cases := []struct {
+			name      string
+			filename  string
+			module    string
+			isReturn  bool
+			version   string
+			rhf       int
+			wantMatch bool
+		}{
+			{name: "exact rhf entry", filename: "pnetdata_ebpf_swap.3.10.rhf.o", module: "swap", version: "3.10", rhf: 1, wantMatch: true},
+			{name: "rhf variant", filename: "pnetdata_ebpf_swap.3.10.variant.rhf.o", module: "swap", version: "3.10", rhf: 1, wantMatch: true},
+			{name: "wrong probe type", filename: "rnetdata_ebpf_swap.3.10.rhf.o", module: "swap", version: "3.10", rhf: 1, wantMatch: false},
+			{name: "wrong version", filename: "pnetdata_ebpf_swap.4.14.rhf.o", module: "swap", version: "3.10", rhf: 1, wantMatch: false},
+			{name: "wrong family", filename: "pnetdata_ebpf_swap.3.10.o", module: "swap", version: "3.10", rhf: 1, wantMatch: false},
+			{name: "non-rhf exact", filename: "pnetdata_ebpf_swap.5.14.o", module: "swap", version: "5.14", rhf: -1, wantMatch: true},
+			{name: "non-rhf rejects rhf", filename: "pnetdata_ebpf_swap.5.14.rhf.o", module: "swap", version: "5.14", rhf: -1, wantMatch: false},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf); got != tc.wantMatch {
+					t.Fatalf("unexpected match result for %q: got %v want %v", tc.filename, got, tc.wantMatch)
+				}
+			})
+		}
+	})
+
+	t.Run("discovers and sorts matching candidates", func(t *testing.T) {
+		dir := t.TempDir()
+		files := []string{
+			"pnetdata_ebpf_swap.3.10.variant.rhf.o",
+			"pnetdata_ebpf_swap.3.10.rhf.o",
+			"pnetdata_ebpf_swap.3.10.o",
+			"rnetdata_ebpf_swap.3.10.rhf.o",
+			"pnetdata_ebpf_process.3.10.rhf.o",
+		}
+		for _, name := range files {
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatalf("cannot create %s: %v", name, err)
+			}
+		}
+
+		got := discoverCandidates("swap", false, "3.10", 1, dir)
+		want := []string{
+			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.rhf.o"),
+			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.variant.rhf.o"),
+		}
+
+		if len(got) != len(want) {
+			t.Fatalf("unexpected candidate count: got %v want %v", got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("unexpected candidate ordering: got %v want %v", got, want)
+			}
+		}
+	})
+
+	t.Run("returns first unsupported map type", func(t *testing.T) {
+		supported := map[uint32]bool{
+			bpfMapTypeHash:        true,
+			bpfMapTypeArray:       true,
+			bpfMapTypePerCPUHash:  true,
+			bpfMapTypePerCPUArray: false,
+		}
+
+		mapType, ok := firstUnsupportedMapType([]uint32{bpfMapTypeHash, bpfMapTypePerCPUArray}, supported)
+		if !ok {
+			t.Fatal("expected unsupported map type")
+		}
+		if mapType != bpfMapTypePerCPUArray {
+			t.Fatalf("unexpected unsupported map type: got %d want %d", mapType, bpfMapTypePerCPUArray)
+		}
+	})
+
+	t.Run("falls back to non-percpu support on rhf 3.10", func(t *testing.T) {
+		if fallbackPerCPUMapSupport(1, netdataMinimumEBPFKernel-1) {
+			t.Fatal("expected percpu fallback support to be disabled for old RH kernels")
+		}
+		if !fallbackPerCPUMapSupport(-1, netdataMinimumEBPFKernel) {
+			t.Fatal("expected percpu fallback support for supported generic kernels")
+		}
+	})
+}
+
 func TestBinaryAndIPHelpers(t *testing.T) {
 	buf16 := []byte{0, 0}
 	putUint16(buf16, 0x1234)

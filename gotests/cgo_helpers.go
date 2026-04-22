@@ -20,6 +20,19 @@ package main
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 
+#ifdef LIBBPF_MAJOR_VERSION
+static int netdata_libbpf_probe_bpf_map_type(unsigned int map_type)
+{
+	return libbpf_probe_bpf_map_type((enum bpf_map_type)map_type, NULL);
+}
+#else
+static int netdata_libbpf_probe_bpf_map_type(unsigned int map_type)
+{
+	(void)map_type;
+	return -EOPNOTSUPP;
+}
+#endif
+
 static int netdata_libbpf_get_error(const void *ptr)
 {
 	return (int)libbpf_get_error(ptr);
@@ -103,7 +116,15 @@ import (
 	"unsafe"
 )
 
-const bpfProgTypeKprobe = uint32(C.BPF_PROG_TYPE_KPROBE)
+const (
+	bpfProgTypeKprobe = uint32(C.BPF_PROG_TYPE_KPROBE)
+
+	// Map types probed to filter incompatible eBPF objects before load.
+	bpfMapTypeHash        = uint32(C.BPF_MAP_TYPE_HASH)
+	bpfMapTypeArray       = uint32(C.BPF_MAP_TYPE_ARRAY)
+	bpfMapTypePerCPUHash  = uint32(C.BPF_MAP_TYPE_PERCPU_HASH)
+	bpfMapTypePerCPUArray = uint32(C.BPF_MAP_TYPE_PERCPU_ARRAY)
+)
 
 type bpfObject struct {
 	ptr *C.struct_bpf_object
@@ -289,6 +310,10 @@ func (m *bpfMap) meta() mapMeta {
 
 func (m *bpfMap) name() string {
 	return C.GoString(C.bpf_map__name(m.ptr))
+}
+
+func probeMapTypeSupport(mapType uint32) int {
+	return int(C.netdata_libbpf_probe_bpf_map_type(C.uint(mapType)))
 }
 
 func slicePointer(buf []byte) unsafe.Pointer {
