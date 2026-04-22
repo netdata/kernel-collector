@@ -57,6 +57,17 @@ static __always_inline void netdata_store_vfs_entry(struct netdata_vfs_stat_t *d
     libnetdata_update_global(&vfs_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 }
 
+/*
+ * Keep the VFS PID-table lookup local and typed so older 5.14 verifiers
+ * retain the map-value pointer across the update path.
+ */
+static __always_inline struct netdata_vfs_stat_t *netdata_get_vfs_structure(__u32 *key, __u32 *tgid)
+{
+    *key = netdata_get_pid(&vfs_ctrl, tgid);
+
+    return bpf_map_lookup_elem(&tbl_vfs_pid, key);
+}
+
 #if NETDATASEL < 2
 SEC("kretprobe/vfs_write")
 #else
@@ -85,7 +96,7 @@ int netdata_sys_write(struct pt_regs* ctx)
     if (!monitor_apps(&vfs_ctrl))
         return 0;
 
-    struct netdata_vfs_stat_t *fill = netdata_get_pid_structure(&key, &tgid, &vfs_ctrl, &tbl_vfs_pid);
+    struct netdata_vfs_stat_t *fill = netdata_get_vfs_structure(&key, &tgid);
     if (fill) {
         libnetdata_update_u32(&fill->write_call, 1);
         netdata_update_vfs_err(&fill->write_err, ret < 0);
@@ -127,7 +138,7 @@ int netdata_sys_writev(struct pt_regs* ctx)
     if (!monitor_apps(&vfs_ctrl))
         return 0;
 
-    struct netdata_vfs_stat_t *fill = netdata_get_pid_structure(&key, &tgid, &vfs_ctrl, &tbl_vfs_pid);
+    struct netdata_vfs_stat_t *fill = netdata_get_vfs_structure(&key, &tgid);
     if (fill) {
         libnetdata_update_u32(&fill->writev_call, 1);
         netdata_update_vfs_err(&fill->writev_err, ret < 0);
@@ -169,7 +180,7 @@ int netdata_sys_read(struct pt_regs* ctx)
     if (!monitor_apps(&vfs_ctrl))
         return 0;
 
-    struct netdata_vfs_stat_t *fill = netdata_get_pid_structure(&key, &tgid, &vfs_ctrl, &tbl_vfs_pid);
+    struct netdata_vfs_stat_t *fill = netdata_get_vfs_structure(&key, &tgid);
     if (fill) {
         libnetdata_update_u32(&fill->read_call, 1);
         netdata_update_vfs_err(&fill->read_err, ret < 0);
@@ -211,7 +222,7 @@ int netdata_sys_readv(struct pt_regs* ctx)
     if (!monitor_apps(&vfs_ctrl))
         return 0;
 
-    struct netdata_vfs_stat_t *fill = netdata_get_pid_structure(&key, &tgid, &vfs_ctrl, &tbl_vfs_pid);
+    struct netdata_vfs_stat_t *fill = netdata_get_vfs_structure(&key, &tgid);
     if (fill) {
         libnetdata_update_u32(&fill->readv_call, 1);
         netdata_update_vfs_err(&fill->readv_err, ret < 0);
@@ -249,7 +260,7 @@ int netdata_sys_unlink(struct pt_regs* ctx)
     if (!monitor_apps(&vfs_ctrl))
         return 0;
 
-    struct netdata_vfs_stat_t *fill = netdata_get_pid_structure(&key, &tgid, &vfs_ctrl, &tbl_vfs_pid);
+    struct netdata_vfs_stat_t *fill = netdata_get_vfs_structure(&key, &tgid);
     if (fill) {
         libnetdata_update_u32(&fill->unlink_call, 1);
         netdata_update_vfs_err(&fill->unlink_err, ret < 0);
@@ -285,7 +296,7 @@ int netdata_vfs_fsync(struct pt_regs* ctx)
     if (!monitor_apps(&vfs_ctrl))
         return 0;
 
-    struct netdata_vfs_stat_t *fill = netdata_get_pid_structure(&key, &tgid, &vfs_ctrl, &tbl_vfs_pid);
+    struct netdata_vfs_stat_t *fill = netdata_get_vfs_structure(&key, &tgid);
     if (fill) {
         libnetdata_update_u32(&fill->fsync_call, 1);
         netdata_update_vfs_err(&fill->fsync_err, ret < 0);
@@ -321,7 +332,7 @@ int netdata_vfs_open(struct pt_regs* ctx)
     if (!monitor_apps(&vfs_ctrl))
         return 0;
 
-    struct netdata_vfs_stat_t *fill = netdata_get_pid_structure(&key, &tgid, &vfs_ctrl, &tbl_vfs_pid);
+    struct netdata_vfs_stat_t *fill = netdata_get_vfs_structure(&key, &tgid);
     if (fill) {
         libnetdata_update_u32(&fill->open_call, 1);
         netdata_update_vfs_err(&fill->open_err, ret < 0);
@@ -357,7 +368,7 @@ int netdata_vfs_create(struct pt_regs* ctx)
     if (!monitor_apps(&vfs_ctrl))
         return 0;
 
-    struct netdata_vfs_stat_t *fill = netdata_get_pid_structure(&key, &tgid, &vfs_ctrl, &tbl_vfs_pid);
+    struct netdata_vfs_stat_t *fill = netdata_get_vfs_structure(&key, &tgid);
     if (fill) {
         libnetdata_update_u32(&fill->create_call, 1);
         netdata_update_vfs_err(&fill->create_err, ret < 0);
