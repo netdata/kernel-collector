@@ -25,7 +25,7 @@ $(TESTER_BIN): $(TESTER_SRCS) $(LIBBPF_READY)
 	$(CC) -I../.local_libbpf -I$(LIBBPF)/src -I$(LIBBPF)/include -I$(LIBBPF)/include/uapi -L../.local_libbpf -o $@ $(TESTER_SRCS) -lbpf -lz -lelf
 
 $(GO_TESTER_BIN): $(GO_TESTER_SRCS) $(LIBBPF_READY)
-	cd ../gotests && env GOCACHE=/tmp/go-cache CGO_ENABLED=1 $(GO) build -o go_tester .
+	cd ../gotests && env GOCACHE=/tmp/go-cache CGO_ENABLED=1 $(GO) build -buildvcs=false -o go_tester .
 
 clean:
 	rm -f $(TESTER_BIN) $(GO_TESTER_BIN)
