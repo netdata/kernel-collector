@@ -14,5 +14,8 @@
 
 kernel/legacy_test
 tests/legacy_test
+tests/go_tester
+gotests/go_tester
+gotests/gotests
 .local_libbpf/bpf
 .local_libbpf/pkgconfig
