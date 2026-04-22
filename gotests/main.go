@@ -593,12 +593,8 @@ func discoverCandidates(moduleName string, isReturn bool, version string, rhfVer
 	return candidates
 }
 
-func fallbackPerCPUMapSupport(rhfVersion int, kernelVersion int) bool {
-	if rhfVersion > 0 && kernelVersion < netdataMinimumEBPFKernel {
-		return false
-	}
-
-	return kernelVersion >= netdataMinimumEBPFKernel || rhfVersion > 0
+func fallbackPerCPUMapSupport(_ int, kernelVersion int) bool {
+	return kernelVersion >= netdataMinimumEBPFKernel
 }
 
 func detectSupportedMapTypes(rhfVersion int, kernelVersion int) map[uint32]bool {
@@ -1061,17 +1057,18 @@ func allocateTableData(meta mapMeta, nprocesses int) *tableData {
 }
 
 func readGenericTable(values *tableData, fd int) {
-	for i := range values.key {
-		values.key[i] = 0
-	}
-	for i := range values.nextKey {
-		values.nextKey[i] = 0
-	}
-	for i := range values.value {
-		values.value[i] = 0
+	// Passing a nil key to bpf_map_get_next_key retrieves the first entry,
+	// which correctly includes key 0 in array-type maps. The previous pattern
+	// starting from a zero-initialized key skipped key 0 in arrays and
+	// double-counted the last entry in every map type.
+	if bpfMapGetNextKey(fd, nil, values.nextKey) != 0 {
+		return
 	}
 
-	for bpfMapGetNextKey(fd, values.key, values.nextKey) == 0 {
+	for {
+		for i := range values.value {
+			values.value[i] = 0
+		}
 		if bpfMapLookupElem(fd, values.nextKey, values.value) == 0 {
 			if bytes.Equal(values.value, values.defValue) {
 				values.zero++
@@ -1079,18 +1076,9 @@ func readGenericTable(values *tableData, fd int) {
 				values.filled++
 			}
 		}
-
 		copy(values.key, values.nextKey)
-		for i := range values.value {
-			values.value[i] = 0
-		}
-	}
-
-	if bpfMapLookupElem(fd, values.key, values.value) == 0 {
-		if bytes.Equal(values.value, values.defValue) {
-			values.zero++
-		} else {
-			values.filled++
+		if bpfMapGetNextKey(fd, values.key, values.nextKey) != 0 {
+			break
 		}
 	}
 }
