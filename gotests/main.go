@@ -109,6 +109,7 @@ type attachSummary struct {
 	links             []*bpfLink
 	success           int
 	fail              int
+	skipped           int
 	lastError         int
 	failedProgramName string
 	failedProgramType uint32
@@ -131,6 +132,49 @@ var (
 			programName:      "netdata_lookup_fast",
 			functionToAttach: "lookup_fast",
 			retprobe:         false,
+		},
+	}
+
+	zfsOptionalNames = []specifyName{
+		{
+			programName:      "netdata_zpl_iter_read",
+			functionToAttach: "zpl_iter_read",
+			retprobe:         false,
+		},
+		{
+			programName:      "netdata_zpl_iter_write",
+			functionToAttach: "zpl_iter_write",
+			retprobe:         false,
+		},
+		{
+			programName:      "netdata_zpl_open",
+			functionToAttach: "zpl_open",
+			retprobe:         false,
+		},
+		{
+			programName:      "netdata_zpl_fsync",
+			functionToAttach: "zpl_fsync",
+			retprobe:         false,
+		},
+		{
+			programName:      "netdata_ret_zpl_iter_read",
+			functionToAttach: "zpl_iter_read",
+			retprobe:         true,
+		},
+		{
+			programName:      "netdata_ret_zpl_iter_write",
+			functionToAttach: "zpl_iter_write",
+			retprobe:         true,
+		},
+		{
+			programName:      "netdata_ret_zpl_open",
+			functionToAttach: "zpl_open",
+			retprobe:         true,
+		},
+		{
+			programName:      "netdata_ret_zpl_fsync",
+			functionToAttach: "zpl_fsync",
+			retprobe:         true,
 		},
 	}
 
@@ -161,7 +205,7 @@ var (
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68, flags: flagSwap, name: "swap", ctrlTable: "swap_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagXFS, name: "xfs", ctrlTable: "xfs_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagZFS, name: "zfs", ctrlTable: "zfs_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagZFS, name: "zfs", updateNames: &zfsOptionalNames, ctrlTable: "zfs_ctrl"},
 	}
 )
 
@@ -477,10 +521,11 @@ func parseDNSPortList(w io.Writer, input string, existing []uint16) []uint16 {
 
 func fillNames() {
 	updateNames(dcOptionalNames)
+	updateNames(zfsOptionalNames)
 }
 
 func updateNames(names []specifyName) {
-	if len(names) == 0 || names[0].optional != "" {
+	if len(names) == 0 {
 		return
 	}
 
@@ -490,8 +535,17 @@ func updateNames(names []specifyName) {
 	}
 	defer file.Close()
 
+	remaining := 0
+	for i := range names {
+		if names[i].optional == "" {
+			remaining++
+		}
+	}
+	if remaining == 0 {
+		return
+	}
+
 	scanner := bufio.NewScanner(file)
-	needle := names[0].functionToAttach
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) <= 19 {
@@ -499,14 +553,21 @@ func updateNames(names []specifyName) {
 		}
 
 		data := line[19:]
-		if strings.HasPrefix(data, needle) {
+		for i := range names {
+			if names[i].optional != "" || !strings.HasPrefix(data, names[i].functionToAttach) {
+				continue
+			}
+
 			end := strings.IndexAny(data, " \n")
 			if end < 0 {
 				end = len(data)
 			}
-			names[0].optional = data[:end]
-			dcOptionalNames[0].optional = names[0].optional
-			return
+
+			names[i].optional = data[:end]
+			remaining--
+			if remaining == 0 {
+				return
+			}
 		}
 	}
 }
@@ -664,7 +725,7 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 		link.destroy()
 	}
 
-	if summary.success == total && summary.fail == 0 {
+	if summary.fail == 0 {
 		return success
 	}
 
@@ -681,7 +742,11 @@ func attachPrograms(obj *bpfObject, names *[]specifyName) attachSummary {
 		)
 
 		override := findOptionalName(names, prog.name())
-		if override != nil && override.optional != "" && prog.progType() == bpfProgTypeKprobe {
+		if override != nil && prog.progType() == bpfProgTypeKprobe {
+			if override.optional == "" {
+				summary.skipped++
+				continue
+			}
 			link, err = prog.attachKprobe(override.retprobe, override.optional)
 		} else {
 			link, err = prog.attach()
