@@ -664,16 +664,17 @@ int ebpf_get_kernel_version()
     char ver[VERSION_STRING_LEN];
     char *version = ver;
 
-    int fd = open("/proc/sys/kernel/osrelease", O_RDONLY);
+    int fd = open("/proc/sys/kernel/osrelease", O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         return -1;
 
-    ssize_t len = read(fd, ver, sizeof(ver));
+    ssize_t len = read(fd, ver, sizeof(ver) - 1);
     if (len < 0) {
         close(fd);
         return -1;
     }
 
+    ver[len] = '\0';
     close(fd);
 
     char *move = major;
@@ -697,7 +698,19 @@ int ebpf_get_kernel_version()
         *move++ = *version++;
     *move = '\0';
 
-    return ((int)(strtol(major, NULL, 10) * 65536) + (int)(strtol(minor, NULL, 10) * 256) + (int)strtol(patch, NULL, 10));
+    long major_val = strtol(major, NULL, 10);
+    long minor_val = strtol(minor, NULL, 10);
+    if (major_val < 0 || minor_val < 0)
+        return -1;
+
+    int ipatch = (int)strtol(patch, NULL, 10);
+    if (ipatch < 0)
+        return -1;
+
+    if (ipatch > 255)
+        ipatch = 255;
+
+    return ((int)(major_val * 65536) + (int)(minor_val * 256) + ipatch);
 }
 
 /**
@@ -725,7 +738,7 @@ int ebpf_get_redhat_release()
             char *end = strchr(buffer, '.');
             char *start;
             if (end) {
-                *end = 0x0;
+                *end = '\0';
 
                 if (end > buffer) {
                     start = end - 1;
@@ -733,9 +746,9 @@ int ebpf_get_redhat_release()
                     major = strtol(start, NULL, 10);
                     start = ++end;
 
-                    end++;
-                    if (end) {
-                        end = 0x00;
+                    char *minor_end = strchr(start, ' ');
+                    if (minor_end) {
+                        *minor_end = '\0';
                         minor = strtol(start, NULL, 10);
                     } else {
                         minor = -1;

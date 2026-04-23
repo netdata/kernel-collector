@@ -52,6 +52,64 @@ func TestParseDNSPortList(t *testing.T) {
 }
 
 func TestKernelSelectionHelpers(t *testing.T) {
+	parseCases := []struct {
+		name    string
+		release string
+		want    int
+	}{
+		{name: "plain release", release: "6.8.12", want: 6*65536 + 8*256 + 12},
+		{name: "debian release", release: "6.12.74+deb13-amd64", want: 6*65536 + 12*256 + 74},
+		{name: "debian plus suffix chain", release: "6.12.74+deb13+1-amd64", want: 6*65536 + 12*256 + 74},
+		{name: "dash suffix", release: "5.15.0-101-generic", want: 5*65536 + 15*256},
+		{name: "clamps patch", release: "6.12.999-custom", want: 6*65536 + 12*256 + 255},
+		{name: "invalid release", release: "not-a-kernel", want: -1},
+	}
+
+	for _, tc := range parseCases {
+		t.Run("parse "+tc.name, func(t *testing.T) {
+			if got := parseKernelRelease(tc.release); got != tc.want {
+				t.Fatalf("unexpected parsed kernel release for %q: got %d want %d", tc.release, got, tc.want)
+			}
+		})
+	}
+
+	rhCases := []struct {
+		name    string
+		release string
+		want    int
+	}{
+		{name: "rh release", release: "Red Hat Enterprise Linux release 9.4 (Plow)\n", want: 9*256 + 4},
+		{name: "centos release", release: "CentOS Linux release 7.9.2009 (Core)\n", want: 7*256 + 9},
+		{name: "alma release", release: "AlmaLinux release 9.5 (Teal Serval)\n", want: 9*256 + 5},
+		{name: "invalid release", release: "Debian GNU/Linux\n", want: -1},
+	}
+
+	for _, tc := range rhCases {
+		t.Run("rh "+tc.name, func(t *testing.T) {
+			if got := parseRedHatRelease(tc.release); got != tc.want {
+				t.Fatalf("unexpected parsed redhat release for %q: got %d want %d", tc.release, got, tc.want)
+			}
+		})
+	}
+
+	leadingCases := []struct {
+		input string
+		want  int
+	}{
+		{input: "74+deb13+1", want: 74},
+		{input: "9 ", want: 9},
+		{input: "+12beta", want: 12},
+		{input: "-5rc1", want: -5},
+	}
+
+	for _, tc := range leadingCases {
+		t.Run("leading "+tc.input, func(t *testing.T) {
+			if got := parseLeadingLong(tc.input); got != tc.want {
+				t.Fatalf("unexpected parsed leading integer for %q: got %d want %d", tc.input, got, tc.want)
+			}
+		})
+	}
+
 	maxCases := []struct {
 		name          string
 		rhfVersion    int

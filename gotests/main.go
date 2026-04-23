@@ -290,7 +290,31 @@ func getKernelVersion() int {
 		return -1
 	}
 
-	version := strings.TrimSpace(string(data))
+	return parseKernelRelease(strings.TrimSpace(string(data)))
+}
+
+func parseLeadingLong(s string) int {
+	s = strings.TrimSpace(s)
+	sign := 1
+	if strings.HasPrefix(s, "-") {
+		sign = -1
+		s = s[1:]
+	} else if strings.HasPrefix(s, "+") {
+		s = s[1:]
+	}
+
+	n := 0
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			break
+		}
+		n = n*10 + int(r-'0')
+	}
+
+	return sign * n
+}
+
+func parseKernelRelease(version string) int {
 	parts := strings.SplitN(version, ".", 3)
 	if len(parts) < 3 {
 		return -1
@@ -301,11 +325,15 @@ func getKernelVersion() int {
 		patch = patch[:idx]
 	}
 
-	major, err1 := strconv.Atoi(parts[0])
-	minor, err2 := strconv.Atoi(parts[1])
-	sublevel, err3 := strconv.Atoi(patch)
-	if err1 != nil || err2 != nil || err3 != nil {
+	major := parseLeadingLong(parts[0])
+	minor := parseLeadingLong(parts[1])
+	sublevel := parseLeadingLong(patch)
+	if major < 0 || minor < 0 || sublevel < 0 {
 		return -1
+	}
+
+	if sublevel > 255 {
+		sublevel = 255
 	}
 
 	return major*65536 + minor*256 + sublevel
@@ -317,17 +345,26 @@ func getRedHatRelease() int {
 		return -1
 	}
 
-	fields := strings.FieldsFunc(string(data), func(r rune) bool {
-		return r < '0' || r > '9'
-	})
-	if len(fields) < 2 {
+	return parseRedHatRelease(string(data))
+}
+
+func parseRedHatRelease(release string) int {
+	major := 0
+	minor := -1
+
+	if len(release) <= 4 {
 		return -1
 	}
 
-	major, err1 := strconv.Atoi(fields[0])
-	minor, err2 := strconv.Atoi(fields[1])
-	if err1 != nil || err2 != nil {
-		return -1
+	if idx := strings.IndexByte(release, '.'); idx >= 0 {
+		head := release[:idx]
+		if idx > 0 {
+			major = parseLeadingLong(head[idx-1:])
+			tail := release[idx+1:]
+			if end := strings.IndexByte(tail, ' '); end >= 0 {
+				minor = parseLeadingLong(tail[:end])
+			}
+		}
 	}
 
 	return major*256 + minor
