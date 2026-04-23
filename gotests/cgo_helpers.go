@@ -38,6 +38,11 @@ static int netdata_libbpf_get_error(const void *ptr)
 	return (int)libbpf_get_error(ptr);
 }
 
+static int netdata_libbpf_num_possible_cpus(void)
+{
+	return libbpf_num_possible_cpus();
+}
+
 static int netdata_open_capture_socket(int program_fd)
 {
 	struct sockaddr_ll bind_addr = { 0 };
@@ -326,6 +331,10 @@ func slicePointer(buf []byte) unsafe.Pointer {
 
 func bpfMapLookupElem(fd int, key []byte, value []byte) int {
 	return int(C.netdata_bpf_map_lookup_elem(C.int(fd), slicePointer(key), slicePointer(value)))
+}
+
+func libbpfNumPossibleCPUs() int {
+	return int(C.netdata_libbpf_num_possible_cpus())
 }
 
 func bpfMapGetNextKey(fd int, key []byte, nextKey []byte) int {

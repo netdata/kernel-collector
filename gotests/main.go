@@ -24,6 +24,7 @@ const (
 	netdataDefaultProcessNumber = 4096
 	netdataDNSMaxPorts          = 32
 	netdataDNSDefaultPort       = 53
+	netdataControllerEnd        = 6
 	netdataMinimumEBPFKernel    = 264960
 	netdataEBPFKernel414        = 265728
 	netdataEBPFKernel415        = 265984
@@ -239,7 +240,10 @@ func main() {
 func run() int {
 	kernelVersion := getKernelVersion()
 	rhfVersion := getRedHatRelease()
-	nprocesses := runtime.NumCPU()
+	nprocesses := libbpfNumPossibleCPUs()
+	if nprocesses < 1 {
+		nprocesses = runtime.NumCPU()
+	}
 	if nprocesses < 1 {
 		fmt.Fprintf(os.Stderr, "Cannot find number of process, using the default %d\n", netdataDefaultProcessNumber)
 		nprocesses = netdataDefaultProcessNumber
@@ -967,7 +971,7 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 
 	if maps {
 		if ctrl != "" {
-			fillCtrl(obj, ctrl, opts.mapLevel)
+			fillCtrl(obj, ctrl, opts.mapLevel, nprocesses)
 		}
 		testMaps(w, obj, ctrl, opts.iterations, nprocesses)
 	}
@@ -1076,8 +1080,55 @@ func writeProgramInventory(w io.Writer, obj *bpfObject) {
 	fmt.Fprint(w, "]")
 }
 
+func isPerCPUMapType(mapType uint32) bool {
+	return mapType == bpfMapTypePerCPUArray || mapType == bpfMapTypePerCPUHash
+}
+
+func roundUpSize(value int, align int) int {
+	return ((value + align - 1) / align) * align
+}
+
+func mapValueStride(meta mapMeta) int {
+	if !isPerCPUMapType(meta.Type) {
+		return int(meta.ValueSize)
+	}
+
+	return roundUpSize(int(meta.ValueSize), 8)
+}
+
+func mapValueLength(meta mapMeta, nprocesses int) int {
+	if !isPerCPUMapType(meta.Type) {
+		return int(meta.ValueSize)
+	}
+
+	if nprocesses < 1 {
+		nprocesses = 1
+	}
+
+	return mapValueStride(meta) * nprocesses
+}
+
+func controllerEntryLimit(meta mapMeta) int {
+	limit := netdataControllerEnd
+
+	if meta.MaxEntries > 0 && int(meta.MaxEntries) < limit {
+		limit = int(meta.MaxEntries)
+	}
+
+	return limit
+}
+
+func fillScalarValue(dst []byte, valueSize uint32, value uint64) {
+	switch {
+	case valueSize >= 8 && len(dst) >= 8:
+		binary.LittleEndian.PutUint64(dst, value)
+	case valueSize >= 4 && len(dst) >= 4:
+		binary.LittleEndian.PutUint32(dst, uint32(value))
+	}
+}
+
 func allocateTableData(meta mapMeta, nprocesses int) *tableData {
-	valueLength := int(meta.ValueSize) * nprocesses
+	valueLength := mapValueLength(meta, nprocesses)
 	return &tableData{
 		key:         make([]byte, meta.KeySize),
 		nextKey:     make([]byte, meta.KeySize),
@@ -1128,11 +1179,11 @@ func writeCommonJSONVector(w io.Writer, values *tableData, fd int, iterations in
 	fmt.Fprint(w, "\n")
 }
 
-func controllerJSON(w io.Writer, fd int, meta mapMeta) {
+func controllerJSON(w io.Writer, fd int, meta mapMeta, nprocesses int) {
 	var filled, zero uint32
 	key := make([]byte, meta.KeySize)
-	value := make([]byte, meta.ValueSize)
-	for idx := 0; idx < 6; idx++ {
+	value := make([]byte, mapValueLength(meta, nprocesses))
+	for idx := 0; idx < controllerEntryLimit(meta); idx++ {
 		putUint32(key, uint32(idx))
 		if bpfMapLookupElem(fd, key, value) != 0 {
 			zero++
@@ -1159,7 +1210,7 @@ func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocess
 		if ctrl == "" || ctrl != meta.Name {
 			writeCommonJSONVector(w, values, meta.FD, iterations)
 		} else {
-			controllerJSON(w, meta.FD, meta)
+			controllerJSON(w, meta.FD, meta, nprocesses)
 		}
 
 		fmt.Fprint(w, "                                ]\n                      }\n        },\n")
@@ -1171,7 +1222,7 @@ func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocess
 	}
 }
 
-func fillCtrl(obj *bpfObject, ctrl string, mapLevel int) {
+func fillCtrl(obj *bpfObject, ctrl string, mapLevel int, nprocesses int) {
 	m := obj.findMapByName(ctrl)
 	if m == nil {
 		return
@@ -1180,16 +1231,22 @@ func fillCtrl(obj *bpfObject, ctrl string, mapLevel int) {
 	meta := m.meta()
 	values := []uint64{1, uint64(mapLevel), 0, 0, 0, 0}
 	key := make([]byte, meta.KeySize)
-	value := make([]byte, meta.ValueSize)
+	value := make([]byte, mapValueLength(meta, nprocesses))
+	stride := mapValueStride(meta)
+	cpuCount := 1
+
+	if stride > 0 {
+		cpuCount = len(value) / stride
+	}
 
 	for i := uint32(0); i < meta.MaxEntries && int(i) < len(values); i++ {
 		for j := range value {
 			value[j] = 0
 		}
-		if len(value) >= 8 {
-			binary.LittleEndian.PutUint64(value, values[i])
-		} else if len(value) >= 4 {
-			binary.LittleEndian.PutUint32(value, uint32(values[i]))
+
+		for cpu := 0; cpu < cpuCount; cpu++ {
+			offset := cpu * stride
+			fillScalarValue(value[offset:], meta.ValueSize, values[i])
 		}
 
 		putUint32(key, i)

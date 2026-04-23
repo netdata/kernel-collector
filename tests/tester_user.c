@@ -136,6 +136,60 @@ typedef struct ebpf_candidate_list {
     size_t capacity;
 } ebpf_candidate_list_t;
 
+static size_t ebpf_round_up_size(size_t value, size_t align)
+{
+    return ((value + align - 1) / align) * align;
+}
+
+static int ebpf_possible_cpu_count(void)
+{
+    int count = libbpf_num_possible_cpus();
+
+    if (count > 0)
+        return count;
+
+    if (nprocesses > 0 && nprocesses <= INT_MAX)
+        return (int)nprocesses;
+
+    return 1;
+}
+
+static int ebpf_map_is_percpu(uint32_t type)
+{
+    return type == BPF_MAP_TYPE_PERCPU_ARRAY || type == BPF_MAP_TYPE_PERCPU_HASH;
+}
+
+static size_t ebpf_map_value_stride(uint32_t type, size_t value_size)
+{
+    if (!ebpf_map_is_percpu(type))
+        return value_size;
+
+    return ebpf_round_up_size(value_size, 8);
+}
+
+static size_t ebpf_map_value_buffer_length(uint32_t type, size_t value_size)
+{
+    if (!ebpf_map_is_percpu(type))
+        return value_size;
+
+    return ebpf_map_value_stride(type, value_size) * (size_t)ebpf_possible_cpu_count();
+}
+
+static void ebpf_store_scalar_value(void *buffer, size_t value_size, uint64_t value)
+{
+    if (value_size >= sizeof(value)) {
+        memcpy(buffer, &value, sizeof(value));
+        return;
+    }
+
+    {
+        uint32_t truncated = (uint32_t)value;
+        size_t copy = value_size < sizeof(truncated) ? value_size : sizeof(truncated);
+
+        memcpy(buffer, &truncated, copy);
+    }
+}
+
 static void ebpf_add_dns_port(uint16_t port)
 {
     size_t i;
@@ -1080,11 +1134,9 @@ static void ebpf_cleanup_tables(ebpf_table_data_t *out)
  * @param key    the size of the key.
  * @param value  the size of the values.
  */
-static ebpf_table_data_t *ebpf_allocate_tables(const char *name, size_t key, size_t value)
+static ebpf_table_data_t *ebpf_allocate_tables(const char *name, uint32_t type, size_t key, size_t value)
 {
-    // We multiply value by number of proccess to avoid problems when data is stored
-    // per process
-    value *= nprocesses;
+    value = ebpf_map_value_buffer_length(type, value);
 
     ebpf_table_data_t *ret = calloc(1, sizeof(ebpf_table_data_t));
     if (!ret)
@@ -1141,14 +1193,23 @@ static inline void ebpf_values_accumulator(ebpf_table_data_t *values)
  * @param filled   pointer to filled counter.
  * @param zero     pointer to zero counter.
  */
-static inline void ebpf_check_and_update_counter(int fd, uint32_t key, uint32_t *filled, uint32_t *zero)
+static inline void ebpf_check_and_update_counter(int fd, uint32_t key, size_t value_length,
+                                                 uint32_t *filled, uint32_t *zero)
 {
-    uint64_t value = 0;
-    if (bpf_map_lookup_elem(fd, &key, &value)) {
+    void *value = calloc(1, value_length);
+
+    if (!value) {
+        (*zero)++;
+        return;
+    }
+
+    if (bpf_map_lookup_elem(fd, &key, value)) {
         (*zero)++;
     } else {
         (*filled)++;
     }
+
+    free(value);
 }
 
 /**
@@ -1161,16 +1222,17 @@ static inline void ebpf_check_and_update_counter(int fd, uint32_t key, uint32_t 
  */
 static void ebpf_read_generic_table(ebpf_table_data_t *values, int fd)
 {
-    size_t zero = 0;
-    size_t filled = 0;
-
     // Reset completely the keys
     memset(values->key, 0, values->key_length);
     memset(values->next_key, 0, values->key_length);
     memset(values->value, 0, values->value_length);
 
+    // Passing a NULL key retrieves the first entry and preserves key 0 for arrays.
+    if (bpf_map_get_next_key(fd, NULL, values->next_key))
+        return;
+
     // Go trough all keys stored inside the eBPF maps
-    while (!bpf_map_get_next_key(fd, values->key, values->next_key)) {
+    while (1) {
         if (!bpf_map_lookup_elem(fd, values->next_key, values->value)) {
             ebpf_values_accumulator(values);
         }
@@ -1178,11 +1240,10 @@ static void ebpf_read_generic_table(ebpf_table_data_t *values, int fd)
         // Copy the next key for the current key
         memcpy(values->key, values->next_key, values->key_length);
 
-        memset(values->value, 0, values->value_length);
-    }
+        if (bpf_map_get_next_key(fd, values->key, values->next_key))
+            break;
 
-    if (!bpf_map_lookup_elem(fd, values->key, values->value)) {
-        ebpf_values_accumulator(values);
+        memset(values->value, 0, values->value_length);
     }
 }
 
@@ -1239,7 +1300,7 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
 
     uint32_t key;
     for (key = 0; key < NETDATA_CONTROLLER_END; key++) {
-        ebpf_check_and_update_counter(fd, key, &value, &zero);
+        ebpf_check_and_update_counter(fd, key, values->value_length, &value, &zero);
     }
     fprintf(stdlog,
             "                                    "
@@ -1278,7 +1339,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         key_size = def->key_size;
         value_size = def->value_size;
 #endif
-        values = ebpf_allocate_tables(name, key_size, value_size);
+        values = ebpf_allocate_tables(name, type, key_size, value_size);
         if (values) {
             // Write header
            fprintf(stdlog,
@@ -1332,15 +1393,31 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         int fd = bpf_map__fd(map);
 
         unsigned int end;
+        uint32_t type;
+        uint32_t value_size;
 #ifdef LIBBPF_MAJOR_VERSION
+        type = bpf_map__type(map);
+        value_size = bpf_map__value_size(map);
         end = bpf_map__max_entries(map);
 #else
         const struct bpf_map_def *def = bpf_map__def(map);
+        type = def->type;
+        value_size = def->value_size;
         end = def->max_entries;
 #endif
         uint64_t values[NETDATA_CONTROLLER_END] = { 1, (uint64_t)map_level, 0, 0, 0, 0 };
+        size_t value_length = ebpf_map_value_buffer_length(type, value_size);
+        size_t value_stride = ebpf_map_value_stride(type, value_size);
+        size_t cpu_count = value_stride ? value_length / value_stride : 1;
+        char *value_buffer = calloc(1, value_length);
         unsigned int limit = end;
         unsigned int i;
+
+        if (!value_buffer) {
+            fprintf(stdlog, "\"error\" : \"Cannot allocate control buffer for table %s.\",", name);
+            continue;
+        }
+
         if (limit > NETDATA_CONTROLLER_END) {
             fprintf(stdlog,
                     "\"error\" : \"Control table %s has %u entries, limiting writes to %u.\",",
@@ -1349,9 +1426,18 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         }
 
         for (i = 0; i < limit; i++) {
-             if (bpf_map_update_elem(fd, &i, &values[i], 0))
+            size_t cpu;
+
+            memset(value_buffer, 0, value_length);
+            for (cpu = 0; cpu < cpu_count; cpu++) {
+                ebpf_store_scalar_value(value_buffer + (cpu * value_stride), value_size, values[i]);
+            }
+
+             if (bpf_map_update_elem(fd, &i, value_buffer, 0))
                  fprintf(stdlog, "\"error\" : \"Add key(%u) for controller table failed.\",", i);
         }
+
+        free(value_buffer);
     }
 }
 
