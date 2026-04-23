@@ -80,8 +80,10 @@ const (
 type specifyName struct {
 	programName      string
 	functionToAttach string
+	fallbackFunction string
 	optional         string
 	retprobe         bool
+	required         bool
 }
 
 type module struct {
@@ -136,6 +138,23 @@ var (
 			programName:      "netdata_lookup_fast",
 			functionToAttach: "lookup_fast",
 			retprobe:         false,
+		},
+	}
+
+	swapOptionalNames = []specifyName{
+		{
+			programName:      "netdata_swap_readpage",
+			functionToAttach: "swap_read_folio",
+			fallbackFunction: "swap_readpage",
+			retprobe:         false,
+			required:         true,
+		},
+		{
+			programName:      "netdata_swap_writepage",
+			functionToAttach: "__swap_writepage",
+			fallbackFunction: "swap_writepage",
+			retprobe:         false,
+			required:         true,
 		},
 	}
 
@@ -206,7 +225,7 @@ var (
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "syncfs"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync_file_range"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68, flags: flagSwap, name: "swap", ctrlTable: "swap_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68, flags: flagSwap, name: "swap", updateNames: &swapOptionalNames, ctrlTable: "swap_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagXFS, name: "xfs", ctrlTable: "xfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagZFS, name: "zfs", updateNames: &zfsOptionalNames, ctrlTable: "zfs_ctrl"},
@@ -726,6 +745,7 @@ func writeMapCompatibilityDebug(w io.Writer, unsupportedType uint32, supported m
 
 func fillNames() {
 	updateNames(dcOptionalNames)
+	updateNames(swapOptionalNames)
 	updateNames(zfsOptionalNames)
 }
 
@@ -759,19 +779,27 @@ func updateNames(names []specifyName) {
 
 		data := line[19:]
 		for i := range names {
-			if names[i].optional != "" || !strings.HasPrefix(data, names[i].functionToAttach) {
+			if names[i].optional != "" {
 				continue
 			}
 
-			end := strings.IndexAny(data, " \n")
-			if end < 0 {
-				end = len(data)
-			}
+			candidates := []string{names[i].functionToAttach, names[i].fallbackFunction}
+			for _, candidate := range candidates {
+				if candidate == "" || !strings.HasPrefix(data, candidate) {
+					continue
+				}
 
-			names[i].optional = data[:end]
-			remaining--
-			if remaining == 0 {
-				return
+				end := strings.IndexAny(data, " \n")
+				if end < 0 {
+					end = len(data)
+				}
+
+				names[i].optional = data[:end]
+				remaining--
+				if remaining == 0 {
+					return
+				}
+				break
 			}
 		}
 	}
@@ -966,11 +994,15 @@ func attachPrograms(obj *bpfObject, names *[]specifyName) attachSummary {
 
 		override := findOptionalName(names, prog.name())
 		if override != nil && prog.progType() == bpfProgTypeKprobe {
-			if override.optional == "" {
+			target := override.optional
+			if target == "" && override.required {
+				target = override.functionToAttach
+			}
+			if target == "" {
 				summary.skipped++
 				continue
 			}
-			link, err = prog.attachKprobe(override.retprobe, override.optional)
+			link, err = prog.attachKprobe(override.retprobe, target)
 		} else {
 			link, err = prog.attach()
 		}

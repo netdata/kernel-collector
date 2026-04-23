@@ -22,10 +22,28 @@
 
 static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_lookup_fast",
                                                     .function_to_attach = "lookup_fast",
+                                                    .fallback_function_to_attach = NULL,
                                                     .optional = NULL,
                                                     .retprobe = 0},
                                                    {.program_name = NULL,
                                                     .function_to_attach = NULL,
+                                                    .fallback_function_to_attach = NULL,
+                                                    .optional = NULL,
+                                                    .retprobe = 0}};
+
+static ebpf_specify_name_t swap_optional_name[] = { {.program_name = "netdata_swap_readpage",
+                                                      .function_to_attach = "swap_read_folio",
+                                                      .fallback_function_to_attach = "swap_readpage",
+                                                      .optional = NULL,
+                                                      .retprobe = 0},
+                                                     {.program_name = "netdata_swap_writepage",
+                                                      .function_to_attach = "__swap_writepage",
+                                                      .fallback_function_to_attach = "swap_writepage",
+                                                      .optional = NULL,
+                                                      .retprobe = 0},
+                                                     {.program_name = NULL,
+                                                      .function_to_attach = NULL,
+                                                      .fallback_function_to_attach = NULL,
                                                     .optional = NULL,
                                                     .retprobe = 0}};
 
@@ -80,7 +98,7 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "sync_file_range", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8,
-      .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = NULL, .ctrl_table = "swap_ctrl" },
+      .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = swap_optional_name, .ctrl_table = "swap_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
@@ -923,8 +941,9 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
 
         if (w) {
             enum bpf_prog_type type = bpf_program__get_type(prog);
+            const char *target = w->optional ? w->optional : w->function_to_attach;
             if (type == BPF_PROG_TYPE_KPROBE)
-                links[i] = bpf_program__attach_kprobe(prog, w->retprobe, w->optional);
+                links[i] = bpf_program__attach_kprobe(prog, w->retprobe, target);
         } else
             links[i] = bpf_program__attach(prog);
 
@@ -953,34 +972,58 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
  */
 static void ebpf_update_names(ebpf_specify_name_t *names)
 {
-    if (names->optional)
-        return;
-
-    char line[256];
-    FILE *fp = fopen("/proc/kallsyms", "r");
-    if (!fp)
-        return;
-
-    char *data;
-    char *cmp = names->function_to_attach;
-    size_t len = strlen(cmp);
-    while ( (data = fgets(line, 255, fp))) {
-        data += 19;
-        ebpf_specify_name_t *move = names;
-        if (!strncmp(cmp, data, len)) {
-            char *end = strchr(data, ' ');
-            if (!end)
-                end = strchr(data, '\n');
-
-            if (end)
-                *end = '\0';
-
-            names->optional = strdup(data);
-            break;
+    int i = 0;
+    while (names[i].function_to_attach) {
+        if (names[i].optional) {
+            i++;
+            continue;
         }
-    }
 
-    fclose(fp);
+        char line[256];
+        FILE *fp = fopen("/proc/kallsyms", "r");
+        if (!fp)
+            return;
+
+        char *data;
+        while ((data = fgets(line, 255, fp))) {
+            const char *candidates[] = {
+                names[i].function_to_attach,
+                names[i].fallback_function_to_attach
+            };
+            size_t j;
+
+            data += 19;
+            for (j = 0; j < 2; j++) {
+                const char *cmp = candidates[j];
+                size_t len;
+                char *end;
+
+                if (!cmp)
+                    continue;
+
+                len = strlen(cmp);
+                if (strncmp(cmp, data, len))
+                    continue;
+
+                end = strchr(data, ' ');
+                if (!end)
+                    end = strchr(data, '\n');
+
+                if (!end)
+                    continue;
+
+                *end = '\0';
+                names[i].optional = strdup(data);
+                break;
+            }
+
+            if (names[i].optional)
+                break;
+        }
+
+        fclose(fp);
+        i++;
+    }
 }
 
 /**
@@ -1816,6 +1859,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
 static void ebpf_fill_names()
 {
     ebpf_update_names(dc_optional_name);
+    ebpf_update_names(swap_optional_name);
 }
 
 /**
@@ -1826,6 +1870,7 @@ static void ebpf_fill_names()
 static void ebpf_clean_name_vectors()
 {
     ebpf_clean_optional(dc_optional_name);
+    ebpf_clean_optional(swap_optional_name);
 }
 
 /**

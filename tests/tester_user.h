@@ -159,6 +159,7 @@ enum netdata_thread_OPT {
 typedef struct ebpf_specify_name {
     char *program_name;
     char *function_to_attach;
+    char *fallback_function_to_attach;
     char *optional;
     bool retprobe;
 } ebpf_specify_name_t;
