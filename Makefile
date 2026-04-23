@@ -1,6 +1,7 @@
 CC=gcc
 
 KERNEL_DIR = kernel/
+TESTS_DIR = tests/
 KERNEL_PROGRAM = $(KERNEL_DIR)process_kern.o
 
 KERNEL_VERSION="$(shell if [ -f /usr/src/linux/include/config/kernel.release ]; then cat /usr/src/linux/include/config/kernel.release; else cat /proc/sys/kernel/osrelease; fi)"
@@ -30,11 +31,12 @@ $(KERNEL_PROGRAM):
 	cd $(KERNEL_DIR) && $(MAKE) all;
 
 tester:
-	cd $(KERNEL_DIR) && $(MAKE) tester
+	cd $(TESTS_DIR) && $(MAKE) tester
 
 clean:
 	rm -f *.o;
 	cd $(KERNEL_DIR) && $(MAKE) clean;
+	cd $(TESTS_DIR) && $(MAKE) clean;
 	rm -f artifacts/*
 	rm -rf .local_libbpf
 

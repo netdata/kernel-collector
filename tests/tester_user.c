@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <dirent.h>
 
 // Syscalls
 #include <fcntl.h>
@@ -21,10 +22,28 @@
 
 static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_lookup_fast",
                                                     .function_to_attach = "lookup_fast",
+                                                    .fallback_function_to_attach = NULL,
                                                     .optional = NULL,
                                                     .retprobe = 0},
                                                    {.program_name = NULL,
                                                     .function_to_attach = NULL,
+                                                    .fallback_function_to_attach = NULL,
+                                                    .optional = NULL,
+                                                    .retprobe = 0}};
+
+static ebpf_specify_name_t swap_optional_name[] = { {.program_name = "netdata_swap_readpage",
+                                                      .function_to_attach = "swap_read_folio",
+                                                      .fallback_function_to_attach = "swap_readpage",
+                                                      .optional = NULL,
+                                                      .retprobe = 0},
+                                                     {.program_name = "netdata_swap_writepage",
+                                                      .function_to_attach = "__swap_writepage",
+                                                      .fallback_function_to_attach = "swap_writepage",
+                                                      .optional = NULL,
+                                                      .retprobe = 0},
+                                                     {.program_name = NULL,
+                                                      .function_to_attach = NULL,
+                                                      .fallback_function_to_attach = NULL,
                                                     .optional = NULL,
                                                     .retprobe = 0}};
 
@@ -79,7 +98,7 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "sync_file_range", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8,
-      .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = NULL, .ctrl_table = "swap_ctrl" },
+      .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = swap_optional_name, .ctrl_table = "swap_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
@@ -103,6 +122,73 @@ enum netdata_apps_level map_level = NETDATA_APPS_LEVEL_REAL_PARENT ;
 static uint16_t dns_ports[NETDATA_DNS_MAX_PORTS] = { NETDATA_DNS_DEFAULT_PORT };
 static size_t dns_port_count = 1;
 static int dns_ports_overridden = 0;
+
+typedef struct ebpf_map_support {
+    int hash;
+    int array;
+    int percpu_array;
+    int percpu_hash;
+} ebpf_map_support_t;
+
+typedef struct ebpf_candidate_list {
+    char **files;
+    size_t size;
+    size_t capacity;
+} ebpf_candidate_list_t;
+
+static size_t ebpf_round_up_size(size_t value, size_t align)
+{
+    return ((value + align - 1) / align) * align;
+}
+
+static int ebpf_possible_cpu_count(void)
+{
+    int count = libbpf_num_possible_cpus();
+
+    if (count > 0)
+        return count;
+
+    if (nprocesses > 0 && nprocesses <= INT_MAX)
+        return (int)nprocesses;
+
+    return 1;
+}
+
+static int ebpf_map_is_percpu(uint32_t type)
+{
+    return type == BPF_MAP_TYPE_PERCPU_ARRAY || type == BPF_MAP_TYPE_PERCPU_HASH;
+}
+
+static size_t ebpf_map_value_stride(uint32_t type, size_t value_size)
+{
+    if (!ebpf_map_is_percpu(type))
+        return value_size;
+
+    return ebpf_round_up_size(value_size, 8);
+}
+
+static size_t ebpf_map_value_buffer_length(uint32_t type, size_t value_size)
+{
+    if (!ebpf_map_is_percpu(type))
+        return value_size;
+
+    return ebpf_map_value_stride(type, value_size) * (size_t)ebpf_possible_cpu_count();
+}
+
+static void ebpf_store_scalar_value(void *buffer, size_t value_size, uint64_t value)
+{
+    if (value_size >= sizeof(value)) {
+        memcpy(buffer, &value, sizeof(value));
+        return;
+    }
+
+    {
+        uint32_t truncated = (uint32_t)value;
+        size_t copy = value_size < sizeof(truncated) ? value_size : sizeof(truncated);
+
+        memcpy(buffer, &truncated, copy);
+    }
+}
 
 static void ebpf_add_dns_port(uint16_t port)
 {
@@ -230,6 +316,335 @@ static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, 
     fprintf(stdlog, "\n                      }\n        }\n");
 }
 
+static char *ebpf_strdup_string(const char *src)
+{
+    size_t len = strlen(src) + 1;
+    char *ret = malloc(len);
+    if (!ret)
+        return NULL;
+
+    memcpy(ret, src, len);
+    return ret;
+}
+
+static char *ebpf_resolve_binary_directory(void)
+{
+    char *resolved;
+
+    if (!netdata_path)
+        return getcwd(NULL, 0);
+
+    resolved = realpath(netdata_path, NULL);
+    if (resolved)
+        return resolved;
+
+    return ebpf_strdup_string(netdata_path);
+}
+
+static int ebpf_append_candidate(ebpf_candidate_list_t *list, const char *path)
+{
+    if (list->size == list->capacity) {
+        size_t new_capacity = (list->capacity) ? list->capacity * 2 : 4;
+        char **files = realloc(list->files, new_capacity * sizeof(char *));
+        if (!files)
+            return -1;
+
+        list->files = files;
+        list->capacity = new_capacity;
+    }
+
+    list->files[list->size] = ebpf_strdup_string(path);
+    if (!list->files[list->size])
+        return -1;
+
+    list->size++;
+    return 0;
+}
+
+static int ebpf_compare_candidates(const void *lhs, const void *rhs)
+{
+    const char * const *left = lhs;
+    const char * const *right = rhs;
+    return strcmp(*left, *right);
+}
+
+static void ebpf_free_candidate_list(ebpf_candidate_list_t *list)
+{
+    size_t i;
+
+    if (!list)
+        return;
+
+    for (i = 0; i < list->size; i++)
+        free(list->files[i]);
+
+    free(list->files);
+    memset(list, 0, sizeof(*list));
+}
+
+static int ebpf_candidate_matches(const char *filename, const char *name, int is_return,
+                                  const char *version, int rhf_version)
+{
+    char prefix[128];
+    size_t prefix_len;
+    size_t version_len = strlen(version);
+    size_t filename_len = strlen(filename);
+    const char *rest;
+    int has_rhf;
+
+    snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s.", (is_return) ? 'r' : 'p', name);
+    prefix_len = strlen(prefix);
+    if (filename_len <= prefix_len + 2)
+        return 0;
+
+    if (strncmp(filename, prefix, prefix_len) || strcmp(filename + filename_len - 2, ".o"))
+        return 0;
+
+    rest = filename + prefix_len;
+    if (strncmp(rest, version, version_len))
+        return 0;
+
+    if (rest[version_len] && rest[version_len] != '.')
+        return 0;
+
+    has_rhf = (strstr(rest, ".rhf") != NULL);
+    if (rhf_version != -1)
+        return has_rhf;
+
+    return !has_rhf;
+}
+
+static void ebpf_discover_candidates(ebpf_candidate_list_t *list, const char *name, int is_return,
+                                     const char *version, int rhf_version)
+{
+    char *path = ebpf_resolve_binary_directory();
+    DIR *dir;
+    struct dirent *entry;
+
+    memset(list, 0, sizeof(*list));
+    if (!path)
+        return;
+
+    dir = opendir(path);
+    if (!dir) {
+        free(path);
+        return;
+    }
+
+    while ((entry = readdir(dir))) {
+        char fullpath[PATH_MAX];
+
+        if (entry->d_name[0] == '.')
+            continue;
+
+        if (!ebpf_candidate_matches(entry->d_name, name, is_return, version, rhf_version))
+            continue;
+
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
+        if (ebpf_append_candidate(list, fullpath))
+            break;
+    }
+
+    closedir(dir);
+    free(path);
+
+    if (list->size > 1)
+        qsort(list->files, list->size, sizeof(char *), ebpf_compare_candidates);
+}
+
+#ifdef LIBBPF_MAJOR_VERSION
+static int ebpf_probe_map_type_support(int map_type)
+{
+    return libbpf_probe_bpf_map_type((enum bpf_map_type)map_type, NULL);
+}
+#else
+static int ebpf_probe_map_type_support(int map_type)
+{
+    (void)map_type;
+    return -EOPNOTSUPP;
+}
+#endif
+
+static int ebpf_should_fallback_percpu_support(int rhf_version, uint32_t kver)
+{
+    if (rhf_version > 0 && kver < NETDATA_MINIMUM_EBPF_KERNEL)
+        return 0;
+
+    return (kver >= NETDATA_MINIMUM_EBPF_KERNEL || rhf_version > 0);
+}
+
+static void ebpf_detect_map_support(ebpf_map_support_t *support, int rhf_version, uint32_t kver)
+{
+    int probe;
+
+    memset(support, 0, sizeof(*support));
+    support->hash = (kver >= NETDATA_MINIMUM_EBPF_KERNEL || rhf_version > 0);
+    support->array = support->hash;
+    support->percpu_array = ebpf_should_fallback_percpu_support(rhf_version, kver);
+    support->percpu_hash = support->percpu_array;
+
+    probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_HASH);
+    if (probe >= 0)
+        support->hash = probe > 0;
+
+    probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_ARRAY);
+    if (probe >= 0)
+        support->array = probe > 0;
+
+    probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_PERCPU_ARRAY);
+    if (probe >= 0)
+        support->percpu_array = probe > 0;
+
+    probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_PERCPU_HASH);
+    if (probe >= 0)
+        support->percpu_hash = probe > 0;
+}
+
+static const char *ebpf_map_type_name(int map_type)
+{
+    switch (map_type) {
+        case BPF_MAP_TYPE_HASH:
+            return "hash";
+        case BPF_MAP_TYPE_ARRAY:
+            return "array";
+        case BPF_MAP_TYPE_PERCPU_HASH:
+            return "percpu_hash";
+        case BPF_MAP_TYPE_PERCPU_ARRAY:
+            return "percpu_array";
+        default:
+            return "unknown";
+    }
+}
+
+static int ebpf_is_supported_map_type(const ebpf_map_support_t *support, int map_type)
+{
+    switch (map_type) {
+        case BPF_MAP_TYPE_HASH:
+            return support->hash;
+        case BPF_MAP_TYPE_ARRAY:
+            return support->array;
+        case BPF_MAP_TYPE_PERCPU_HASH:
+            return support->percpu_hash;
+        case BPF_MAP_TYPE_PERCPU_ARRAY:
+            return support->percpu_array;
+        default:
+            return 1;
+    }
+}
+
+static int ebpf_find_unsupported_map_type(struct bpf_object *obj, const ebpf_map_support_t *support,
+                                          int *unsupported_type)
+{
+    struct bpf_map *map;
+
+    bpf_object__for_each_map(map, obj) {
+        int type;
+#ifdef LIBBPF_MAJOR_VERSION
+        type = bpf_map__type(map);
+#else
+        {
+            const struct bpf_map_def *def = bpf_map__def(map);
+            type = def->type;
+        }
+#endif
+        if (!ebpf_is_supported_map_type(support, type)) {
+            *unsupported_type = type;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static void ebpf_write_supported_map_types_json(const ebpf_map_support_t *support)
+{
+    int first = 1;
+
+    fprintf(stdlog, "[");
+    if (support->hash) {
+        fprintf(stdlog, "\"hash\"");
+        first = 0;
+    }
+    if (support->array) {
+        fprintf(stdlog, "%s\"array\"", first ? "" : ", ");
+        first = 0;
+    }
+    if (support->percpu_hash) {
+        fprintf(stdlog, "%s\"percpu_hash\"", first ? "" : ", ");
+        first = 0;
+    }
+    if (support->percpu_array)
+        fprintf(stdlog, "%s\"percpu_array\"", first ? "" : ", ");
+
+    fprintf(stdlog, "]");
+}
+
+static void ebpf_write_object_map_types(struct bpf_object *obj)
+{
+    struct bpf_map *map;
+    int seen_hash = 0, seen_array = 0, seen_percpu_hash = 0, seen_percpu_array = 0;
+    int first = 1;
+
+    fprintf(stdlog, "        \"Map Types Used\" : [");
+    if (obj) {
+        bpf_object__for_each_map(map, obj) {
+            int type;
+#ifdef LIBBPF_MAJOR_VERSION
+            type = bpf_map__type(map);
+#else
+            {
+                const struct bpf_map_def *def = bpf_map__def(map);
+                type = def->type;
+            }
+#endif
+
+            if ((type == BPF_MAP_TYPE_HASH && seen_hash) ||
+                (type == BPF_MAP_TYPE_ARRAY && seen_array) ||
+                (type == BPF_MAP_TYPE_PERCPU_HASH && seen_percpu_hash) ||
+                (type == BPF_MAP_TYPE_PERCPU_ARRAY && seen_percpu_array))
+                continue;
+
+            if (!first)
+                fprintf(stdlog, ", ");
+
+            fprintf(stdlog, "\"%s\"", ebpf_map_type_name(type));
+            first = 0;
+
+            if (type == BPF_MAP_TYPE_HASH)
+                seen_hash = 1;
+            else if (type == BPF_MAP_TYPE_ARRAY)
+                seen_array = 1;
+            else if (type == BPF_MAP_TYPE_PERCPU_HASH)
+                seen_percpu_hash = 1;
+            else if (type == BPF_MAP_TYPE_PERCPU_ARRAY)
+                seen_percpu_array = 1;
+        }
+    }
+
+    fprintf(stdlog, "],\n");
+}
+
+static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_map_support_t *support)
+{
+    char error_buffer[128];
+    const char *error_message = ebpf_describe_error(-EOPNOTSUPP, error_buffer, sizeof(error_buffer));
+
+    fprintf(stdlog,
+            "        \"Debug\" : {\n"
+            "            \"Info\" : { \"Stage\" : \"map_compatibility\",\n"
+            "                       \"Error Code\" : %d,\n"
+            "                       \"Error Message\" : \"%s\",\n"
+            "                       \"Unsupported Map Type\" : \"%s\",\n"
+            "                       \"Supported Map Types\" : ",
+            -EOPNOTSUPP, error_message, ebpf_map_type_name(unsupported_type));
+    ebpf_write_supported_map_types_json(support);
+    fprintf(stdlog,
+            ",\n"
+            "                       \"Programs\" : []\n"
+            "                      }\n"
+            "        }\n");
+}
+
 /****************************************************************************************************
  *
  *                                      KERNEL VERSION
@@ -249,16 +664,17 @@ int ebpf_get_kernel_version()
     char ver[VERSION_STRING_LEN];
     char *version = ver;
 
-    int fd = open("/proc/sys/kernel/osrelease", O_RDONLY);
+    int fd = open("/proc/sys/kernel/osrelease", O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         return -1;
 
-    ssize_t len = read(fd, ver, sizeof(ver));
+    ssize_t len = read(fd, ver, sizeof(ver) - 1);
     if (len < 0) {
         close(fd);
         return -1;
     }
 
+    ver[len] = '\0';
     close(fd);
 
     char *move = major;
@@ -282,7 +698,19 @@ int ebpf_get_kernel_version()
         *move++ = *version++;
     *move = '\0';
 
-    return ((int)(strtol(major, NULL, 10) * 65536) + (int)(strtol(minor, NULL, 10) * 256) + (int)strtol(patch, NULL, 10));
+    long major_val = strtol(major, NULL, 10);
+    long minor_val = strtol(minor, NULL, 10);
+    if (major_val < 0 || minor_val < 0)
+        return -1;
+
+    int ipatch = (int)strtol(patch, NULL, 10);
+    if (ipatch < 0)
+        return -1;
+
+    if (ipatch > 255)
+        ipatch = 255;
+
+    return ((int)(major_val * 65536) + (int)(minor_val * 256) + ipatch);
 }
 
 /**
@@ -310,7 +738,7 @@ int ebpf_get_redhat_release()
             char *end = strchr(buffer, '.');
             char *start;
             if (end) {
-                *end = 0x0;
+                *end = '\0';
 
                 if (end > buffer) {
                     start = end - 1;
@@ -318,9 +746,9 @@ int ebpf_get_redhat_release()
                     major = strtol(start, NULL, 10);
                     start = ++end;
 
-                    end++;
-                    if (end) {
-                        end = 0x00;
+                    char *minor_end = strchr(start, ' ');
+                    if (minor_end) {
+                        *minor_end = '\0';
                         minor = strtol(start, NULL, 10);
                     } else {
                         minor = -1;
@@ -482,7 +910,10 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
 static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, int is_return, int rhf_version)
 {
     char *version = ebpf_select_kernel_name(kver);
-    char *path = (!netdata_path) ? getcwd(NULL, 0) : realpath(netdata_path, NULL);
+    char *path = ebpf_resolve_binary_directory();
+    if (!path)
+        path = ebpf_strdup_string(".");
+
     snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s%s.o", 
             path,
             (is_return) ? 'r' : 'p',
@@ -577,8 +1008,9 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
 
         if (w) {
             enum bpf_prog_type type = bpf_program__get_type(prog);
+            const char *target = w->optional ? w->optional : w->function_to_attach;
             if (type == BPF_PROG_TYPE_KPROBE)
-                links[i] = bpf_program__attach_kprobe(prog, w->retprobe, w->optional);
+                links[i] = bpf_program__attach_kprobe(prog, w->retprobe, target);
         } else
             links[i] = bpf_program__attach(prog);
 
@@ -607,34 +1039,58 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
  */
 static void ebpf_update_names(ebpf_specify_name_t *names)
 {
-    if (names->optional)
-        return;
-
-    char line[256];
-    FILE *fp = fopen("/proc/kallsyms", "r");
-    if (!fp)
-        return;
-
-    char *data;
-    char *cmp = names->function_to_attach;
-    size_t len = strlen(cmp);
-    while ( (data = fgets(line, 255, fp))) {
-        data += 19;
-        ebpf_specify_name_t *move = names;
-        if (!strncmp(cmp, data, len)) {
-            char *end = strchr(data, ' ');
-            if (!end)
-                end = strchr(data, '\n');
-
-            if (end)
-                *end = '\0';
-
-            names->optional = strdup(data);
-            break;
+    int i = 0;
+    while (names[i].function_to_attach) {
+        if (names[i].optional) {
+            i++;
+            continue;
         }
-    }
 
-    fclose(fp);
+        char line[256];
+        FILE *fp = fopen("/proc/kallsyms", "r");
+        if (!fp)
+            return;
+
+        char *data;
+        while ((data = fgets(line, 255, fp))) {
+            const char *candidates[] = {
+                names[i].function_to_attach,
+                names[i].fallback_function_to_attach
+            };
+            size_t j;
+
+            data += 19;
+            for (j = 0; j < 2; j++) {
+                const char *cmp = candidates[j];
+                size_t len;
+                char *end;
+
+                if (!cmp)
+                    continue;
+
+                len = strlen(cmp);
+                if (strncmp(cmp, data, len))
+                    continue;
+
+                end = strchr(data, ' ');
+                if (!end)
+                    end = strchr(data, '\n');
+
+                if (!end)
+                    continue;
+
+                *end = '\0';
+                names[i].optional = strdup(data);
+                break;
+            }
+
+            if (names[i].optional)
+                break;
+        }
+
+        fclose(fp);
+        i++;
+    }
 }
 
 /**
@@ -691,11 +1147,9 @@ static void ebpf_cleanup_tables(ebpf_table_data_t *out)
  * @param key    the size of the key.
  * @param value  the size of the values.
  */
-static ebpf_table_data_t *ebpf_allocate_tables(const char *name, size_t key, size_t value)
+static ebpf_table_data_t *ebpf_allocate_tables(const char *name, uint32_t type, size_t key, size_t value)
 {
-    // We multiply value by number of proccess to avoid problems when data is stored
-    // per process
-    value *= nprocesses;
+    value = ebpf_map_value_buffer_length(type, value);
 
     ebpf_table_data_t *ret = calloc(1, sizeof(ebpf_table_data_t));
     if (!ret)
@@ -752,14 +1206,23 @@ static inline void ebpf_values_accumulator(ebpf_table_data_t *values)
  * @param filled   pointer to filled counter.
  * @param zero     pointer to zero counter.
  */
-static inline void ebpf_check_and_update_counter(int fd, uint32_t key, uint32_t *filled, uint32_t *zero)
+static inline void ebpf_check_and_update_counter(int fd, uint32_t key, size_t value_length,
+                                                 uint32_t *filled, uint32_t *zero)
 {
-    uint32_t value[NETDATA_CONTROLLER_END];
+    void *value = calloc(1, value_length);
+
+    if (!value) {
+        (*zero)++;
+        return;
+    }
+
     if (bpf_map_lookup_elem(fd, &key, value)) {
         (*zero)++;
     } else {
         (*filled)++;
     }
+
+    free(value);
 }
 
 /**
@@ -772,16 +1235,17 @@ static inline void ebpf_check_and_update_counter(int fd, uint32_t key, uint32_t 
  */
 static void ebpf_read_generic_table(ebpf_table_data_t *values, int fd)
 {
-    size_t zero = 0;
-    size_t filled = 0;
-
     // Reset completely the keys
     memset(values->key, 0, values->key_length);
     memset(values->next_key, 0, values->key_length);
     memset(values->value, 0, values->value_length);
 
+    // Passing a NULL key retrieves the first entry and preserves key 0 for arrays.
+    if (bpf_map_get_next_key(fd, NULL, values->next_key))
+        return;
+
     // Go trough all keys stored inside the eBPF maps
-    while (!bpf_map_get_next_key(fd, values->key, values->next_key)) {
+    while (1) {
         if (!bpf_map_lookup_elem(fd, values->next_key, values->value)) {
             ebpf_values_accumulator(values);
         }
@@ -789,11 +1253,10 @@ static void ebpf_read_generic_table(ebpf_table_data_t *values, int fd)
         // Copy the next key for the current key
         memcpy(values->key, values->next_key, values->key_length);
 
-        memset(values->value, 0, values->value_length);
-    }
+        if (bpf_map_get_next_key(fd, values->key, values->next_key))
+            break;
 
-    if (!bpf_map_lookup_elem(fd, values->key, values->value)) {
-        ebpf_values_accumulator(values);
+        memset(values->value, 0, values->value_length);
     }
 }
 
@@ -850,7 +1313,7 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
 
     uint32_t key;
     for (key = 0; key < NETDATA_CONTROLLER_END; key++) {
-        ebpf_check_and_update_counter(fd, key, &value, &zero);
+        ebpf_check_and_update_counter(fd, key, values->value_length, &value, &zero);
     }
     fprintf(stdlog,
             "                                    "
@@ -889,7 +1352,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         key_size = def->key_size;
         value_size = def->value_size;
 #endif
-        values = ebpf_allocate_tables(name, key_size, value_size);
+        values = ebpf_allocate_tables(name, type, key_size, value_size);
         if (values) {
             // Write header
            fprintf(stdlog,
@@ -943,18 +1406,51 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         int fd = bpf_map__fd(map);
 
         unsigned int end;
+        uint32_t type;
+        uint32_t value_size;
 #ifdef LIBBPF_MAJOR_VERSION
+        type = bpf_map__type(map);
+        value_size = bpf_map__value_size(map);
         end = bpf_map__max_entries(map);
 #else
         const struct bpf_map_def *def = bpf_map__def(map);
+        type = def->type;
+        value_size = def->value_size;
         end = def->max_entries;
 #endif
-        uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level, 0, 0, 0, 0 };
+        uint64_t values[NETDATA_CONTROLLER_END] = { 1, (uint64_t)map_level, 0, 0, 0, 0 };
+        size_t value_length = ebpf_map_value_buffer_length(type, value_size);
+        size_t value_stride = ebpf_map_value_stride(type, value_size);
+        size_t cpu_count = value_stride ? value_length / value_stride : 1;
+        char *value_buffer = calloc(1, value_length);
+        unsigned int limit = end;
         unsigned int i;
-        for (i = 0; i < end; i++) {
-             if (bpf_map_update_elem(fd, &i, &values[i], 0))
+
+        if (!value_buffer) {
+            fprintf(stdlog, "\"error\" : \"Cannot allocate control buffer for table %s.\",", name);
+            continue;
+        }
+
+        if (limit > NETDATA_CONTROLLER_END) {
+            fprintf(stdlog,
+                    "\"error\" : \"Control table %s has %u entries, limiting writes to %u.\",",
+                    name, end, NETDATA_CONTROLLER_END);
+            limit = NETDATA_CONTROLLER_END;
+        }
+
+        for (i = 0; i < limit; i++) {
+            size_t cpu;
+
+            memset(value_buffer, 0, value_length);
+            for (cpu = 0; cpu < cpu_count; cpu++) {
+                ebpf_store_scalar_value(value_buffer + (cpu * value_stride), value_size, values[i]);
+            }
+
+             if (bpf_map_update_elem(fd, &i, value_buffer, 0))
                  fprintf(stdlog, "\"error\" : \"Add key(%u) for controller table failed.\",", i);
         }
+
+        free(value_buffer);
     }
 }
 
@@ -991,6 +1487,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     }
 
     total = ebpf_count_programs(obj);
+    ebpf_write_object_map_types(obj);
     socket_filter_detected = ebpf_object_has_socket_filter(obj);
     if (socket_filter_detected) {
         char *ret = (char *)ebpf_socket_filter_tester(obj, maps, stdlog, end_iteration, dns_ports, dns_port_count);
@@ -1049,17 +1546,71 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
  */
 static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return, uint64_t flags)
 {
+    ebpf_map_support_t map_support;
     char load[FILENAME_MAX];
     int i = 0;
+
+    ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
         if (flags & ebpf_modules[i].flags) {
+            ebpf_candidate_list_t candidates;
+            ebpf_candidate_list_t compatible = { 0 };
+            char *first_incompatible = NULL;
+            int unsupported_type = 0;
+            size_t j;
             uint32_t idx = ebpf_select_index(ebpf_modules[i].kernels, rhf_version, kver);
-            ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, rhf_version);
+            char *version = ebpf_select_kernel_name(idx);
 
-            ebpf_start_netdata_json(load, is_return);
-            char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT, 
-                                       ebpf_modules[i].ctrl_table, kver);
-            fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
+            ebpf_discover_candidates(&candidates, ebpf_modules[i].name, is_return, version, rhf_version);
+            for (j = 0; j < candidates.size; j++) {
+                struct bpf_object *obj = bpf_object__open_file(candidates.files[j], NULL);
+                if (libbpf_get_error(obj)) {
+                    if (obj)
+                        bpf_object__close(obj);
+                    if (ebpf_append_candidate(&compatible, candidates.files[j]))
+                        break;
+
+                    continue;
+                }
+
+                if (!ebpf_find_unsupported_map_type(obj, &map_support, &unsupported_type)) {
+                    if (ebpf_append_candidate(&compatible, candidates.files[j])) {
+                        bpf_object__close(obj);
+                        break;
+                    }
+                } else if (!first_incompatible) {
+                    first_incompatible = ebpf_strdup_string(candidates.files[j]);
+                }
+
+                bpf_object__close(obj);
+            }
+
+            if (compatible.size) {
+                for (j = 0; j < compatible.size; j++) {
+                    ebpf_start_netdata_json(compatible.files[j], is_return);
+                    {
+                        char *result = ebpf_tester(compatible.files[j], ebpf_modules[i].update_names,
+                                                   flags & NETDATA_FLAG_CONTENT, ebpf_modules[i].ctrl_table, kver);
+                        fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
+                    }
+                }
+            } else if (first_incompatible) {
+                ebpf_start_netdata_json(first_incompatible, is_return);
+                ebpf_write_map_compatibility_debug(unsupported_type, &map_support);
+                fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", "Fail");
+            } else {
+                ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, rhf_version);
+                ebpf_start_netdata_json(load, is_return);
+                {
+                    char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT,
+                                               ebpf_modules[i].ctrl_table, kver);
+                    fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
+                }
+            }
+
+            free(first_incompatible);
+            ebpf_free_candidate_list(&compatible);
+            ebpf_free_candidate_list(&candidates);
         }
 
         i++;
@@ -1415,6 +1966,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
 static void ebpf_fill_names()
 {
     ebpf_update_names(dc_optional_name);
+    ebpf_update_names(swap_optional_name);
 }
 
 /**
@@ -1425,6 +1977,7 @@ static void ebpf_fill_names()
 static void ebpf_clean_name_vectors()
 {
     ebpf_clean_optional(dc_optional_name);
+    ebpf_clean_optional(swap_optional_name);
 }
 
 /**

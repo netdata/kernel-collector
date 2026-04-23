@@ -50,6 +50,7 @@ struct netdata_block_rq_complete {
 
 typedef struct netdata_disk_key {
     dev_t dev;
+    __u32 pad;                 // Verifier-visible padding must be initialized.
     sector_t sector;
 } netdata_disk_key_t;
 
@@ -59,4 +60,3 @@ typedef struct block_key {
 } block_key_t;
 
 #endif /* _NETDATA_DISK_H_ */
-

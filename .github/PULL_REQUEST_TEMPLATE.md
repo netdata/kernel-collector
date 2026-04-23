@@ -19,14 +19,15 @@ You can also get everything for `glibc` [here](UPLOAD FILE WITH ALL BINARIES TO 
 2. Extract them running:
     ```sh
     $ for i in `ls *.zip`; do unzip $i; rm .gitkeep ; rm $i; done
-    $ for i in `ls *.xz`; do tar -xf $i; rm $i* ; done
+    $ for i in `ls *.tar`; do tar -xf $i; rm $i* ; done
     ```
 
 3. Compile branch an run the following tests:
 
     ```sh
     # make clean; make tester
-    # for i in `seq 0 3`; do ./kernel/legacy_test --netdata-path ../artifacts --content --iteration 1 --pid $i --log-path file_pid$i.txt; done
+    # for i in `seq 0 3`; do ./tests/legacy_test --netdata-path ../artifacts --content --iteration 1 --pid $i --log-path file_c_pid$i.txt; done
+    # for i in `seq 0 3`; do ./gotests/go_tester --netdata-path ../artifacts --content --iteration 1 --pid $i --log-path file_go_pid$i.txt; done
     ```
 
 4. Every test should ends with `Success`, unless you do not have a specific target (function) available.

@@ -32,6 +32,7 @@ static __always_inline netdata_disk_key_t netdata_disk_key(void *ptr)
     struct netdata_block_rq_issue *issue = ptr;
     netdata_disk_key_t key = {
         .dev = issue->dev,
+        .pad = 0,
         .sector = (issue->sector < 0) ? 0 : issue->sector
     };
     return key;

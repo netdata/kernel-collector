@@ -153,7 +153,7 @@ $(NETDATA_APPS): %: %_kern.o
 ${NETDATA_ALL_APPS}: %: %_kern.o
 
 tester: libbpf
-	$(CC) -I../.local_libbpf -I$(LIBBPF)/src -I$(LIBBPF)/include -I$(LIBBPF)/include/uapi -L../.local_libbpf -o legacy_test tester_user.c tester_dns.c -lbpf -lz -lelf
+	cd ../tests && $(MAKE) tester
 
 clean:
 	cd $(LIBBPF)/src && make clean
