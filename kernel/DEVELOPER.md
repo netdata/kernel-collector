@@ -102,6 +102,9 @@ for j in `seq 0 2`; do for i in `ls *.o`; do ./tests/legacy_test --content --pid
 for j in `seq 0 2`; do for i in `ls *.o`; do ./gotests/go_tester --content --pid $j --load-binary $i --log-path $i_pid$i.go.txt; 2>> err.go >> out.go; done; done
 ```
 
+The `legacy_test` and `go_tester` binaries are compiled with debug symbols to
+make local debugging easier.
+
 You can take a look in all options available for tests running:
 
 ```sh
