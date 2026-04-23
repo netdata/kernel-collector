@@ -1143,8 +1143,8 @@ static inline void ebpf_values_accumulator(ebpf_table_data_t *values)
  */
 static inline void ebpf_check_and_update_counter(int fd, uint32_t key, uint32_t *filled, uint32_t *zero)
 {
-    uint32_t value[NETDATA_CONTROLLER_END];
-    if (bpf_map_lookup_elem(fd, &key, value)) {
+    uint64_t value = 0;
+    if (bpf_map_lookup_elem(fd, &key, &value)) {
         (*zero)++;
     } else {
         (*filled)++;
@@ -1338,9 +1338,17 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         const struct bpf_map_def *def = bpf_map__def(map);
         end = def->max_entries;
 #endif
-        uint32_t values[NETDATA_CONTROLLER_END] = { 1, map_level, 0, 0, 0, 0 };
+        uint64_t values[NETDATA_CONTROLLER_END] = { 1, (uint64_t)map_level, 0, 0, 0, 0 };
+        unsigned int limit = end;
         unsigned int i;
-        for (i = 0; i < end; i++) {
+        if (limit > NETDATA_CONTROLLER_END) {
+            fprintf(stdlog,
+                    "\"error\" : \"Control table %s has %u entries, limiting writes to %u.\",",
+                    name, end, NETDATA_CONTROLLER_END);
+            limit = NETDATA_CONTROLLER_END;
+        }
+
+        for (i = 0; i < limit; i++) {
              if (bpf_map_update_elem(fd, &i, &values[i], 0))
                  fprintf(stdlog, "\"error\" : \"Add key(%u) for controller table failed.\",", i);
         }
