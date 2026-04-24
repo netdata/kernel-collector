@@ -128,7 +128,14 @@ typedef struct ebpf_map_support {
     int array;
     int percpu_array;
     int percpu_hash;
+    int ringbuf;
+    int user_ringbuf;
 } ebpf_map_support_t;
+
+typedef struct ebpf_ringbuf_stats {
+    size_t samples;
+    size_t bytes;
+} ebpf_ringbuf_stats_t;
 
 typedef struct ebpf_candidate_list {
     char **files;
@@ -157,6 +164,21 @@ static int ebpf_possible_cpu_count(void)
 static int ebpf_map_is_percpu(uint32_t type)
 {
     return type == BPF_MAP_TYPE_PERCPU_ARRAY || type == BPF_MAP_TYPE_PERCPU_HASH;
+}
+
+static int ebpf_map_is_ringbuf(uint32_t type)
+{
+    return type == BPF_MAP_TYPE_RINGBUF || type == BPF_MAP_TYPE_USER_RINGBUF;
+}
+
+static int ebpf_map_is_user_ringbuf(uint32_t type)
+{
+    return type == BPF_MAP_TYPE_USER_RINGBUF;
+}
+
+static int ebpf_map_supports_key_value_io(uint32_t type)
+{
+    return !ebpf_map_is_ringbuf(type);
 }
 
 static size_t ebpf_map_value_stride(uint32_t type, size_t value_size)
@@ -263,6 +285,34 @@ static const char *ebpf_describe_error(int err, char *buffer, size_t length)
 
     snprintf(buffer, length, "%s", strerror(code));
     return buffer;
+}
+
+static int ebpf_ringbuf_sample_cb(void *ctx, void *data, size_t size)
+{
+    ebpf_ringbuf_stats_t *stats = ctx;
+
+    (void)data;
+    if (stats) {
+        stats->samples++;
+        stats->bytes += size;
+    }
+
+    return 0;
+}
+
+static int ebpf_user_ringbuf_submit_sample(struct user_ring_buffer *rb, uint64_t value)
+{
+    void *sample;
+
+    errno = 0;
+    sample = user_ring_buffer__reserve(rb, sizeof(value));
+    if (!sample)
+        return -(errno ? errno : EIO);
+
+    memcpy(sample, &value, sizeof(value));
+    user_ring_buffer__submit(rb, sample);
+
+    return 0;
 }
 
 static void ebpf_write_program_inventory(struct bpf_object *obj)
@@ -482,6 +532,8 @@ static void ebpf_detect_map_support(ebpf_map_support_t *support, int rhf_version
     support->array = support->hash;
     support->percpu_array = ebpf_should_fallback_percpu_support(rhf_version, kver);
     support->percpu_hash = support->percpu_array;
+    support->ringbuf = 0;
+    support->user_ringbuf = 0;
 
     probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_HASH);
     if (probe >= 0)
@@ -498,6 +550,14 @@ static void ebpf_detect_map_support(ebpf_map_support_t *support, int rhf_version
     probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_PERCPU_HASH);
     if (probe >= 0)
         support->percpu_hash = probe > 0;
+
+    probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_RINGBUF);
+    if (probe >= 0)
+        support->ringbuf = probe > 0;
+
+    probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_USER_RINGBUF);
+    if (probe >= 0)
+        support->user_ringbuf = probe > 0;
 }
 
 static const char *ebpf_map_type_name(int map_type)
@@ -511,6 +571,10 @@ static const char *ebpf_map_type_name(int map_type)
             return "percpu_hash";
         case BPF_MAP_TYPE_PERCPU_ARRAY:
             return "percpu_array";
+        case BPF_MAP_TYPE_RINGBUF:
+            return "ringbuf";
+        case BPF_MAP_TYPE_USER_RINGBUF:
+            return "user_ringbuf";
         default:
             return "unknown";
     }
@@ -527,6 +591,10 @@ static int ebpf_is_supported_map_type(const ebpf_map_support_t *support, int map
             return support->percpu_hash;
         case BPF_MAP_TYPE_PERCPU_ARRAY:
             return support->percpu_array;
+        case BPF_MAP_TYPE_RINGBUF:
+            return support->ringbuf;
+        case BPF_MAP_TYPE_USER_RINGBUF:
+            return support->user_ringbuf;
         default:
             return 1;
     }
@@ -573,8 +641,16 @@ static void ebpf_write_supported_map_types_json(const ebpf_map_support_t *suppor
         fprintf(stdlog, "%s\"percpu_hash\"", first ? "" : ", ");
         first = 0;
     }
-    if (support->percpu_array)
+    if (support->percpu_array) {
         fprintf(stdlog, "%s\"percpu_array\"", first ? "" : ", ");
+        first = 0;
+    }
+    if (support->ringbuf) {
+        fprintf(stdlog, "%s\"ringbuf\"", first ? "" : ", ");
+        first = 0;
+    }
+    if (support->user_ringbuf)
+        fprintf(stdlog, "%s\"user_ringbuf\"", first ? "" : ", ");
 
     fprintf(stdlog, "]");
 }
@@ -582,7 +658,7 @@ static void ebpf_write_supported_map_types_json(const ebpf_map_support_t *suppor
 static void ebpf_write_object_map_types(struct bpf_object *obj)
 {
     struct bpf_map *map;
-    int seen_hash = 0, seen_array = 0, seen_percpu_hash = 0, seen_percpu_array = 0;
+    int seen[__MAX_BPF_MAP_TYPE] = { 0 };
     int first = 1;
 
     fprintf(stdlog, "        \"Map Types Used\" : [");
@@ -598,10 +674,7 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
             }
 #endif
 
-            if ((type == BPF_MAP_TYPE_HASH && seen_hash) ||
-                (type == BPF_MAP_TYPE_ARRAY && seen_array) ||
-                (type == BPF_MAP_TYPE_PERCPU_HASH && seen_percpu_hash) ||
-                (type == BPF_MAP_TYPE_PERCPU_ARRAY && seen_percpu_array))
+            if (type >= 0 && type < __MAX_BPF_MAP_TYPE && seen[type])
                 continue;
 
             if (!first)
@@ -610,14 +683,8 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
             fprintf(stdlog, "\"%s\"", ebpf_map_type_name(type));
             first = 0;
 
-            if (type == BPF_MAP_TYPE_HASH)
-                seen_hash = 1;
-            else if (type == BPF_MAP_TYPE_ARRAY)
-                seen_array = 1;
-            else if (type == BPF_MAP_TYPE_PERCPU_HASH)
-                seen_percpu_hash = 1;
-            else if (type == BPF_MAP_TYPE_PERCPU_ARRAY)
-                seen_percpu_array = 1;
+            if (type >= 0 && type < __MAX_BPF_MAP_TYPE)
+                seen[type] = 1;
         }
     }
 
@@ -1321,6 +1388,92 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
             value + zero,  value, zero);
 }
 
+static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
+{
+    char error_buffer[128];
+    const char *mode = ebpf_map_is_user_ringbuf(type) ? "user_ringbuf_producer" : "ringbuf_consumer";
+    struct ring_buffer *rb = NULL;
+    struct user_ring_buffer *urb = NULL;
+    ebpf_ringbuf_stats_t stats = { 0 };
+    ebpf_ringbuf_stats_t previous = { 0 };
+    int setup_error = 0;
+    int i;
+
+    fprintf(stdlog,
+            "        \"%s\" : {\n"
+            "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
+            "                       \"Type\" : %u,\n"
+            "                       \"FD\" : %d,\n"
+            "                       \"Data\" : [\n",
+            name, key_size, value_size, type, fd);
+
+    if (type == BPF_MAP_TYPE_RINGBUF) {
+        rb = ring_buffer__new(fd, ebpf_ringbuf_sample_cb, &stats, NULL);
+        setup_error = (int)libbpf_get_error(rb);
+        if (setup_error)
+            rb = NULL;
+    } else {
+        urb = user_ring_buffer__new(fd, NULL);
+        setup_error = (int)libbpf_get_error(urb);
+        if (setup_error)
+            urb = NULL;
+    }
+
+    for (i = 0; i < end_iteration; i++) {
+        int op_error = setup_error;
+        int op_result = 0;
+        size_t iter_samples = 0;
+        size_t iter_bytes = 0;
+        size_t ring_size = 0;
+        size_t avail_data = 0;
+        const char *error_message;
+
+        sleep(5);
+
+        if (type == BPF_MAP_TYPE_RINGBUF && rb) {
+            struct ring *ring = ring_buffer__ring(rb, 0);
+
+            op_result = ring_buffer__poll(rb, 0);
+            if (op_result < 0)
+                op_error = op_result;
+
+            iter_samples = stats.samples - previous.samples;
+            iter_bytes = stats.bytes - previous.bytes;
+            previous = stats;
+
+            if (ring) {
+                ring_size = ring__size(ring);
+                avail_data = ring__avail_data_size(ring);
+            }
+        } else if (type == BPF_MAP_TYPE_USER_RINGBUF && urb) {
+            op_result = ebpf_user_ringbuf_submit_sample(urb, (uint64_t)(i + 1));
+            if (op_result < 0)
+                op_error = op_result;
+        }
+
+        error_message = ebpf_describe_error(op_error, error_buffer, sizeof(error_buffer));
+
+        if (i)
+            fprintf(stdlog, ",\n");
+
+        fprintf(stdlog,
+                "                                    "
+                "{ \"Iteration\" : %d, \"Mode\" : \"%s\", \"Setup\" : %d, "
+                "\"Operation Result\" : %d, \"Samples\" : %zu, \"Bytes\" : %zu, "
+                "\"Available\" : %zu, \"Ring Size\" : %zu, \"Error Code\" : %d, "
+                "\"Error Message\" : \"%s\" }",
+                i, mode, setup_error == 0, op_result, iter_samples, iter_bytes,
+                avail_data, ring_size, op_error, error_message);
+    }
+
+    fprintf(stdlog, "\n");
+
+    if (rb)
+        ring_buffer__free(rb);
+    if (urb)
+        user_ring_buffer__free(urb);
+}
+
 /**
  * Test Maps
  *
@@ -1352,6 +1505,15 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         key_size = def->key_size;
         value_size = def->value_size;
 #endif
+        if (!ebpf_map_supports_key_value_io(type)) {
+            ebpf_test_ringbuf_map(name, fd, type, key_size, value_size);
+            fprintf(stdlog, "                                ]\n"
+                    "                      }\n"
+                    "        },\n");
+            tables++;
+            continue;
+        }
+
         values = ebpf_allocate_tables(name, type, key_size, value_size);
         if (values) {
             // Write header
@@ -1418,6 +1580,12 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         value_size = def->value_size;
         end = def->max_entries;
 #endif
+        if (!ebpf_map_supports_key_value_io(type)) {
+            fprintf(stdlog, "\"error\" : \"Control table %s uses unsupported map type %s.\",",
+                    name, ebpf_map_type_name(type));
+            continue;
+        }
+
         uint64_t values[NETDATA_CONTROLLER_END] = { 1, (uint64_t)map_level, 0, 0, 0, 0 };
         size_t value_length = ebpf_map_value_buffer_length(type, value_size);
         size_t value_stride = ebpf_map_value_stride(type, value_size);

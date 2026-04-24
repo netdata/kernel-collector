@@ -210,14 +210,37 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			bpfMapTypeArray:       true,
 			bpfMapTypePerCPUHash:  true,
 			bpfMapTypePerCPUArray: false,
+			bpfMapTypeRingBuf:     false,
+			bpfMapTypeUserRingBuf: true,
 		}
 
-		mapType, ok := firstUnsupportedMapType([]uint32{bpfMapTypeHash, bpfMapTypePerCPUArray}, supported)
+		mapType, ok := firstUnsupportedMapType([]uint32{bpfMapTypeHash, bpfMapTypeRingBuf, bpfMapTypePerCPUArray}, supported)
 		if !ok {
 			t.Fatal("expected unsupported map type")
 		}
-		if mapType != bpfMapTypePerCPUArray {
-			t.Fatalf("unexpected unsupported map type: got %d want %d", mapType, bpfMapTypePerCPUArray)
+		if mapType != bpfMapTypeRingBuf {
+			t.Fatalf("unexpected unsupported map type: got %d want %d", mapType, bpfMapTypeRingBuf)
+		}
+	})
+
+	t.Run("names ring buffer map types", func(t *testing.T) {
+		if got := mapTypeName(bpfMapTypeRingBuf); got != "ringbuf" {
+			t.Fatalf("unexpected ringbuf name: %q", got)
+		}
+		if got := mapTypeName(bpfMapTypeUserRingBuf); got != "user_ringbuf" {
+			t.Fatalf("unexpected user ringbuf name: %q", got)
+		}
+	})
+
+	t.Run("disables key value io for ring buffers", func(t *testing.T) {
+		if supportsMapKeyValueIO(bpfMapTypeRingBuf) {
+			t.Fatal("ringbuf should not use generic key/value io")
+		}
+		if supportsMapKeyValueIO(bpfMapTypeUserRingBuf) {
+			t.Fatal("user ringbuf should not use generic key/value io")
+		}
+		if !supportsMapKeyValueIO(bpfMapTypeHash) {
+			t.Fatal("hash maps should keep generic key/value io")
 		}
 	})
 

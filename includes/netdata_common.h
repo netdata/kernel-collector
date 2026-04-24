@@ -233,6 +233,12 @@ static __always_inline __u32 monitor_apps(void *ctrl_tbl)
         __uint(max_entries, MAX_ENTRIES); \
     } NAME SEC(".maps")
 
+#define NETDATA_BPF_RINGBUF_MAP_DEF(NAME, TYPE, MAX_ENTRIES) \
+    struct { \
+        __uint(type, TYPE); \
+        __uint(max_entries, MAX_ENTRIES); \
+    } NAME SEC(".maps")
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0))
 #define NETDATA_BPF_HASH_DEF(NAME, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES) \
     NETDATA_BPF_MAP_DEF(NAME, BPF_MAP_TYPE_HASH, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES)
@@ -245,6 +251,12 @@ static __always_inline __u32 monitor_apps(void *ctrl_tbl)
 
 #define NETDATA_BPF_PERCPU_ARRAY_DEF(NAME, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES) \
     NETDATA_BPF_MAP_DEF(NAME, BPF_MAP_TYPE_PERCPU_ARRAY, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES)
+
+#define NETDATA_BPF_RINGBUF_DEF(NAME, MAX_ENTRIES) \
+    NETDATA_BPF_RINGBUF_MAP_DEF(NAME, BPF_MAP_TYPE_RINGBUF, MAX_ENTRIES)
+
+#define NETDATA_BPF_USER_RINGBUF_DEF(NAME, MAX_ENTRIES) \
+    NETDATA_BPF_RINGBUF_MAP_DEF(NAME, BPF_MAP_TYPE_USER_RINGBUF, MAX_ENTRIES)
 #else
 #define NETDATA_BPF_HASH_DEF(NAME, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES) \
     NETDATA_BPF_MAP_DEF(NAME, BPF_MAP_TYPE_HASH, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES)
@@ -257,6 +269,12 @@ static __always_inline __u32 monitor_apps(void *ctrl_tbl)
 
 #define NETDATA_BPF_PERCPU_ARRAY_DEF(NAME, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES) \
     NETDATA_BPF_MAP_DEF(NAME, BPF_MAP_TYPE_ARRAY, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES)
+
+#define NETDATA_BPF_RINGBUF_DEF(NAME, MAX_ENTRIES) \
+    NETDATA_BPF_RINGBUF_MAP_DEF(NAME, BPF_MAP_TYPE_RINGBUF, MAX_ENTRIES)
+
+#define NETDATA_BPF_USER_RINGBUF_DEF(NAME, MAX_ENTRIES) \
+    NETDATA_BPF_RINGBUF_MAP_DEF(NAME, BPF_MAP_TYPE_USER_RINGBUF, MAX_ENTRIES)
 #endif
 
 #else
@@ -265,6 +283,14 @@ static __always_inline __u32 monitor_apps(void *ctrl_tbl)
         .type = TYPE, \
         .key_size = sizeof(KEY_TYPE), \
         .value_size = sizeof(VALUE_TYPE), \
+        .max_entries = MAX_ENTRIES \
+    }
+
+#define NETDATA_BPF_RINGBUF_MAP_DEF(NAME, TYPE, MAX_ENTRIES) \
+    struct bpf_map_def SEC("maps") NAME = { \
+        .type = TYPE, \
+        .key_size = 0, \
+        .value_size = 0, \
         .max_entries = MAX_ENTRIES \
     }
 
@@ -280,7 +306,12 @@ static __always_inline __u32 monitor_apps(void *ctrl_tbl)
 #define NETDATA_BPF_PERCPU_ARRAY_DEF(NAME, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES) \
     NETDATA_BPF_MAP_DEF(NAME, BPF_MAP_TYPE_ARRAY, KEY_TYPE, VALUE_TYPE, MAX_ENTRIES)
 
+#define NETDATA_BPF_RINGBUF_DEF(NAME, MAX_ENTRIES) \
+    NETDATA_BPF_RINGBUF_MAP_DEF(NAME, BPF_MAP_TYPE_RINGBUF, MAX_ENTRIES)
+
+#define NETDATA_BPF_USER_RINGBUF_DEF(NAME, MAX_ENTRIES) \
+    NETDATA_BPF_RINGBUF_MAP_DEF(NAME, BPF_MAP_TYPE_USER_RINGBUF, MAX_ENTRIES)
+
 #endif
 
 #endif /* _NETDATA_COMMON_ */
-

@@ -663,9 +663,18 @@ func detectSupportedMapTypes(rhfVersion int, kernelVersion int) map[uint32]bool 
 		bpfMapTypeArray:       kernelVersion >= netdataMinimumEBPFKernel || rhfVersion > 0,
 		bpfMapTypePerCPUHash:  fallbackPerCPUMapSupport(rhfVersion, kernelVersion),
 		bpfMapTypePerCPUArray: fallbackPerCPUMapSupport(rhfVersion, kernelVersion),
+		bpfMapTypeRingBuf:     false,
+		bpfMapTypeUserRingBuf: false,
 	}
 
-	for _, mapType := range []uint32{bpfMapTypeHash, bpfMapTypeArray, bpfMapTypePerCPUHash, bpfMapTypePerCPUArray} {
+	for _, mapType := range []uint32{
+		bpfMapTypeHash,
+		bpfMapTypeArray,
+		bpfMapTypePerCPUHash,
+		bpfMapTypePerCPUArray,
+		bpfMapTypeRingBuf,
+		bpfMapTypeUserRingBuf,
+	} {
 		if probe := probeMapTypeSupport(mapType); probe >= 0 {
 			supported[mapType] = probe > 0
 		}
@@ -684,14 +693,25 @@ func mapTypeName(mapType uint32) string {
 		return "percpu_hash"
 	case bpfMapTypePerCPUArray:
 		return "percpu_array"
+	case bpfMapTypeRingBuf:
+		return "ringbuf"
+	case bpfMapTypeUserRingBuf:
+		return "user_ringbuf"
 	default:
 		return fmt.Sprintf("type_%d", mapType)
 	}
 }
 
 func writeSupportedMapTypes(w io.Writer, supported map[uint32]bool) {
-	names := make([]string, 0, 4)
-	for _, mapType := range []uint32{bpfMapTypeHash, bpfMapTypeArray, bpfMapTypePerCPUHash, bpfMapTypePerCPUArray} {
+	names := make([]string, 0, 6)
+	for _, mapType := range []uint32{
+		bpfMapTypeHash,
+		bpfMapTypeArray,
+		bpfMapTypePerCPUHash,
+		bpfMapTypePerCPUArray,
+		bpfMapTypeRingBuf,
+		bpfMapTypeUserRingBuf,
+	} {
 		if supported[mapType] {
 			names = append(names, fmt.Sprintf("\"%s\"", mapTypeName(mapType)))
 		}
@@ -1121,6 +1141,18 @@ func isPerCPUMapType(mapType uint32) bool {
 	return mapType == bpfMapTypePerCPUArray || mapType == bpfMapTypePerCPUHash
 }
 
+func isRingBufferMapType(mapType uint32) bool {
+	return mapType == bpfMapTypeRingBuf || mapType == bpfMapTypeUserRingBuf
+}
+
+func isUserRingBufferMapType(mapType uint32) bool {
+	return mapType == bpfMapTypeUserRingBuf
+}
+
+func supportsMapKeyValueIO(mapType uint32) bool {
+	return !isRingBufferMapType(mapType)
+}
+
 func roundUpSize(value int, align int) int {
 	return ((value + align - 1) / align) * align
 }
@@ -1232,10 +1264,93 @@ func controllerJSON(w io.Writer, fd int, meta mapMeta, nprocesses int) {
 		filled+zero, filled, zero)
 }
 
+func testRingBufferMap(w io.Writer, meta mapMeta, iterations int) {
+	mode := "ringbuf_consumer"
+	var (
+		rb       *ringBuffer
+		urb      *userRingBuffer
+		setupErr int
+	)
+
+	if isUserRingBufferMapType(meta.Type) {
+		mode = "user_ringbuf_producer"
+		urb, setupErr = newUserRingBuffer(meta.FD)
+	} else {
+		rb, setupErr = newRingBuffer(meta.FD)
+	}
+
+	fmt.Fprintf(w,
+		"        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %d, \"Value\" : %d},\n"+
+			"                       \"Type\" : %d,\n"+
+			"                       \"FD\" : %d,\n"+
+			"                       \"Data\" : [\n",
+		meta.Name, meta.KeySize, meta.ValueSize, meta.Type, meta.FD)
+
+	var prevSamples uint64
+	var prevBytes uint64
+	for i := 0; i < iterations; i++ {
+		time.Sleep(5 * time.Second)
+
+		opErr := setupErr
+		opResult := 0
+		var iterSamples uint64
+		var iterBytes uint64
+		var availData uint64
+		var ringSize uint64
+
+		if rb != nil {
+			opResult = rb.poll(0)
+			if opResult < 0 {
+				opErr = opResult
+			}
+
+			samples := rb.samples()
+			bytes := rb.bytes()
+			iterSamples = samples - prevSamples
+			iterBytes = bytes - prevBytes
+			prevSamples = samples
+			prevBytes = bytes
+			availData = rb.availData()
+			ringSize = rb.size()
+		} else if urb != nil {
+			opResult = urb.submitUint64(uint64(i + 1))
+			if opResult < 0 {
+				opErr = opResult
+			}
+		}
+
+		if i > 0 {
+			fmt.Fprint(w, ",\n")
+		}
+		fmt.Fprintf(w,
+			"                                    { \"Iteration\" : %d, \"Mode\" : \"%s\", \"Setup\" : %d, "+
+				"\"Operation Result\" : %d, \"Samples\" : %d, \"Bytes\" : %d, "+
+				"\"Available\" : %d, \"Ring Size\" : %d, \"Error Code\" : %d, "+
+				"\"Error Message\" : \"%s\" }",
+			i, mode, boolToInt(setupErr == 0), opResult, iterSamples, iterBytes,
+			availData, ringSize, opErr, describeError(opErr))
+	}
+	fmt.Fprint(w, "\n")
+
+	if rb != nil {
+		rb.free()
+	}
+	if urb != nil {
+		urb.free()
+	}
+}
+
 func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocesses int) {
 	tables := 0
 	for m := obj.firstMap(); m != nil; m = obj.nextMap(m) {
 		meta := m.meta()
+		if !supportsMapKeyValueIO(meta.Type) {
+			testRingBufferMap(w, meta, iterations)
+			fmt.Fprint(w, "                                ]\n                      }\n        },\n")
+			tables++
+			continue
+		}
+
 		values := allocateTableData(meta, nprocesses)
 		fmt.Fprintf(w,
 			"        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %d, \"Value\" : %d},\n"+
@@ -1266,6 +1381,9 @@ func fillCtrl(obj *bpfObject, ctrl string, mapLevel int, nprocesses int) {
 	}
 
 	meta := m.meta()
+	if !supportsMapKeyValueIO(meta.Type) {
+		return
+	}
 	values := []uint64{1, uint64(mapLevel), 0, 0, 0, 0}
 	key := make([]byte, meta.KeySize)
 	value := make([]byte, mapValueLength(meta, nprocesses))
