@@ -166,7 +166,7 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf); got != tc.wantMatch {
+				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf, false); got != tc.wantMatch {
 					t.Fatalf("unexpected match result for %q: got %v want %v", tc.filename, got, tc.wantMatch)
 				}
 			})
@@ -188,7 +188,7 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			}
 		}
 
-		got := discoverCandidates("swap", false, "3.10", 1, dir)
+		got := discoverCandidates("swap", false, "3.10", 1, dir, false)
 		want := []string{
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.rhf.o"),
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.variant.rhf.o"),

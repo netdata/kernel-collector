@@ -112,6 +112,7 @@ ebpf_module_t ebpf_modules[] = {
 char *specific_ebpf = NULL;
 char *netdata_path = NULL;
 char *log_path = NULL;
+int buffer_mode = 0;
 #define NETDATA_DEFAULT_PROCESS_NUMBER 4096
 #define NETDATA_DNS_MAX_PORTS 32
 #define NETDATA_DNS_DEFAULT_PORT 53
@@ -442,7 +443,10 @@ static int ebpf_candidate_matches(const char *filename, const char *name, int is
     const char *rest;
     int has_rhf;
 
-    snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s.", (is_return) ? 'r' : 'p', name);
+    if (buffer_mode)
+        snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s_buffer.", (is_return) ? 'r' : 'p', name);
+    else
+        snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s.", (is_return) ? 'r' : 'p', name);
     prefix_len = strlen(prefix);
     if (filename_len <= prefix_len + 2)
         return 0;
@@ -955,17 +959,17 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
 /**
  *  Mount Name
  *
- *  Mount name of eBPF program to be loaded. 
+ *  Mount name of eBPF program to be loaded.
  *
  *  Netdata eBPF programs has the following format:
- * 
+ *
  *      Tnetdata_ebpf_N.V.o
- *  
+ *
  *  where:
  *     T - Is the eBPF type. When starts with 'p', this means we are only adding probes,
- *         and when they start with 'r' we are using retprobes.     
+ *         and when they start with 'r' we are using retprobes.
  *     N - The eBPF program name.
- *     V - The kernel version in string format.    
+ *     V - The kernel version in string format.
  *
  *  @param out            the vector where the name will be stored
  *  @param len            the size of the out vector.
@@ -981,12 +985,20 @@ static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, in
     if (!path)
         path = ebpf_strdup_string(".");
 
-    snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s%s.o", 
-            path,
-            (is_return) ? 'r' : 'p',
-            name,
-            version,
-            (rhf_version != -1) ? ".rhf" : "");
+    if (buffer_mode)
+        snprintf(out, len, "%s/%cnetdata_ebpf_%s_buffer.%s%s.o",
+                path,
+                (is_return) ? 'r' : 'p',
+                name,
+                version,
+                (rhf_version != -1) ? ".rhf" : "");
+    else
+        snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s%s.o",
+                path,
+                (is_return) ? 'r' : 'p',
+                name,
+                version,
+                (rhf_version != -1) ? ".rhf" : "");
     free(path);
 }
 
@@ -1712,6 +1724,19 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
  *  @param is_return     Load return or entry eBPF program
  *  @param flags         tests that software will run
  */
+static int ebpf_module_has_buffer(const char *name)
+{
+    static const char *buffer_modules[] = {
+        "cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", NULL
+    };
+    int i;
+    for (i = 0; buffer_modules[i]; i++) {
+        if (!strcmp(name, buffer_modules[i]))
+            return 1;
+    }
+    return 0;
+}
+
 static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return, uint64_t flags)
 {
     ebpf_map_support_t map_support;
@@ -1720,6 +1745,11 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
+        if (buffer_mode && !ebpf_module_has_buffer(ebpf_modules[i].name)) {
+            i++;
+            continue;
+        }
+
         if (flags & ebpf_modules[i].flags) {
             ebpf_candidate_list_t candidates;
             ebpf_candidate_list_t compatible = { 0 };
@@ -1823,7 +1853,8 @@ static void ebpf_help()
                     "                   software will use stderr.\n\n"
                     "--content          Test content stored inside hash tables.\n"
                     "--iteration        Number of iterations when content is read, default value is 1.\n"
-                    "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, and 2 - All PID \n\n"
+                    "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, and 2 - All PID \n"
+                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
                     "--btrfs            Latency for btrfs.\n"
@@ -1917,6 +1948,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"content",            no_argument,          0,  0 },
         {"iteration",          required_argument,    0,  0 },
         {"pid",                required_argument,    0,  0 },
+        {"buffer",             no_argument,          0,  0 },
 
         // this must be always the last option
         {0,                no_argument, 0, 0}
@@ -2111,7 +2143,17 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                     map_level = value;
                     break;
                 }
+            case NETDATA_OPT_BUFFER:
+                {
+                    buffer_mode = 1;
+                    break;
+                }
         }
+    }
+
+    if (buffer_mode && kver < NETDATA_EBPF_KERNEL_5_8) {
+        fprintf(stdlog, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n");
+        exit(1);
     }
 
     // When user does not specify any flag, we will use common value

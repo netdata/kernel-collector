@@ -30,6 +30,7 @@ const (
 	netdataEBPFKernel415        = 265984
 	netdataEBPFKernel417        = 266496
 	netdataEBPFKernel54         = 328704
+	netdataEBPFKernel58         = 329728
 	netdataEBPFKernel510        = 330240
 	netdataEBPFKernel511        = 330496
 	netdataEBPFKernel514        = 331264
@@ -105,6 +106,7 @@ type options struct {
 	dnsPorts     []uint16
 	unitTest     bool
 	showHelp     bool
+	bufferMode   bool
 }
 
 type logState struct {
@@ -394,7 +396,8 @@ func helpText(exe string) string {
 		"                   software will use stderr.\n\n"+
 		"--content          Test content stored inside hash tables.\n"+
 		"--iteration        Number of iterations when content is read, default value is 1.\n"+
-		"--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, and 2 - All PID \n\n"+
+		"--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, and 2 - All PID \n"+
+		"--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"+
 		"You can also specify an unique eBPF program developed by Netdata with the following\n"+
 		"options:\n"+
 		"--btrfs            Latency for btrfs.\n"+
@@ -530,6 +533,8 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 				pidLevel = 0
 			}
 			opts.mapLevel = pidLevel
+		case "buffer":
+			opts.bufferMode = true
 		}
 	}
 
@@ -539,6 +544,11 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 
 	if !opts.unitTest && kernelVersion < netdataEBPFKernel414 {
 		opts.flags &^= flagOOMKill
+	}
+
+	if opts.bufferMode && kernelVersion < netdataEBPFKernel58 {
+		fmt.Fprintf(logger.writer, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n")
+		return opts, 1
 	}
 
 	return opts, 0
@@ -608,8 +618,13 @@ func resolveBinaryDir(netdataPath string) string {
 	return netdataPath
 }
 
-func candidateMatches(filename string, moduleName string, isReturn bool, version string, rhfVersion int) bool {
-	prefix := fmt.Sprintf("%cnetdata_ebpf_%s.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName)
+func candidateMatches(filename string, moduleName string, isReturn bool, version string, rhfVersion int, bufferMode bool) bool {
+	var prefix string
+	if bufferMode {
+		prefix = fmt.Sprintf("%cnetdata_ebpf_%s_buffer.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName)
+	} else {
+		prefix = fmt.Sprintf("%cnetdata_ebpf_%s.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName)
+	}
 	if !strings.HasPrefix(filename, prefix) || !strings.HasSuffix(filename, ".o") {
 		return false
 	}
@@ -630,7 +645,7 @@ func candidateMatches(filename string, moduleName string, isReturn bool, version
 	return !hasRHF
 }
 
-func discoverCandidates(moduleName string, isReturn bool, version string, rhfVersion int, netdataPath string) []string {
+func discoverCandidates(moduleName string, isReturn bool, version string, rhfVersion int, netdataPath string, bufferMode bool) []string {
 	path := resolveBinaryDir(netdataPath)
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -642,7 +657,7 @@ func discoverCandidates(moduleName string, isReturn bool, version string, rhfVer
 		if entry.IsDir() {
 			continue
 		}
-		if !candidateMatches(entry.Name(), moduleName, isReturn, version, rhfVersion) {
+		if !candidateMatches(entry.Name(), moduleName, isReturn, version, rhfVersion, bufferMode) {
 			continue
 		}
 
@@ -866,6 +881,21 @@ func updateNames(names []specifyName) {
 	}
 }
 
+func moduleHasBuffer(name string) bool {
+	bufferModules := map[string]bool{
+		"cachestat": true,
+		"dc":        true,
+		"fd":        true,
+		"oomkill":   true,
+		"process":   true,
+		"shm":       true,
+		"swap":      true,
+		"vfs":       true,
+		"dns":       true,
+	}
+	return bufferModules[name]
+}
+
 func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bool, opts options, nprocesses int) {
 	supportedMapTypes := detectSupportedMapTypes(rhfVersion, kernelVersion)
 
@@ -874,9 +904,13 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 			continue
 		}
 
+		if opts.bufferMode && !moduleHasBuffer(mod.name) {
+			continue
+		}
+
 		idx := selectIndex(mod.kernels, rhfVersion, kernelVersion)
 		version := selectKernelName(idx)
-		candidates := discoverCandidates(mod.name, isReturn, version, rhfVersion, opts.netdataPath)
+		candidates := discoverCandidates(mod.name, isReturn, version, rhfVersion, opts.netdataPath, opts.bufferMode)
 		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
 
 		if len(compatible) == 0 {
@@ -887,7 +921,7 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 				continue
 			}
 
-			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath)}
+			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath, opts.bufferMode)}
 		}
 
 		for _, filename := range compatible {
@@ -952,7 +986,7 @@ func selectIndex(kernels uint32, rhfVersion int, kernelVersion int) uint32 {
 	return 0
 }
 
-func mountName(kernelIndex uint32, name string, isReturn bool, rhfVersion int, netdataPath string) string {
+func mountName(kernelIndex uint32, name string, isReturn bool, rhfVersion int, netdataPath string, bufferMode bool) string {
 	version := selectKernelName(kernelIndex)
 	path := netdataPath
 	if path == "" {
@@ -979,7 +1013,12 @@ func mountName(kernelIndex uint32, name string, isReturn bool, rhfVersion int, n
 		suffix = ".rhf"
 	}
 
-	return fmt.Sprintf("%s/%cnetdata_ebpf_%s.%s%s.o", path, prefix, name, version, suffix)
+	var bufferStr string
+	if bufferMode {
+		bufferStr = "_buffer"
+	}
+
+	return fmt.Sprintf("%s/%cnetdata_ebpf_%s%s.%s%s.o", path, prefix, name, bufferStr, version, suffix)
 }
 
 func startExternalJSON(w io.Writer, filename string) {

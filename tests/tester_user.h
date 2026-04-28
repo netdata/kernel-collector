@@ -46,6 +46,7 @@ enum netdata_ebpf_kernel_versions {
     NETDATA_EBPF_KERNEL_5_0  = 327680,  //  327680 = 5 * 65536 +  0 * 256
     NETDATA_EBPF_KERNEL_5_2  = 328192,  //  328192 = 5 * 65536 +  2 * 256
     NETDATA_EBPF_KERNEL_5_4  = 328704,  //  328704 = 5 * 65536 +  4 * 256
+    NETDATA_EBPF_KERNEL_5_8  = 329728,  //  329728 = 5 * 65536 +  8 * 256
     NETDATA_EBPF_KERNEL_5_10 = 330240,  //  330240 = 5 * 65536 + 10 * 256
     NETDATA_EBPF_KERNEL_5_11 = 330496,  //  330496 = 5 * 65536 + 11 * 256
     NETDATA_EBPF_KERNEL_5_14 = 331264,  //  331264 = 5 * 65536 + 14 * 256
@@ -153,7 +154,8 @@ enum netdata_thread_OPT {
     NETDATA_OPT_LOG_PATH,
     NETDATA_OPT_CONTENT,
     NETDATA_OPT_ITERATION,
-    NETDATA_OPT_PID
+    NETDATA_OPT_PID,
+    NETDATA_OPT_BUFFER
 };
 
 typedef struct ebpf_specify_name {
