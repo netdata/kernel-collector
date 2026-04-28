@@ -111,6 +111,7 @@ endif
 ifeq ($(shell test $(CURRENT_KERNEL) -ge 329728 ; echo $$?),0)
 NETDATA_RINGBUF_APPS= cachestat_buffer \
                       dc_buffer \
+                      dns_buffer \
                       fd_buffer \
                       oomkill_buffer \
                       process_buffer \
