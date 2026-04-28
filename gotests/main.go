@@ -136,6 +136,8 @@ type tableData struct {
 }
 
 var (
+	testsStarted = 0
+
 	dcOptionalNames = []specifyName{
 		{
 			programName:      "netdata_lookup_fast",
@@ -242,6 +244,7 @@ func main() {
 func run() int {
 	kernelVersion := getKernelVersion()
 	rhfVersion := getRedHatRelease()
+	testsStarted = 0
 	nprocesses := libbpfNumPossibleCPUs()
 	if nprocesses < 1 {
 		nprocesses = runtime.NumCPU()
@@ -280,6 +283,12 @@ func run() int {
 		startExternalJSON(writer, opts.specificEBPF)
 		result := ebpfTester(writer, opts.specificEBPF, nil, opts.flags&flagContent != 0, "", opts, nprocesses)
 		fmt.Fprintf(writer, "    },\n    \"Status\" :  \"%s\"\n},\n", result)
+	}
+
+	if testsStarted == 0 {
+		fmt.Fprint(writer, "\"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\",\n")
+		fmt.Fprint(writer, "\"End\" : \"Good bye!!!\" }\n")
+		return 1
 	}
 
 	fmt.Fprint(writer, "\"End\" : \"Good bye!!!\" }\n")
@@ -1022,10 +1031,12 @@ func mountName(kernelIndex uint32, name string, isReturn bool, rhfVersion int, n
 }
 
 func startExternalJSON(w io.Writer, filename string) {
+	testsStarted++
 	fmt.Fprintf(w, "\n\"%s\" : {\n    \"Tables\" : {\n", filename)
 }
 
 func startNetdataJSON(w io.Writer, filename string, isReturn bool) {
+	testsStarted++
 	testType := "entry"
 	if isReturn {
 		testType = "return"
