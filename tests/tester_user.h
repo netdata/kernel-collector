@@ -168,6 +168,7 @@ typedef struct ebpf_specify_name {
 
 typedef struct ebpf_module {
     uint32_t kernels;
+    uint32_t buffer_kernels; /* kernel bitmask for buffer mode; 0 = use kernels */
     uint64_t flags;
     char *name;
     ebpf_specify_name_t *update_names;

@@ -41,6 +41,11 @@ static ebpf_specify_name_t swap_optional_name[] = { {.program_name = "netdata_sw
                                                       .fallback_function_to_attach = "swap_writepage",
                                                       .optional = NULL,
                                                       .retprobe = 0},
+                                                     {.program_name = "netdata_swap_writepage_buffer",
+                                                      .function_to_attach = "__swap_writepage",
+                                                      .fallback_function_to_attach = "swap_writepage",
+                                                      .optional = NULL,
+                                                      .retprobe = 0},
                                                      {.program_name = NULL,
                                                       .function_to_attach = NULL,
                                                       .fallback_function_to_attach = NULL,
@@ -56,6 +61,7 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_15 | NETDATA_V5_14 | NETDATA_V5_16,
       .flags = NETDATA_FLAG_CACHESTAT, .name = "cachestat", .update_names = NULL, .ctrl_table = "cstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8,
       .flags = NETDATA_FLAG_DC, .name = "dc", .update_names = dc_optional_name, .ctrl_table = "dcstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_DISK, .name = "disk", .update_names = NULL, .ctrl_table = "disk_ctrl" },
@@ -78,16 +84,19 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8,
       .flags = NETDATA_FLAG_DNS, .name = "dns", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
       .flags = NETDATA_FLAG_PROCESS, .name = "process", .update_names = NULL, .ctrl_table = "process_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8,
       .flags = NETDATA_FLAG_SHM, .name = "shm", .update_names = NULL, .ctrl_table = "shm_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOFTIRQ, .name = "softirq", .update_names = NULL, .ctrl_table = NULL },
@@ -1756,7 +1765,9 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
             char *first_incompatible = NULL;
             int unsupported_type = 0;
             size_t j;
-            uint32_t idx = ebpf_select_index(ebpf_modules[i].kernels, rhf_version, kver);
+            uint32_t kernels_to_use = (buffer_mode && ebpf_modules[i].buffer_kernels) ?
+                                      ebpf_modules[i].buffer_kernels : ebpf_modules[i].kernels;
+            uint32_t idx = ebpf_select_index(kernels_to_use, rhf_version, kver);
             char *version = ebpf_select_kernel_name(idx);
 
             ebpf_discover_candidates(&candidates, ebpf_modules[i].name, is_return, version, rhf_version);
