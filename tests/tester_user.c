@@ -1904,7 +1904,7 @@ static void ebpf_help()
                     "                   software will use stderr.\n\n"
                     "--content          Test content stored inside hash tables.\n"
                     "--iteration        Number of iterations when content is read, default value is 1.\n"
-                    "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, and 2 - All PID \n"
+                    "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"
                     "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
@@ -2130,7 +2130,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                 }
             case NETDATA_OPT_ALL:
                 {
-                    flags |= NETDATA_FLAG_COLLECTORS;
+                    flags |= NETDATA_FLAG_COLLECTORS | NETDATA_FLAG_CONTENT;
                     break;
                 }
             case NETDATA_OPT_COMMON:
