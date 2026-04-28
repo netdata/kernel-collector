@@ -132,6 +132,7 @@ enum netdata_apps_level map_level = NETDATA_APPS_LEVEL_REAL_PARENT ;
 static uint16_t dns_ports[NETDATA_DNS_MAX_PORTS] = { NETDATA_DNS_DEFAULT_PORT };
 static size_t dns_port_count = 1;
 static int dns_ports_overridden = 0;
+static size_t tests_started = 0;
 
 typedef struct ebpf_map_support {
     int hash;
@@ -942,6 +943,7 @@ static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kv
  */
 static void ebpf_start_external_json(char *filename)
 {
+    tests_started++;
     fprintf(stdlog, "\n\"%s\" : {\n    \"Tables\" : {\n",
             filename);
 }
@@ -957,6 +959,7 @@ static void ebpf_start_external_json(char *filename)
 static void ebpf_start_netdata_json(char *filename, int is_return)
 {
     static int first = 1;
+    tests_started++;
     if (first) {
         first = 0;
         fprintf(stdlog, "\n");
@@ -2234,6 +2237,7 @@ int main(int argc, char **argv)
 {
     uint32_t my_kernel = ebpf_get_kernel_version();
     int rhf_version = ebpf_get_redhat_release();
+    int ret = 0;
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
     if (nprocesses < 0) {
@@ -2265,11 +2269,17 @@ int main(int argc, char **argv)
         }
     }
 
+    if (!tests_started) {
+        fprintf(stdlog,
+                "\"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\",\n");
+        ret = 1;
+    }
+
     // END JSON output
     fprintf(stdlog, "\"End\" : \"Good bye!!!\" }\n");
 
     if (log_path)
         fclose(stdlog);
 
-    return 0;
+    return ret;
 }
