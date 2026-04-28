@@ -37,6 +37,7 @@ const (
 	netdataEBPFKernel515        = 331520
 	netdataEBPFKernel516        = 331776
 	netdataEBPFKernel68         = 395264
+	netdataEBPFKernel612        = 396288
 
 	netdataV310 = 1 << 0
 	netdataV414 = 1 << 1
@@ -49,6 +50,7 @@ const (
 	netdataV515 = 1 << 8
 	netdataV516 = 1 << 9
 	netdataV68  = 1 << 10
+	netdataV612 = 1 << 11
 
 	flagBtrfs         uint64 = 1 << 0
 	flagCachestat     uint64 = 1 << 1
@@ -75,8 +77,14 @@ const (
 	flagContent       uint64 = 1 << 22
 	flagDNS           uint64 = 1 << 23
 
-	flagFS  uint64 = flagBtrfs | flagExt4 | flagVFS | flagNFS | flagXFS | flagZFS
-	flagAll uint64 = ^uint64(0)
+	flagFS         uint64 = flagBtrfs | flagExt4 | flagVFS | flagNFS | flagXFS | flagZFS
+	flagCollectors uint64 = flagBtrfs | flagCachestat | flagDC | flagDisk |
+		flagExt4 | flagFD | flagSync | flagHardIRQ |
+		flagMDFlush | flagMount | flagNetworkViewer |
+		flagOOMKill | flagProcess | flagSHM | flagSocket |
+		flagSoftIRQ | flagSwap | flagVFS | flagNFS |
+		flagXFS | flagZFS | flagDNS
+	flagAll uint64 = flagCollectors
 )
 
 type specifyName struct {
@@ -89,11 +97,12 @@ type specifyName struct {
 }
 
 type module struct {
-	kernels     uint32
-	flags       uint64
-	name        string
-	updateNames *[]specifyName
-	ctrlTable   string
+	kernels       uint32
+	bufferKernels uint32
+	flags         uint64
+	name          string
+	updateNames   *[]specifyName
+	ctrlTable     string
 }
 
 type options struct {
@@ -208,11 +217,11 @@ var (
 
 	ebpfModules = []module{
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV510 | netdataV514, flags: flagBtrfs, name: "btrfs", ctrlTable: "btrfs_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV516, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV516, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagDisk, name: "disk", ctrlTable: "disk_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagExt4, name: "ext4", ctrlTable: "ext4_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, flags: flagFD, name: "fd", ctrlTable: "fd_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagFD, name: "fd", ctrlTable: "fd_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fdatasync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fsync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagHardIRQ, name: "hardirq"},
@@ -220,18 +229,18 @@ var (
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMount, name: "mount"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "msync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagDNS, name: "dns"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDNS, name: "dns"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNFS, name: "nfs", ctrlTable: "nfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNetworkViewer, name: "network_viewer", ctrlTable: "nv_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagOOMKill, name: "oomkill"},
-		{kernels: netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV510, flags: flagProcess, name: "process", ctrlTable: "process_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSHM, name: "shm", ctrlTable: "shm_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagOOMKill, name: "oomkill"},
+		{kernels: netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV510 | netdataV612, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagProcess, name: "process", ctrlTable: "process_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSHM, name: "shm", ctrlTable: "shm_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSoftIRQ, name: "softirq"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "syncfs"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync_file_range"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68, flags: flagSwap, name: "swap", updateNames: &swapOptionalNames, ctrlTable: "swap_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68 | netdataV612, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSwap, name: "swap", updateNames: &swapOptionalNames, ctrlTable: "swap_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagXFS, name: "xfs", ctrlTable: "xfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagZFS, name: "zfs", updateNames: &zfsOptionalNames, ctrlTable: "zfs_ctrl"},
 	}
@@ -439,7 +448,7 @@ func helpText(exe string) string {
 }
 
 func setCommonFlag() uint64 {
-	return flagAll & ^(flagFS | flagLoadBinary | flagMDFlush | flagContent)
+	return flagCollectors & ^(flagFS | flagLoadBinary | flagMDFlush | flagContent)
 }
 
 func parseArguments(args []string, kernelVersion int, logger *logState) (options, int) {
@@ -500,7 +509,7 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		case "unit-test":
 			opts.unitTest = true
 		case "all":
-			opts.flags |= flagAll
+			opts.flags |= flagCollectors
 		case "common":
 			opts.flags |= setCommonFlag()
 		case "load-binary":
@@ -547,7 +556,7 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		}
 	}
 
-	if !opts.unitTest && opts.flags&(flagAll&^flagContent) == 0 {
+	if !opts.unitTest && opts.flags&flagCollectors == 0 {
 		opts.flags |= setCommonFlag()
 	}
 
@@ -654,7 +663,24 @@ func candidateMatches(filename string, moduleName string, isReturn bool, version
 	return !hasRHF
 }
 
-func discoverCandidates(moduleName string, isReturn bool, version string, rhfVersion int, netdataPath string, bufferMode bool) []string {
+func candidateVersionIndex(filename string, moduleName string, isReturn bool, rhfVersion int, kernels uint32, maxIndex uint32, bufferMode bool) int {
+	if rhfVersion == -1 {
+		kernels &^= netdataV514
+	}
+
+	for idx := int(maxIndex); idx >= 0; idx-- {
+		if kernels&(1<<uint32(idx)) == 0 {
+			continue
+		}
+		if candidateMatches(filename, moduleName, isReturn, selectKernelName(uint32(idx)), rhfVersion, bufferMode) {
+			return idx
+		}
+	}
+
+	return -1
+}
+
+func discoverCandidates(moduleName string, isReturn bool, rhfVersion int, kernels uint32, maxIndex uint32, netdataPath string, bufferMode bool) []string {
 	path := resolveBinaryDir(netdataPath)
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -662,11 +688,20 @@ func discoverCandidates(moduleName string, isReturn bool, version string, rhfVer
 	}
 
 	candidates := make([]string, 0, len(entries))
+	bestIndex := -1
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		if !candidateMatches(entry.Name(), moduleName, isReturn, version, rhfVersion, bufferMode) {
+
+		candidateIndex := candidateVersionIndex(entry.Name(), moduleName, isReturn, rhfVersion, kernels, maxIndex, bufferMode)
+		if candidateIndex < 0 {
+			continue
+		}
+		if candidateIndex > bestIndex {
+			candidates = candidates[:0]
+			bestIndex = candidateIndex
+		} else if candidateIndex < bestIndex {
 			continue
 		}
 
@@ -917,9 +952,13 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 			continue
 		}
 
-		idx := selectIndex(mod.kernels, rhfVersion, kernelVersion)
-		version := selectKernelName(idx)
-		candidates := discoverCandidates(mod.name, isReturn, version, rhfVersion, opts.netdataPath, opts.bufferMode)
+		kernels := mod.kernels
+		if opts.bufferMode && mod.bufferKernels != 0 {
+			kernels = mod.bufferKernels
+		}
+		maxIndex := selectMaxIndex(rhfVersion, kernelVersion)
+		idx := selectIndex(kernels, rhfVersion, kernelVersion)
+		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, opts.bufferMode)
 		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
 
 		if len(compatible) == 0 {
@@ -942,7 +981,7 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 }
 
 func selectKernelName(selector uint32) string {
-	kernelNames := []string{"3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8"}
+	kernelNames := []string{"3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12"}
 	return kernelNames[selector]
 }
 
@@ -958,6 +997,8 @@ func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 		}
 	} else {
 		switch {
+		case kernelVersion >= netdataEBPFKernel612:
+			return 11
 		case kernelVersion >= netdataEBPFKernel68:
 			return 10
 		case kernelVersion >= netdataEBPFKernel516:

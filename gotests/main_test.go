@@ -188,7 +188,7 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			}
 		}
 
-		got := discoverCandidates("swap", false, "3.10", 1, dir, false)
+		got := discoverCandidates("swap", false, 1, netdataV310, 0, dir, false)
 		want := []string{
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.rhf.o"),
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.variant.rhf.o"),
@@ -201,6 +201,28 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			if got[i] != want[i] {
 				t.Fatalf("unexpected candidate ordering: got %v want %v", got, want)
 			}
+		}
+	})
+
+	t.Run("discovers best compatible version in netdata path", func(t *testing.T) {
+		dir := t.TempDir()
+		files := []string{
+			"pnetdata_ebpf_swap.5.4.o",
+			"pnetdata_ebpf_swap.6.8.o",
+			"pnetdata_ebpf_swap.6.12.o",
+			"rnetdata_ebpf_swap.6.12.o",
+			"pnetdata_ebpf_swap.5.14.rhf.o",
+		}
+		for _, name := range files {
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatalf("cannot create %s: %v", name, err)
+			}
+		}
+
+		got := discoverCandidates("swap", false, -1, netdataV54|netdataV68|netdataV612, 11, dir, false)
+		want := []string{filepath.Join(dir, "pnetdata_ebpf_swap.6.12.o")}
+		if len(got) != len(want) || got[0] != want[0] {
+			t.Fatalf("unexpected candidates: got %v want %v", got, want)
 		}
 	})
 
