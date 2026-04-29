@@ -329,6 +329,36 @@ func TestParseArgumentsUnitTest(t *testing.T) {
 	}
 }
 
+func TestParseArgumentsAll(t *testing.T) {
+	t.Run("--all enables content flag for PID collection", func(t *testing.T) {
+		var log bytes.Buffer
+		opts, code := parseArguments([]string{"--all"}, netdataEBPFKernel68, &logState{writer: &log})
+		if code != 0 {
+			t.Fatalf("unexpected parse code: %d", code)
+		}
+		if opts.flags&flagContent == 0 {
+			t.Fatal("--all must enable flagContent so PID collection runs via fillCtrl/testMaps")
+		}
+		if opts.flags&flagCollectors == 0 {
+			t.Fatal("--all must enable flagCollectors")
+		}
+	})
+
+	t.Run("--pid 3 is accepted", func(t *testing.T) {
+		var log bytes.Buffer
+		opts, code := parseArguments([]string{"--all", "--pid", "3"}, netdataEBPFKernel68, &logState{writer: &log})
+		if code != 0 {
+			t.Fatalf("unexpected parse code: %d", code)
+		}
+		if opts.mapLevel != 3 {
+			t.Fatalf("expected mapLevel 3 (ring buffer mode), got %d", opts.mapLevel)
+		}
+		if log.Len() != 0 {
+			t.Fatalf("expected no parse error for pid=3, got %q", log.String())
+		}
+	})
+}
+
 func TestResolveUnitTestDir(t *testing.T) {
 	t.Run("finds gotests module from repo root cwd", func(t *testing.T) {
 		root := t.TempDir()

@@ -414,7 +414,7 @@ func helpText(exe string) string {
 		"                   software will use stderr.\n\n"+
 		"--content          Test content stored inside hash tables.\n"+
 		"--iteration        Number of iterations when content is read, default value is 1.\n"+
-		"--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, and 2 - All PID \n"+
+		"--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"+
 		"--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"+
 		"You can also specify an unique eBPF program developed by Netdata with the following\n"+
 		"options:\n"+
@@ -509,7 +509,7 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		case "unit-test":
 			opts.unitTest = true
 		case "all":
-			opts.flags |= flagCollectors
+			opts.flags |= flagCollectors | flagContent
 		case "common":
 			opts.flags |= setCommonFlag()
 		case "load-binary":
