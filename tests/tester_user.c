@@ -1488,7 +1488,7 @@ static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint3
         size_t avail_data = 0;
         const char *error_message;
 
-        sleep(5);
+        sleep(10);
 
         if (type == BPF_MAP_TYPE_RINGBUF && rb) {
             struct ring *ring = ring_buffer__ring(rb, 0);
@@ -2197,6 +2197,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
             case NETDATA_OPT_BUFFER:
                 {
                     buffer_mode = 1;
+                    flags |= NETDATA_FLAG_CONTENT;
                     break;
                 }
         }

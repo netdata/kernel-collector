@@ -553,6 +553,7 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 			opts.mapLevel = pidLevel
 		case "buffer":
 			opts.bufferMode = true
+			opts.flags |= flagContent
 		}
 	}
 
@@ -1380,7 +1381,7 @@ func testRingBufferMap(w io.Writer, meta mapMeta, iterations int) {
 	var prevSamples uint64
 	var prevBytes uint64
 	for i := 0; i < iterations; i++ {
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		opErr := setupErr
 		opResult := 0

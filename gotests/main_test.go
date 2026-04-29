@@ -359,6 +359,22 @@ func TestParseArgumentsAll(t *testing.T) {
 	})
 }
 
+func TestParseArgumentsBuffer(t *testing.T) {
+	t.Run("--buffer enables content flag for ring buffer data", func(t *testing.T) {
+		var log bytes.Buffer
+		opts, code := parseArguments([]string{"--buffer"}, netdataEBPFKernel612, &logState{writer: &log})
+		if code != 0 {
+			t.Fatalf("unexpected parse code: %d", code)
+		}
+		if !opts.bufferMode {
+			t.Fatal("--buffer must set bufferMode")
+		}
+		if opts.flags&flagContent == 0 {
+			t.Fatal("--buffer must enable flagContent so ring buffer data is collected and ring size is shown")
+		}
+	})
+}
+
 func TestResolveUnitTestDir(t *testing.T) {
 	t.Run("finds gotests module from repo root cwd", func(t *testing.T) {
 		root := t.TempDir()
