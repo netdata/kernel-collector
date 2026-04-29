@@ -20,6 +20,11 @@ package main
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 
+struct netdata_ringbuf_stats {
+	uint64_t samples;
+	uint64_t bytes;
+};
+
 #ifdef LIBBPF_MAJOR_VERSION
 static int netdata_libbpf_probe_bpf_map_type(unsigned int map_type)
 {
@@ -113,6 +118,99 @@ static int netdata_close_fd(int fd)
 {
 	return close(fd);
 }
+
+static int netdata_ring_buffer_sample_cb(void *ctx, void *data, size_t size)
+{
+	struct netdata_ringbuf_stats *stats = ctx;
+
+	(void)data;
+	if (stats) {
+		stats->samples++;
+		stats->bytes += size;
+	}
+
+	return 0;
+}
+
+static struct netdata_ringbuf_stats *netdata_ringbuf_stats_new(void)
+{
+	return calloc(1, sizeof(struct netdata_ringbuf_stats));
+}
+
+static void netdata_ringbuf_stats_free(struct netdata_ringbuf_stats *stats)
+{
+	free(stats);
+}
+
+static uint64_t netdata_ringbuf_stats_samples(const struct netdata_ringbuf_stats *stats)
+{
+	return stats ? stats->samples : 0;
+}
+
+static uint64_t netdata_ringbuf_stats_bytes(const struct netdata_ringbuf_stats *stats)
+{
+	return stats ? stats->bytes : 0;
+}
+
+static struct ring_buffer *netdata_ring_buffer_new(int map_fd, struct netdata_ringbuf_stats *stats)
+{
+	return ring_buffer__new(map_fd, netdata_ring_buffer_sample_cb, stats, NULL);
+}
+
+static int netdata_ring_buffer_poll(struct ring_buffer *rb, int timeout_ms)
+{
+	return ring_buffer__poll(rb, timeout_ms);
+}
+
+static uint64_t netdata_ring_buffer_avail_data(const struct ring_buffer *rb)
+{
+	struct ring *ring = ring_buffer__ring((struct ring_buffer *)rb, 0);
+
+	if (!ring)
+		return 0;
+
+	return (uint64_t)ring__avail_data_size(ring);
+}
+
+static uint64_t netdata_ring_buffer_size(const struct ring_buffer *rb)
+{
+	struct ring *ring = ring_buffer__ring((struct ring_buffer *)rb, 0);
+
+	if (!ring)
+		return 0;
+
+	return (uint64_t)ring__size(ring);
+}
+
+static void netdata_ring_buffer_free(struct ring_buffer *rb)
+{
+	ring_buffer__free(rb);
+}
+
+static struct user_ring_buffer *netdata_user_ring_buffer_new(int map_fd)
+{
+	return user_ring_buffer__new(map_fd, NULL);
+}
+
+static int netdata_user_ring_buffer_submit_u64(struct user_ring_buffer *rb, uint64_t value)
+{
+	void *sample;
+
+	errno = 0;
+	sample = user_ring_buffer__reserve(rb, sizeof(value));
+	if (!sample)
+		return errno ? -errno : -1;
+
+	memcpy(sample, &value, sizeof(value));
+	user_ring_buffer__submit(rb, sample);
+
+	return 0;
+}
+
+static void netdata_user_ring_buffer_free(struct user_ring_buffer *rb)
+{
+	user_ring_buffer__free(rb);
+}
 */
 import "C"
 
@@ -129,6 +227,8 @@ const (
 	bpfMapTypeArray       = uint32(C.BPF_MAP_TYPE_ARRAY)
 	bpfMapTypePerCPUHash  = uint32(C.BPF_MAP_TYPE_PERCPU_HASH)
 	bpfMapTypePerCPUArray = uint32(C.BPF_MAP_TYPE_PERCPU_ARRAY)
+	bpfMapTypeRingBuf     = uint32(C.BPF_MAP_TYPE_RINGBUF)
+	bpfMapTypeUserRingBuf = uint32(C.BPF_MAP_TYPE_USER_RINGBUF)
 )
 
 type bpfObject struct {
@@ -145,6 +245,15 @@ type bpfMap struct {
 
 type bpfLink struct {
 	ptr *C.struct_bpf_link
+}
+
+type ringBuffer struct {
+	ptr   *C.struct_ring_buffer
+	stats *C.struct_netdata_ringbuf_stats
+}
+
+type userRingBuffer struct {
+	ptr *C.struct_user_ring_buffer
 }
 
 type mapMeta struct {
@@ -364,4 +473,71 @@ func closeFD(fd int) error {
 	}
 
 	return nil
+}
+
+func newRingBuffer(mapFD int) (*ringBuffer, int) {
+	stats := C.netdata_ringbuf_stats_new()
+	if stats == nil {
+		return nil, -int(C.ENOMEM)
+	}
+
+	rb := C.netdata_ring_buffer_new(C.int(mapFD), stats)
+	if err := int(C.netdata_libbpf_get_error(unsafe.Pointer(rb))); err != 0 {
+		C.netdata_ringbuf_stats_free(stats)
+		return nil, err
+	}
+
+	return &ringBuffer{ptr: rb, stats: stats}, 0
+}
+
+func (rb *ringBuffer) free() {
+	if rb == nil {
+		return
+	}
+
+	if rb.ptr != nil {
+		C.netdata_ring_buffer_free(rb.ptr)
+	}
+	if rb.stats != nil {
+		C.netdata_ringbuf_stats_free(rb.stats)
+	}
+}
+
+func (rb *ringBuffer) poll(timeoutMS int) int {
+	return int(C.netdata_ring_buffer_poll(rb.ptr, C.int(timeoutMS)))
+}
+
+func (rb *ringBuffer) samples() uint64 {
+	return uint64(C.netdata_ringbuf_stats_samples(rb.stats))
+}
+
+func (rb *ringBuffer) bytes() uint64 {
+	return uint64(C.netdata_ringbuf_stats_bytes(rb.stats))
+}
+
+func (rb *ringBuffer) availData() uint64 {
+	return uint64(C.netdata_ring_buffer_avail_data(rb.ptr))
+}
+
+func (rb *ringBuffer) size() uint64 {
+	return uint64(C.netdata_ring_buffer_size(rb.ptr))
+}
+
+func newUserRingBuffer(mapFD int) (*userRingBuffer, int) {
+	rb := C.netdata_user_ring_buffer_new(C.int(mapFD))
+	if err := int(C.netdata_libbpf_get_error(unsafe.Pointer(rb))); err != 0 {
+		return nil, err
+	}
+
+	return &userRingBuffer{ptr: rb}, 0
+}
+
+func (rb *userRingBuffer) free() {
+	if rb != nil && rb.ptr != nil {
+		C.netdata_user_ring_buffer_free(rb.ptr)
+	}
+}
+
+func (rb *userRingBuffer) submitUint64(value uint64) int {
+	return int(C.netdata_user_ring_buffer_submit_u64(rb.ptr, C.uint64_t(value)))
 }

@@ -107,9 +107,25 @@ else
 CC_LIBBPF = gcc
 endif
 
-all: $(NETDATA_APPS)
+# BPF_MAP_TYPE_RINGBUF requires kernel >= 5.8 (329728 = 5 * 65536 + 8 * 256)
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 329728 ; echo $$?),0)
+NETDATA_RINGBUF_APPS= cachestat_buffer \
+                      dc_buffer \
+                      dns_buffer \
+                      fd_buffer \
+                      oomkill_buffer \
+                      process_buffer \
+                      shm_buffer \
+                      swap_buffer \
+                      vfs_buffer \
+                      #
+else
+NETDATA_RINGBUF_APPS=
+endif
 
-dev: ${NETDATA_ALL_APPS}
+all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS)
+
+dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS}
 
 libbpf:
 	# -fPIE added to be compatible with olders clang/gcc
@@ -151,6 +167,8 @@ libbpf:
 $(NETDATA_APPS): %: %_kern.o
 
 ${NETDATA_ALL_APPS}: %: %_kern.o
+
+${NETDATA_RINGBUF_APPS}: %: %_kern.o
 
 tester: libbpf
 	cd ../tests && $(MAKE) tester

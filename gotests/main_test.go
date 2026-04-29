@@ -166,7 +166,7 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf); got != tc.wantMatch {
+				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf, false); got != tc.wantMatch {
 					t.Fatalf("unexpected match result for %q: got %v want %v", tc.filename, got, tc.wantMatch)
 				}
 			})
@@ -188,7 +188,7 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			}
 		}
 
-		got := discoverCandidates("swap", false, "3.10", 1, dir)
+		got := discoverCandidates("swap", false, 1, netdataV310, 0, dir, false)
 		want := []string{
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.rhf.o"),
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.variant.rhf.o"),
@@ -204,20 +204,65 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 		}
 	})
 
+	t.Run("discovers best compatible version in netdata path", func(t *testing.T) {
+		dir := t.TempDir()
+		files := []string{
+			"pnetdata_ebpf_swap.5.4.o",
+			"pnetdata_ebpf_swap.6.8.o",
+			"pnetdata_ebpf_swap.6.12.o",
+			"rnetdata_ebpf_swap.6.12.o",
+			"pnetdata_ebpf_swap.5.14.rhf.o",
+		}
+		for _, name := range files {
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatalf("cannot create %s: %v", name, err)
+			}
+		}
+
+		got := discoverCandidates("swap", false, -1, netdataV54|netdataV68|netdataV612, 11, dir, false)
+		want := []string{filepath.Join(dir, "pnetdata_ebpf_swap.6.12.o")}
+		if len(got) != len(want) || got[0] != want[0] {
+			t.Fatalf("unexpected candidates: got %v want %v", got, want)
+		}
+	})
+
 	t.Run("returns first unsupported map type", func(t *testing.T) {
 		supported := map[uint32]bool{
 			bpfMapTypeHash:        true,
 			bpfMapTypeArray:       true,
 			bpfMapTypePerCPUHash:  true,
 			bpfMapTypePerCPUArray: false,
+			bpfMapTypeRingBuf:     false,
+			bpfMapTypeUserRingBuf: true,
 		}
 
-		mapType, ok := firstUnsupportedMapType([]uint32{bpfMapTypeHash, bpfMapTypePerCPUArray}, supported)
+		mapType, ok := firstUnsupportedMapType([]uint32{bpfMapTypeHash, bpfMapTypeRingBuf, bpfMapTypePerCPUArray}, supported)
 		if !ok {
 			t.Fatal("expected unsupported map type")
 		}
-		if mapType != bpfMapTypePerCPUArray {
-			t.Fatalf("unexpected unsupported map type: got %d want %d", mapType, bpfMapTypePerCPUArray)
+		if mapType != bpfMapTypeRingBuf {
+			t.Fatalf("unexpected unsupported map type: got %d want %d", mapType, bpfMapTypeRingBuf)
+		}
+	})
+
+	t.Run("names ring buffer map types", func(t *testing.T) {
+		if got := mapTypeName(bpfMapTypeRingBuf); got != "ringbuf" {
+			t.Fatalf("unexpected ringbuf name: %q", got)
+		}
+		if got := mapTypeName(bpfMapTypeUserRingBuf); got != "user_ringbuf" {
+			t.Fatalf("unexpected user ringbuf name: %q", got)
+		}
+	})
+
+	t.Run("disables key value io for ring buffers", func(t *testing.T) {
+		if supportsMapKeyValueIO(bpfMapTypeRingBuf) {
+			t.Fatal("ringbuf should not use generic key/value io")
+		}
+		if supportsMapKeyValueIO(bpfMapTypeUserRingBuf) {
+			t.Fatal("user ringbuf should not use generic key/value io")
+		}
+		if !supportsMapKeyValueIO(bpfMapTypeHash) {
+			t.Fatal("hash maps should keep generic key/value io")
 		}
 	})
 
@@ -282,6 +327,52 @@ func TestParseArgumentsUnitTest(t *testing.T) {
 	if log.Len() != 0 {
 		t.Fatalf("expected no parse output, got %q", log.String())
 	}
+}
+
+func TestParseArgumentsAll(t *testing.T) {
+	t.Run("--all enables content flag for PID collection", func(t *testing.T) {
+		var log bytes.Buffer
+		opts, code := parseArguments([]string{"--all"}, netdataEBPFKernel68, &logState{writer: &log})
+		if code != 0 {
+			t.Fatalf("unexpected parse code: %d", code)
+		}
+		if opts.flags&flagContent == 0 {
+			t.Fatal("--all must enable flagContent so PID collection runs via fillCtrl/testMaps")
+		}
+		if opts.flags&flagCollectors == 0 {
+			t.Fatal("--all must enable flagCollectors")
+		}
+	})
+
+	t.Run("--pid 3 is accepted", func(t *testing.T) {
+		var log bytes.Buffer
+		opts, code := parseArguments([]string{"--all", "--pid", "3"}, netdataEBPFKernel68, &logState{writer: &log})
+		if code != 0 {
+			t.Fatalf("unexpected parse code: %d", code)
+		}
+		if opts.mapLevel != 3 {
+			t.Fatalf("expected mapLevel 3 (ring buffer mode), got %d", opts.mapLevel)
+		}
+		if log.Len() != 0 {
+			t.Fatalf("expected no parse error for pid=3, got %q", log.String())
+		}
+	})
+}
+
+func TestParseArgumentsBuffer(t *testing.T) {
+	t.Run("--buffer enables content flag for ring buffer data", func(t *testing.T) {
+		var log bytes.Buffer
+		opts, code := parseArguments([]string{"--buffer"}, netdataEBPFKernel612, &logState{writer: &log})
+		if code != 0 {
+			t.Fatalf("unexpected parse code: %d", code)
+		}
+		if !opts.bufferMode {
+			t.Fatal("--buffer must set bufferMode")
+		}
+		if opts.flags&flagContent == 0 {
+			t.Fatal("--buffer must enable flagContent so ring buffer data is collected and ring size is shown")
+		}
+	})
 }
 
 func TestResolveUnitTestDir(t *testing.T) {

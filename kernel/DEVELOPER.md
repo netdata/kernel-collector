@@ -62,12 +62,20 @@ unnecessary headers inside eBPF codes. Thanks this every time you see the prepro
 means that we are using codes that will be compiled with latest `libbpf` version.
 
 
-For all hash tables we are defining:
+For key/value tables we are defining:
 
 - Type: We are working with [HASH](https://docs.kernel.org/bpf/map_hash.html) and  [ARRAY](https://docs.kernel.org/bpf/map_array.html)
 - Key size: the size in bytes of the key.
 - Value size: the size in bytes of the value.
 - Max entries: Number of entries expected in the table.
+
+For ring-buffer maps we use dedicated helpers in [`includes/netdata_common.h`](../includes/netdata_common.h):
+
+- `NETDATA_BPF_RINGBUF_DEF`
+- `NETDATA_BPF_USER_RINGBUF_DEF`
+
+These maps are not generic key/value maps. Their key and value sizes are zero, and user-space tests must use
+ring-buffer-specific logic instead of `lookup`, `get_next_key`, or generic `update` paths.
 
 ### Tracers
 
@@ -104,6 +112,9 @@ for j in `seq 0 2`; do for i in `ls *.o`; do ./gotests/go_tester --content --pid
 
 The `legacy_test` and `go_tester` binaries are compiled with debug symbols to
 make local debugging easier.
+
+When a tested object contains `BPF_MAP_TYPE_RINGBUF` or `BPF_MAP_TYPE_USER_RINGBUF`, both testers switch to
+ring-buffer-specific handling. They no longer try to iterate those maps as generic key/value tables.
 
 You can take a look in all options available for tests running:
 

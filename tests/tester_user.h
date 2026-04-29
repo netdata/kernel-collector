@@ -46,12 +46,14 @@ enum netdata_ebpf_kernel_versions {
     NETDATA_EBPF_KERNEL_5_0  = 327680,  //  327680 = 5 * 65536 +  0 * 256
     NETDATA_EBPF_KERNEL_5_2  = 328192,  //  328192 = 5 * 65536 +  2 * 256
     NETDATA_EBPF_KERNEL_5_4  = 328704,  //  328704 = 5 * 65536 +  4 * 256
+    NETDATA_EBPF_KERNEL_5_8  = 329728,  //  329728 = 5 * 65536 +  8 * 256
     NETDATA_EBPF_KERNEL_5_10 = 330240,  //  330240 = 5 * 65536 + 10 * 256
     NETDATA_EBPF_KERNEL_5_11 = 330496,  //  330496 = 5 * 65536 + 11 * 256
     NETDATA_EBPF_KERNEL_5_14 = 331264,  //  331264 = 5 * 65536 + 14 * 256
     NETDATA_EBPF_KERNEL_5_15 = 331520,  //  331520 = 5 * 65536 + 15 * 256
     NETDATA_EBPF_KERNEL_5_16 = 331776,  //  331776 = 5 * 65536 + 16 * 256
-    NETDATA_EBPF_KERNEL_6_8  = 395264   //  395264 = 6 * 65536 +  8 * 256
+    NETDATA_EBPF_KERNEL_6_8  = 395264,  //  395264 = 6 * 65536 +  8 * 256
+    NETDATA_EBPF_KERNEL_6_12 = 396288   //  396288 = 6 * 65536 + 12 * 256
 };
 
 /**
@@ -71,7 +73,8 @@ enum netdata_kernel_flag {
     NETDATA_V5_14 = 1 <<  7,
     NETDATA_V5_15 = 1 <<  8,
     NETDATA_V5_16 = 1 <<  9,
-    NETDATA_V6_8  = 1 << 10
+    NETDATA_V6_8  = 1 << 10,
+    NETDATA_V6_12 = 1 << 11
 };
 
 enum netdata_kernel_counter {
@@ -86,6 +89,7 @@ enum netdata_kernel_counter {
     NETDATA_5_15,
     NETDATA_5_16,
     NETDATA_6_8,
+    NETDATA_6_12,
 
     NETDATA_VERSION_END
 };
@@ -117,7 +121,13 @@ enum netdata_thread_flag {
     NETDATA_FLAG_DNS = 1 << 23,
 
     NETDATA_FLAG_FS =  (uint64_t)(NETDATA_FLAG_BTRFS | NETDATA_FLAG_EXT4 | NETDATA_FLAG_VFS | NETDATA_FLAG_NFS | NETDATA_FLAG_XFS | NETDATA_FLAG_ZFS),
-    NETDATA_FLAG_ALL = 0XFFFFFFFFFFFFFFFF
+    NETDATA_FLAG_COLLECTORS = (uint64_t)(NETDATA_FLAG_BTRFS | NETDATA_FLAG_CACHESTAT | NETDATA_FLAG_DC | NETDATA_FLAG_DISK |
+                                         NETDATA_FLAG_EXT4 | NETDATA_FLAG_FD | NETDATA_FLAG_SYNC | NETDATA_FLAG_HARDIRQ |
+                                         NETDATA_FLAG_MDFLUSH | NETDATA_FLAG_MOUNT | NETDATA_FLAG_NETWORK_VIEWER |
+                                         NETDATA_FLAG_OOMKILL | NETDATA_FLAG_PROCESS | NETDATA_FLAG_SHM | NETDATA_FLAG_SOCKET |
+                                         NETDATA_FLAG_SOFTIRQ | NETDATA_FLAG_SWAP | NETDATA_FLAG_VFS | NETDATA_FLAG_NFS |
+                                         NETDATA_FLAG_XFS | NETDATA_FLAG_ZFS | NETDATA_FLAG_DNS),
+    NETDATA_FLAG_ALL = NETDATA_FLAG_COLLECTORS
 };
 
 enum netdata_thread_OPT {
@@ -153,7 +163,8 @@ enum netdata_thread_OPT {
     NETDATA_OPT_LOG_PATH,
     NETDATA_OPT_CONTENT,
     NETDATA_OPT_ITERATION,
-    NETDATA_OPT_PID
+    NETDATA_OPT_PID,
+    NETDATA_OPT_BUFFER
 };
 
 typedef struct ebpf_specify_name {
@@ -166,6 +177,7 @@ typedef struct ebpf_specify_name {
 
 typedef struct ebpf_module {
     uint32_t kernels;
+    uint32_t buffer_kernels; /* kernel bitmask for buffer mode; 0 = use kernels */
     uint64_t flags;
     char *name;
     ebpf_specify_name_t *update_names;

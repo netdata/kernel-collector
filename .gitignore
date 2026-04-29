@@ -13,6 +13,7 @@
 *.a
 
 kernel/legacy_test
+tests/legacy_tests
 tests/legacy_test
 tests/go_tester
 gotests/go_tester

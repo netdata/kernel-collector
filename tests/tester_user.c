@@ -41,6 +41,11 @@ static ebpf_specify_name_t swap_optional_name[] = { {.program_name = "netdata_sw
                                                       .fallback_function_to_attach = "swap_writepage",
                                                       .optional = NULL,
                                                       .retprobe = 0},
+                                                     {.program_name = "netdata_swap_writepage_buffer",
+                                                      .function_to_attach = "__swap_writepage",
+                                                      .fallback_function_to_attach = "swap_writepage",
+                                                      .optional = NULL,
+                                                      .retprobe = 0},
                                                      {.program_name = NULL,
                                                       .function_to_attach = NULL,
                                                       .fallback_function_to_attach = NULL,
@@ -54,14 +59,17 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_10 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_BTRFS, .name = "btrfs", .update_names = NULL, .ctrl_table = "btrfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_15 | NETDATA_V5_14 | NETDATA_V5_16,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_CACHESTAT, .name = "cachestat", .update_names = NULL, .ctrl_table = "cstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_DC, .name = "dc", .update_names = dc_optional_name, .ctrl_table = "dcstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_DISK, .name = "disk", .update_names = NULL, .ctrl_table = "disk_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_EXT4, .name = "ext4", .update_names = NULL, .ctrl_table = "ext4_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_FD, .name = "fd", .update_names = NULL, .ctrl_table = "fd_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "fdatasync", .update_names = NULL, .ctrl_table = NULL },
@@ -78,16 +86,20 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_DNS, .name = "dns", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
-    { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10,
+    { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_PROCESS, .name = "process", .update_names = NULL, .ctrl_table = "process_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_SHM, .name = "shm", .update_names = NULL, .ctrl_table = "shm_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOFTIRQ, .name = "softirq", .update_names = NULL, .ctrl_table = NULL },
@@ -97,9 +109,11 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_SYNC, .name = "syncfs", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "sync_file_range", .update_names = NULL, .ctrl_table = NULL },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8,
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = swap_optional_name, .ctrl_table = "swap_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_XFS, .name = "xfs", .update_names = NULL, .ctrl_table = "xfs_ctrl" },
@@ -112,6 +126,7 @@ ebpf_module_t ebpf_modules[] = {
 char *specific_ebpf = NULL;
 char *netdata_path = NULL;
 char *log_path = NULL;
+int buffer_mode = 0;
 #define NETDATA_DEFAULT_PROCESS_NUMBER 4096
 #define NETDATA_DNS_MAX_PORTS 32
 #define NETDATA_DNS_DEFAULT_PORT 53
@@ -122,13 +137,22 @@ enum netdata_apps_level map_level = NETDATA_APPS_LEVEL_REAL_PARENT ;
 static uint16_t dns_ports[NETDATA_DNS_MAX_PORTS] = { NETDATA_DNS_DEFAULT_PORT };
 static size_t dns_port_count = 1;
 static int dns_ports_overridden = 0;
+static size_t tests_started = 0;
+static char *ebpf_kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12" };
 
 typedef struct ebpf_map_support {
     int hash;
     int array;
     int percpu_array;
     int percpu_hash;
+    int ringbuf;
+    int user_ringbuf;
 } ebpf_map_support_t;
+
+typedef struct ebpf_ringbuf_stats {
+    size_t samples;
+    size_t bytes;
+} ebpf_ringbuf_stats_t;
 
 typedef struct ebpf_candidate_list {
     char **files;
@@ -157,6 +181,21 @@ static int ebpf_possible_cpu_count(void)
 static int ebpf_map_is_percpu(uint32_t type)
 {
     return type == BPF_MAP_TYPE_PERCPU_ARRAY || type == BPF_MAP_TYPE_PERCPU_HASH;
+}
+
+static int ebpf_map_is_ringbuf(uint32_t type)
+{
+    return type == BPF_MAP_TYPE_RINGBUF || type == BPF_MAP_TYPE_USER_RINGBUF;
+}
+
+static int ebpf_map_is_user_ringbuf(uint32_t type)
+{
+    return type == BPF_MAP_TYPE_USER_RINGBUF;
+}
+
+static int ebpf_map_supports_key_value_io(uint32_t type)
+{
+    return !ebpf_map_is_ringbuf(type);
 }
 
 static size_t ebpf_map_value_stride(uint32_t type, size_t value_size)
@@ -263,6 +302,34 @@ static const char *ebpf_describe_error(int err, char *buffer, size_t length)
 
     snprintf(buffer, length, "%s", strerror(code));
     return buffer;
+}
+
+static int ebpf_ringbuf_sample_cb(void *ctx, void *data, size_t size)
+{
+    ebpf_ringbuf_stats_t *stats = ctx;
+
+    (void)data;
+    if (stats) {
+        stats->samples++;
+        stats->bytes += size;
+    }
+
+    return 0;
+}
+
+static int ebpf_user_ringbuf_submit_sample(struct user_ring_buffer *rb, uint64_t value)
+{
+    void *sample;
+
+    errno = 0;
+    sample = user_ring_buffer__reserve(rb, sizeof(value));
+    if (!sample)
+        return -(errno ? errno : EIO);
+
+    memcpy(sample, &value, sizeof(value));
+    user_ring_buffer__submit(rb, sample);
+
+    return 0;
 }
 
 static void ebpf_write_program_inventory(struct bpf_object *obj)
@@ -392,7 +459,10 @@ static int ebpf_candidate_matches(const char *filename, const char *name, int is
     const char *rest;
     int has_rhf;
 
-    snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s.", (is_return) ? 'r' : 'p', name);
+    if (buffer_mode)
+        snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s_buffer.", (is_return) ? 'r' : 'p', name);
+    else
+        snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s.", (is_return) ? 'r' : 'p', name);
     prefix_len = strlen(prefix);
     if (filename_len <= prefix_len + 2)
         return 0;
@@ -414,12 +484,32 @@ static int ebpf_candidate_matches(const char *filename, const char *name, int is
     return !has_rhf;
 }
 
+static int ebpf_candidate_version_index(const char *filename, const char *name, int is_return,
+                                        int rhf_version, uint32_t kernels, uint32_t max_index)
+{
+    int idx;
+
+    if (rhf_version == -1)
+        kernels &= ~NETDATA_V5_14;
+
+    for (idx = (int)max_index; idx >= 0; idx--) {
+        if (!(kernels & (1U << idx)))
+            continue;
+
+        if (ebpf_candidate_matches(filename, name, is_return, ebpf_kernel_names[idx], rhf_version))
+            return idx;
+    }
+
+    return -1;
+}
+
 static void ebpf_discover_candidates(ebpf_candidate_list_t *list, const char *name, int is_return,
-                                     const char *version, int rhf_version)
+                                     uint32_t kernels, uint32_t max_index, int rhf_version)
 {
     char *path = ebpf_resolve_binary_directory();
     DIR *dir;
     struct dirent *entry;
+    int best_index = -1;
 
     memset(list, 0, sizeof(*list));
     if (!path)
@@ -433,12 +523,22 @@ static void ebpf_discover_candidates(ebpf_candidate_list_t *list, const char *na
 
     while ((entry = readdir(dir))) {
         char fullpath[PATH_MAX];
+        int candidate_index;
 
         if (entry->d_name[0] == '.')
             continue;
 
-        if (!ebpf_candidate_matches(entry->d_name, name, is_return, version, rhf_version))
+        candidate_index = ebpf_candidate_version_index(entry->d_name, name, is_return,
+                                                       rhf_version, kernels, max_index);
+        if (candidate_index < 0)
             continue;
+
+        if (candidate_index > best_index) {
+            ebpf_free_candidate_list(list);
+            best_index = candidate_index;
+        } else if (candidate_index < best_index) {
+            continue;
+        }
 
         snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
         if (ebpf_append_candidate(list, fullpath))
@@ -482,6 +582,8 @@ static void ebpf_detect_map_support(ebpf_map_support_t *support, int rhf_version
     support->array = support->hash;
     support->percpu_array = ebpf_should_fallback_percpu_support(rhf_version, kver);
     support->percpu_hash = support->percpu_array;
+    support->ringbuf = 0;
+    support->user_ringbuf = 0;
 
     probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_HASH);
     if (probe >= 0)
@@ -498,6 +600,14 @@ static void ebpf_detect_map_support(ebpf_map_support_t *support, int rhf_version
     probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_PERCPU_HASH);
     if (probe >= 0)
         support->percpu_hash = probe > 0;
+
+    probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_RINGBUF);
+    if (probe >= 0)
+        support->ringbuf = probe > 0;
+
+    probe = ebpf_probe_map_type_support(BPF_MAP_TYPE_USER_RINGBUF);
+    if (probe >= 0)
+        support->user_ringbuf = probe > 0;
 }
 
 static const char *ebpf_map_type_name(int map_type)
@@ -511,6 +621,10 @@ static const char *ebpf_map_type_name(int map_type)
             return "percpu_hash";
         case BPF_MAP_TYPE_PERCPU_ARRAY:
             return "percpu_array";
+        case BPF_MAP_TYPE_RINGBUF:
+            return "ringbuf";
+        case BPF_MAP_TYPE_USER_RINGBUF:
+            return "user_ringbuf";
         default:
             return "unknown";
     }
@@ -527,6 +641,10 @@ static int ebpf_is_supported_map_type(const ebpf_map_support_t *support, int map
             return support->percpu_hash;
         case BPF_MAP_TYPE_PERCPU_ARRAY:
             return support->percpu_array;
+        case BPF_MAP_TYPE_RINGBUF:
+            return support->ringbuf;
+        case BPF_MAP_TYPE_USER_RINGBUF:
+            return support->user_ringbuf;
         default:
             return 1;
     }
@@ -573,8 +691,16 @@ static void ebpf_write_supported_map_types_json(const ebpf_map_support_t *suppor
         fprintf(stdlog, "%s\"percpu_hash\"", first ? "" : ", ");
         first = 0;
     }
-    if (support->percpu_array)
+    if (support->percpu_array) {
         fprintf(stdlog, "%s\"percpu_array\"", first ? "" : ", ");
+        first = 0;
+    }
+    if (support->ringbuf) {
+        fprintf(stdlog, "%s\"ringbuf\"", first ? "" : ", ");
+        first = 0;
+    }
+    if (support->user_ringbuf)
+        fprintf(stdlog, "%s\"user_ringbuf\"", first ? "" : ", ");
 
     fprintf(stdlog, "]");
 }
@@ -582,7 +708,7 @@ static void ebpf_write_supported_map_types_json(const ebpf_map_support_t *suppor
 static void ebpf_write_object_map_types(struct bpf_object *obj)
 {
     struct bpf_map *map;
-    int seen_hash = 0, seen_array = 0, seen_percpu_hash = 0, seen_percpu_array = 0;
+    int seen[__MAX_BPF_MAP_TYPE] = { 0 };
     int first = 1;
 
     fprintf(stdlog, "        \"Map Types Used\" : [");
@@ -598,10 +724,7 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
             }
 #endif
 
-            if ((type == BPF_MAP_TYPE_HASH && seen_hash) ||
-                (type == BPF_MAP_TYPE_ARRAY && seen_array) ||
-                (type == BPF_MAP_TYPE_PERCPU_HASH && seen_percpu_hash) ||
-                (type == BPF_MAP_TYPE_PERCPU_ARRAY && seen_percpu_array))
+            if (type >= 0 && type < __MAX_BPF_MAP_TYPE && seen[type])
                 continue;
 
             if (!first)
@@ -610,14 +733,8 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
             fprintf(stdlog, "\"%s\"", ebpf_map_type_name(type));
             first = 0;
 
-            if (type == BPF_MAP_TYPE_HASH)
-                seen_hash = 1;
-            else if (type == BPF_MAP_TYPE_ARRAY)
-                seen_array = 1;
-            else if (type == BPF_MAP_TYPE_PERCPU_HASH)
-                seen_percpu_hash = 1;
-            else if (type == BPF_MAP_TYPE_PERCPU_ARRAY)
-                seen_percpu_array = 1;
+            if (type >= 0 && type < __MAX_BPF_MAP_TYPE)
+                seen[type] = 1;
         }
     }
 
@@ -778,9 +895,7 @@ int ebpf_get_redhat_release()
  */
 static char *ebpf_select_kernel_name(uint32_t selector)
 {
-    static char *kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8" };
-
-    return kernel_names[selector];
+    return ebpf_kernel_names[selector];
 }
 
 /**
@@ -803,7 +918,9 @@ static int ebpf_select_max_index(int rhf_version, uint32_t kver)
         else if (kver >= NETDATA_EBPF_KERNEL_4_11)
             return 3;
     } else { // Kernels from kernel.org
-        if (kver >= NETDATA_EBPF_KERNEL_6_8)
+        if (kver >= NETDATA_EBPF_KERNEL_6_12)
+            return 11;
+        else if (kver >= NETDATA_EBPF_KERNEL_6_8)
             return 10;
 	else if (kver >= NETDATA_EBPF_KERNEL_5_16)
             return 9;
@@ -862,6 +979,7 @@ static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kv
  */
 static void ebpf_start_external_json(char *filename)
 {
+    tests_started++;
     fprintf(stdlog, "\n\"%s\" : {\n    \"Tables\" : {\n",
             filename);
 }
@@ -877,6 +995,7 @@ static void ebpf_start_external_json(char *filename)
 static void ebpf_start_netdata_json(char *filename, int is_return)
 {
     static int first = 1;
+    tests_started++;
     if (first) {
         first = 0;
         fprintf(stdlog, "\n");
@@ -888,17 +1007,17 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
 /**
  *  Mount Name
  *
- *  Mount name of eBPF program to be loaded. 
+ *  Mount name of eBPF program to be loaded.
  *
  *  Netdata eBPF programs has the following format:
- * 
+ *
  *      Tnetdata_ebpf_N.V.o
- *  
+ *
  *  where:
  *     T - Is the eBPF type. When starts with 'p', this means we are only adding probes,
- *         and when they start with 'r' we are using retprobes.     
+ *         and when they start with 'r' we are using retprobes.
  *     N - The eBPF program name.
- *     V - The kernel version in string format.    
+ *     V - The kernel version in string format.
  *
  *  @param out            the vector where the name will be stored
  *  @param len            the size of the out vector.
@@ -914,12 +1033,20 @@ static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, in
     if (!path)
         path = ebpf_strdup_string(".");
 
-    snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s%s.o", 
-            path,
-            (is_return) ? 'r' : 'p',
-            name,
-            version,
-            (rhf_version != -1) ? ".rhf" : "");
+    if (buffer_mode)
+        snprintf(out, len, "%s/%cnetdata_ebpf_%s_buffer.%s%s.o",
+                path,
+                (is_return) ? 'r' : 'p',
+                name,
+                version,
+                (rhf_version != -1) ? ".rhf" : "");
+    else
+        snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s%s.o",
+                path,
+                (is_return) ? 'r' : 'p',
+                name,
+                version,
+                (rhf_version != -1) ? ".rhf" : "");
     free(path);
 }
 
@@ -1321,6 +1448,92 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
             value + zero,  value, zero);
 }
 
+static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
+{
+    char error_buffer[128];
+    const char *mode = ebpf_map_is_user_ringbuf(type) ? "user_ringbuf_producer" : "ringbuf_consumer";
+    struct ring_buffer *rb = NULL;
+    struct user_ring_buffer *urb = NULL;
+    ebpf_ringbuf_stats_t stats = { 0 };
+    ebpf_ringbuf_stats_t previous = { 0 };
+    int setup_error = 0;
+    int i;
+
+    fprintf(stdlog,
+            "        \"%s\" : {\n"
+            "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
+            "                       \"Type\" : %u,\n"
+            "                       \"FD\" : %d,\n"
+            "                       \"Data\" : [\n",
+            name, key_size, value_size, type, fd);
+
+    if (type == BPF_MAP_TYPE_RINGBUF) {
+        rb = ring_buffer__new(fd, ebpf_ringbuf_sample_cb, &stats, NULL);
+        setup_error = (int)libbpf_get_error(rb);
+        if (setup_error)
+            rb = NULL;
+    } else {
+        urb = user_ring_buffer__new(fd, NULL);
+        setup_error = (int)libbpf_get_error(urb);
+        if (setup_error)
+            urb = NULL;
+    }
+
+    for (i = 0; i < end_iteration; i++) {
+        int op_error = setup_error;
+        int op_result = 0;
+        size_t iter_samples = 0;
+        size_t iter_bytes = 0;
+        size_t ring_size = 0;
+        size_t avail_data = 0;
+        const char *error_message;
+
+        sleep(10);
+
+        if (type == BPF_MAP_TYPE_RINGBUF && rb) {
+            struct ring *ring = ring_buffer__ring(rb, 0);
+
+            op_result = ring_buffer__poll(rb, 0);
+            if (op_result < 0)
+                op_error = op_result;
+
+            iter_samples = stats.samples - previous.samples;
+            iter_bytes = stats.bytes - previous.bytes;
+            previous = stats;
+
+            if (ring) {
+                ring_size = ring__size(ring);
+                avail_data = ring__avail_data_size(ring);
+            }
+        } else if (type == BPF_MAP_TYPE_USER_RINGBUF && urb) {
+            op_result = ebpf_user_ringbuf_submit_sample(urb, (uint64_t)(i + 1));
+            if (op_result < 0)
+                op_error = op_result;
+        }
+
+        error_message = ebpf_describe_error(op_error, error_buffer, sizeof(error_buffer));
+
+        if (i)
+            fprintf(stdlog, ",\n");
+
+        fprintf(stdlog,
+                "                                    "
+                "{ \"Iteration\" : %d, \"Mode\" : \"%s\", \"Setup\" : %d, "
+                "\"Operation Result\" : %d, \"Samples\" : %zu, \"Bytes\" : %zu, "
+                "\"Available\" : %zu, \"Ring Size\" : %zu, \"Error Code\" : %d, "
+                "\"Error Message\" : \"%s\" }",
+                i, mode, setup_error == 0, op_result, iter_samples, iter_bytes,
+                avail_data, ring_size, op_error, error_message);
+    }
+
+    fprintf(stdlog, "\n");
+
+    if (rb)
+        ring_buffer__free(rb);
+    if (urb)
+        user_ring_buffer__free(urb);
+}
+
 /**
  * Test Maps
  *
@@ -1352,6 +1565,15 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         key_size = def->key_size;
         value_size = def->value_size;
 #endif
+        if (!ebpf_map_supports_key_value_io(type)) {
+            ebpf_test_ringbuf_map(name, fd, type, key_size, value_size);
+            fprintf(stdlog, "                                ]\n"
+                    "                      }\n"
+                    "        },\n");
+            tables++;
+            continue;
+        }
+
         values = ebpf_allocate_tables(name, type, key_size, value_size);
         if (values) {
             // Write header
@@ -1418,6 +1640,12 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         value_size = def->value_size;
         end = def->max_entries;
 #endif
+        if (!ebpf_map_supports_key_value_io(type)) {
+            fprintf(stdlog, "\"error\" : \"Control table %s uses unsupported map type %s.\",",
+                    name, ebpf_map_type_name(type));
+            continue;
+        }
+
         uint64_t values[NETDATA_CONTROLLER_END] = { 1, (uint64_t)map_level, 0, 0, 0, 0 };
         size_t value_length = ebpf_map_value_buffer_length(type, value_size);
         size_t value_stride = ebpf_map_value_stride(type, value_size);
@@ -1544,6 +1772,19 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
  *  @param is_return     Load return or entry eBPF program
  *  @param flags         tests that software will run
  */
+static int ebpf_module_has_buffer(const char *name)
+{
+    static const char *buffer_modules[] = {
+        "cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", NULL
+    };
+    int i;
+    for (i = 0; buffer_modules[i]; i++) {
+        if (!strcmp(name, buffer_modules[i]))
+            return 1;
+    }
+    return 0;
+}
+
 static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return, uint64_t flags)
 {
     ebpf_map_support_t map_support;
@@ -1552,16 +1793,24 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
+        if (buffer_mode && !ebpf_module_has_buffer(ebpf_modules[i].name)) {
+            i++;
+            continue;
+        }
+
         if (flags & ebpf_modules[i].flags) {
             ebpf_candidate_list_t candidates;
             ebpf_candidate_list_t compatible = { 0 };
             char *first_incompatible = NULL;
             int unsupported_type = 0;
             size_t j;
-            uint32_t idx = ebpf_select_index(ebpf_modules[i].kernels, rhf_version, kver);
-            char *version = ebpf_select_kernel_name(idx);
+            uint32_t kernels_to_use = (buffer_mode && ebpf_modules[i].buffer_kernels) ?
+                                      ebpf_modules[i].buffer_kernels : ebpf_modules[i].kernels;
+            uint32_t max_idx = ebpf_select_max_index(rhf_version, kver);
+            uint32_t idx = ebpf_select_index(kernels_to_use, rhf_version, kver);
 
-            ebpf_discover_candidates(&candidates, ebpf_modules[i].name, is_return, version, rhf_version);
+            ebpf_discover_candidates(&candidates, ebpf_modules[i].name, is_return,
+                                     kernels_to_use, max_idx, rhf_version);
             for (j = 0; j < candidates.size; j++) {
                 struct bpf_object *obj = bpf_object__open_file(candidates.files[j], NULL);
                 if (libbpf_get_error(obj)) {
@@ -1655,7 +1904,8 @@ static void ebpf_help()
                     "                   software will use stderr.\n\n"
                     "--content          Test content stored inside hash tables.\n"
                     "--iteration        Number of iterations when content is read, default value is 1.\n"
-                    "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, and 2 - All PID \n\n"
+                    "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"
+                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
                     "--btrfs            Latency for btrfs.\n"
@@ -1694,7 +1944,7 @@ static void ebpf_help()
  */
 static uint64_t ebpf_set_common_flag()
 {
-    return NETDATA_FLAG_ALL &
+    return NETDATA_FLAG_COLLECTORS &
                              ~(NETDATA_FLAG_FS | NETDATA_FLAG_LOAD_BINARY | NETDATA_FLAG_MDFLUSH | NETDATA_FLAG_CONTENT);
 }
 
@@ -1749,6 +1999,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"content",            no_argument,          0,  0 },
         {"iteration",          required_argument,    0,  0 },
         {"pid",                required_argument,    0,  0 },
+        {"buffer",             no_argument,          0,  0 },
 
         // this must be always the last option
         {0,                no_argument, 0, 0}
@@ -1879,7 +2130,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                 }
             case NETDATA_OPT_ALL:
                 {
-                    flags |= NETDATA_FLAG_ALL;
+                    flags |= NETDATA_FLAG_COLLECTORS | NETDATA_FLAG_CONTENT;
                     break;
                 }
             case NETDATA_OPT_COMMON:
@@ -1943,11 +2194,22 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                     map_level = value;
                     break;
                 }
+            case NETDATA_OPT_BUFFER:
+                {
+                    buffer_mode = 1;
+                    flags |= NETDATA_FLAG_CONTENT;
+                    break;
+                }
         }
     }
 
+    if (buffer_mode && kver < NETDATA_EBPF_KERNEL_5_8) {
+        fprintf(stdlog, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n");
+        exit(1);
+    }
+
     // When user does not specify any flag, we will use common value
-    if (!(flags & (NETDATA_FLAG_ALL & ~NETDATA_FLAG_CONTENT)))
+    if (!(flags & NETDATA_FLAG_COLLECTORS))
         flags |= ebpf_set_common_flag();
 
     // The necessary tracepoint was made in kernel 4.14, so we cannot
@@ -2013,6 +2275,7 @@ int main(int argc, char **argv)
 {
     uint32_t my_kernel = ebpf_get_kernel_version();
     int rhf_version = ebpf_get_redhat_release();
+    int ret = 0;
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
     if (nprocesses < 0) {
@@ -2044,11 +2307,17 @@ int main(int argc, char **argv)
         }
     }
 
+    if (!tests_started) {
+        fprintf(stdlog,
+                "\"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\",\n");
+        ret = 1;
+    }
+
     // END JSON output
     fprintf(stdlog, "\"End\" : \"Good bye!!!\" }\n");
 
     if (log_path)
         fclose(stdlog);
 
-    return 0;
+    return ret;
 }
