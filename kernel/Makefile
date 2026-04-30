@@ -123,9 +123,20 @@ else
 NETDATA_RINGBUF_APPS=
 endif
 
-all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS)
+NETDATA_ARENA_APPS= cachestat_arena \
+                    dc_arena \
+                    dns_arena \
+                    fd_arena \
+                    oomkill_arena \
+                    process_arena \
+                    shm_arena \
+                    swap_arena \
+                    vfs_arena \
+                    #
 
-dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS}
+all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
+
+dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS} ${NETDATA_ARENA_APPS}
 
 libbpf:
 	# -fPIE added to be compatible with olders clang/gcc
@@ -169,6 +180,8 @@ $(NETDATA_APPS): %: %_kern.o
 ${NETDATA_ALL_APPS}: %: %_kern.o
 
 ${NETDATA_RINGBUF_APPS}: %: %_kern.o
+
+${NETDATA_ARENA_APPS}: %: %_kern.o
 
 tester: libbpf
 	cd ../tests && $(MAKE) tester
