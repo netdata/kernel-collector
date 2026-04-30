@@ -123,6 +123,8 @@ else
 NETDATA_RINGBUF_APPS=
 endif
 
+# BPF_MAP_TYPE_ARENA requires kernel >= 6.9 (395520 = 6 * 65536 + 9 * 256)
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 395520 ; echo $$?),0)
 NETDATA_ARENA_APPS= cachestat_arena \
                     dc_arena \
                     dns_arena \
@@ -133,6 +135,9 @@ NETDATA_ARENA_APPS= cachestat_arena \
                     swap_arena \
                     vfs_arena \
                     #
+else
+NETDATA_ARENA_APPS=
+endif
 
 all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
 
