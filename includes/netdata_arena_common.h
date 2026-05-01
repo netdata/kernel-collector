@@ -39,7 +39,9 @@
     }; \
     extern struct netdata_##PREFIX##_arena_state_t PREFIX##_arena_state; \
     static __always_inline EVENT_TYPE *netdata_##PREFIX##_arena_reserve(void) { \
-        __u32 idx = __sync_fetch_and_add(&PREFIX##_arena_state.head, 1); \
+        /* BPF backend rejects using the XADD return value directly. */ \
+        __sync_fetch_and_add(&PREFIX##_arena_state.head, 1); \
+        __u32 idx = PREFIX##_arena_state.head - 1; \
         return &PREFIX##_arena_state.events[idx % SLOT_COUNT]; \
     } \
     static __always_inline void netdata_##PREFIX##_arena_submit(EVENT_TYPE *ev) { \
