@@ -162,11 +162,13 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			{name: "wrong family", filename: "pnetdata_ebpf_swap.3.10.o", module: "swap", version: "3.10", rhf: 1, wantMatch: false},
 			{name: "non-rhf exact", filename: "pnetdata_ebpf_swap.5.14.o", module: "swap", version: "5.14", rhf: -1, wantMatch: true},
 			{name: "non-rhf rejects rhf", filename: "pnetdata_ebpf_swap.5.14.rhf.o", module: "swap", version: "5.14", rhf: -1, wantMatch: false},
+			{name: "arena suffix exact", filename: "pnetdata_ebpf_swap_arena.6.12.o", module: "swap", version: "6.12", rhf: -1, wantMatch: true},
 		}
 
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf, false); got != tc.wantMatch {
+				arenaMode := tc.name == "arena suffix exact"
+				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf, false, arenaMode); got != tc.wantMatch {
 					t.Fatalf("unexpected match result for %q: got %v want %v", tc.filename, got, tc.wantMatch)
 				}
 			})
@@ -188,7 +190,7 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			}
 		}
 
-		got := discoverCandidates("swap", false, 1, netdataV310, 0, dir, false)
+		got := discoverCandidates("swap", false, 1, netdataV310, 0, dir, false, false)
 		want := []string{
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.rhf.o"),
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.variant.rhf.o"),
@@ -219,10 +221,31 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			}
 		}
 
-		got := discoverCandidates("swap", false, -1, netdataV54|netdataV68|netdataV612, 11, dir, false)
+		got := discoverCandidates("swap", false, -1, netdataV54|netdataV68|netdataV612, 11, dir, false, false)
 		want := []string{filepath.Join(dir, "pnetdata_ebpf_swap.6.12.o")}
 		if len(got) != len(want) || got[0] != want[0] {
 			t.Fatalf("unexpected candidates: got %v want %v", got, want)
+		}
+	})
+
+	t.Run("discovers arena candidates when arena mode is enabled", func(t *testing.T) {
+		dir := t.TempDir()
+		files := []string{
+			"pnetdata_ebpf_swap_arena.5.4.o",
+			"pnetdata_ebpf_swap_buffer.5.4.o",
+			"pnetdata_ebpf_swap_arena.6.12.o",
+			"pnetdata_ebpf_swap_buffer.6.12.o",
+		}
+		for _, name := range files {
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatalf("cannot create %s: %v", name, err)
+			}
+		}
+
+		got := discoverCandidates("swap", false, -1, netdataV54|netdataV68|netdataV612, 11, dir, false, true)
+		want := []string{filepath.Join(dir, "pnetdata_ebpf_swap_arena.6.12.o")}
+		if len(got) != len(want) || got[0] != want[0] {
+			t.Fatalf("unexpected arena candidates: got %v want %v", got, want)
 		}
 	})
 
@@ -371,6 +394,28 @@ func TestParseArgumentsBuffer(t *testing.T) {
 		}
 		if opts.flags&flagContent == 0 {
 			t.Fatal("--buffer must enable flagContent so ring buffer data is collected and ring size is shown")
+		}
+	})
+
+	t.Run("--arena enables content flag for arena data", func(t *testing.T) {
+		var log bytes.Buffer
+		opts, code := parseArguments([]string{"--arena"}, netdataEBPFKernel69, &logState{writer: &log})
+		if code != 0 {
+			t.Fatalf("unexpected parse code: %d", code)
+		}
+		if !opts.arenaMode {
+			t.Fatal("--arena must set arenaMode")
+		}
+		if opts.flags&flagContent == 0 {
+			t.Fatal("--arena must enable flagContent so arena data is collected and ring size is shown")
+		}
+	})
+
+	t.Run("mountName uses arena suffix", func(t *testing.T) {
+		got := mountName(11, "swap", false, -1, "/tmp", false, true)
+		want := "/tmp/pnetdata_ebpf_swap_arena.6.12.o"
+		if got != want {
+			t.Fatalf("unexpected arena mount name: got %q want %q", got, want)
 		}
 	})
 }
