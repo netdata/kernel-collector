@@ -173,6 +173,20 @@ var (
 			retprobe:         false,
 			required:         true,
 		},
+		{
+			programName:      "netdata_swap_readpage_buffer",
+			functionToAttach: "swap_read_folio",
+			fallbackFunction: "swap_readpage",
+			retprobe:         false,
+			required:         true,
+		},
+		{
+			programName:      "netdata_swap_writepage_buffer",
+			functionToAttach: "__swap_writepage",
+			fallbackFunction: "swap_writepage",
+			retprobe:         false,
+			required:         true,
+		},
 	}
 
 	zfsOptionalNames = []specifyName{
@@ -924,6 +938,11 @@ func updateNames(names []specifyName) {
 			candidates := []string{names[i].functionToAttach, names[i].fallbackFunction}
 			for _, candidate := range candidates {
 				if candidate == "" || !strings.HasPrefix(data, candidate) {
+					continue
+				}
+
+				// Reject prefix-only matches (e.g. "swap_read_folio_bdev_sync" != "swap_read_folio")
+				if len(data) > len(candidate) && data[len(candidate)] != ' ' && data[len(candidate)] != '\t' {
 					continue
 				}
 

@@ -41,6 +41,11 @@ static ebpf_specify_name_t swap_optional_name[] = { {.program_name = "netdata_sw
                                                       .fallback_function_to_attach = "swap_writepage",
                                                       .optional = NULL,
                                                       .retprobe = 0},
+                                                     {.program_name = "netdata_swap_readpage_buffer",
+                                                      .function_to_attach = "swap_read_folio",
+                                                      .fallback_function_to_attach = "swap_readpage",
+                                                      .optional = NULL,
+                                                      .retprobe = 0},
                                                      {.program_name = "netdata_swap_writepage_buffer",
                                                       .function_to_attach = "__swap_writepage",
                                                       .fallback_function_to_attach = "swap_writepage",
@@ -1206,6 +1211,10 @@ static void ebpf_update_names(ebpf_specify_name_t *names)
 
                 len = strlen(cmp);
                 if (strncmp(cmp, data, len))
+                    continue;
+
+                /* Reject prefix-only matches (e.g. "swap_read_folio_bdev_sync" != "swap_read_folio") */
+                if (data[len] != ' ' && data[len] != '\n' && data[len] != '\0')
                     continue;
 
                 end = strchr(data, ' ');
