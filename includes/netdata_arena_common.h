@@ -42,7 +42,7 @@
         /* BPF backend rejects using the XADD return value directly. */ \
         __sync_fetch_and_add(&PREFIX##_arena_state.head, 1); \
         __u32 idx = PREFIX##_arena_state.head - 1; \
-        return &PREFIX##_arena_state.events[idx % SLOT_COUNT]; \
+        return (EVENT_TYPE *)&PREFIX##_arena_state.events[idx % SLOT_COUNT]; \
     } \
     static __always_inline void netdata_##PREFIX##_arena_submit(EVENT_TYPE *ev) { \
         (void)ev; \

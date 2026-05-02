@@ -141,7 +141,7 @@ endif
 
 # Arena objects need address-space-cast support so the verifier sees PTR_TO_ARENA
 ifneq ($(NETDATA_ARENA_APPS),)
-$(addsuffix _kern.o,$(NETDATA_ARENA_APPS)): EXTRA_CFLAGS += -D__BPF_FEATURE_ADDR_SPACE_CAST
+$(addsuffix _kern.o,$(NETDATA_ARENA_APPS)): EXTRA_CFLAGS += -D__BPF_FEATURE_ADDR_SPACE_CAST -Wno-address-space-conversion
 endif
 
 all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
