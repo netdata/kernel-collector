@@ -10,6 +10,7 @@
 #include "bpf_tracing.h"
 #include "bpf_helpers.h"
 #include "netdata_common.h"
+#include "netdata_arena_common.h"
 #include "netdata_oomkill.h"
 #include "netdata_oomkill_buffer.h"
 
@@ -30,13 +31,15 @@ NETDATA_BPF_RINGBUF_DEF(oomkill_events, NETDATA_OOMKILL_RINGBUF_SIZE);
 SEC("tracepoint/oom/mark_victim")
 int netdata_oom_mark_victim_buffer(struct netdata_oom_mark_victim_entry *ptr)
 {
-    struct netdata_oomkill_event_t *ev = bpf_ringbuf_reserve(&oomkill_events, sizeof(*ev), 0);
+    struct netdata_oomkill_event_t __arena *ev = bpf_ringbuf_reserve(&oomkill_events, sizeof(*ev), 0);
     if (!ev)
         return 0;
 
+    __u32 pid;
     ev->ct  = bpf_ktime_get_ns();
     ev->pad = 0;
-    bpf_probe_read(&ev->pid, sizeof(ev->pid), &ptr->pid);
+    bpf_probe_read(&pid, sizeof(pid), &ptr->pid);
+    ev->pid = pid;
 
     bpf_ringbuf_submit(ev, 0);
     return 0;

@@ -17,6 +17,7 @@
 #include "bpf_endian.h"
 #include "bpf_helpers.h"
 #include "netdata_common.h"
+#include "netdata_arena_common.h"
 #include "netdata_dns_buffer.h"
 
 /************************************************************************************
@@ -174,7 +175,7 @@ int socket__dns_filter_buffer(struct __sk_buff *skb)
     if (!is_query && !is_response)
         return 0;
 
-    struct netdata_dns_event_t *ev = bpf_ringbuf_reserve(&dns_events, sizeof(*ev), 0);
+    struct netdata_dns_event_t __arena *ev = bpf_ringbuf_reserve(&dns_events, sizeof(*ev), 0);
     if (!ev)
         return 0;
 
