@@ -2213,7 +2213,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
             case NETDATA_OPT_LOG_PATH:
                 {
                     log_path = optarg;
-                    stdlog = fopen(log_path, "a+");
+                    stdlog = fopen(log_path, "w");
                     if (!stdlog) {
                         stdlog = stderr;
                         fprintf(stdlog, "\"Error\": \"Cannot open %s\",\n", log_path);

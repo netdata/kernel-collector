@@ -543,7 +543,7 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		case "log-path":
 			value, i = optionValue(args, i, value)
 			opts.logPath = value
-			file, err := os.OpenFile(value, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o644)
+			file, err := os.OpenFile(value, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
 				logger.writer = os.Stderr
 				fmt.Fprintf(logger.writer, "\"Error\": \"Cannot open %s\",\n", value)
