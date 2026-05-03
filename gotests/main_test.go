@@ -92,6 +92,63 @@ func TestKernelSelectionHelpers(t *testing.T) {
 		})
 	}
 
+	osReleaseCases := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name: "alma 9 without redhat-release",
+			content: `NAME="AlmaLinux"
+VERSION="9.4 (Seafoam Ocelot)"
+ID="almalinux"
+ID_LIKE="rhel centos fedora"
+VERSION_ID="9.4"
+PLATFORM_ID="platform:el9"
+`,
+			want: 9*256 + 4,
+		},
+		{
+			name: "rhel 8 via ID_LIKE",
+			content: `NAME="Red Hat Enterprise Linux"
+VERSION="8.9 (Ootpa)"
+ID="rhel"
+VERSION_ID="8.9"
+`,
+			want: 8*256 + 9,
+		},
+		{
+			name: "rocky linux",
+			content: `NAME="Rocky Linux"
+ID="rocky"
+ID_LIKE="rhel centos fedora"
+VERSION_ID="9.3"
+`,
+			want: 9*256 + 3,
+		},
+		{
+			name: "debian ignored",
+			content: `NAME="Debian GNU/Linux"
+ID=debian
+VERSION_ID="12"
+`,
+			want: -1,
+		},
+		{
+			name: "empty content",
+			content: ``,
+			want:    -1,
+		},
+	}
+
+	for _, tc := range osReleaseCases {
+		t.Run("os-release "+tc.name, func(t *testing.T) {
+			if got := parseOSRelease(tc.content); got != tc.want {
+				t.Fatalf("unexpected parsed os-release for %q: got %d want %d", tc.name, got, tc.want)
+			}
+		})
+	}
+
 	leadingCases := []struct {
 		input string
 		want  int

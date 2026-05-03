@@ -189,6 +189,17 @@ var (
 		},
 	}
 
+	// close_fd replaced __close_fd in kernel 5.11; RH backported this rename to their 5.10 kernels.
+	fdOptionalNames = []specifyName{
+		{
+			programName:      "netdata_close_buffer",
+			functionToAttach: "close_fd",
+			fallbackFunction: "__close_fd",
+			retprobe:         false,
+			required:         true,
+		},
+	}
+
 	zfsOptionalNames = []specifyName{
 		{
 			programName:      "netdata_zpl_iter_read",
@@ -238,7 +249,7 @@ var (
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagDisk, name: "disk", ctrlTable: "disk_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagExt4, name: "ext4", ctrlTable: "ext4_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagFD, name: "fd", ctrlTable: "fd_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagFD, name: "fd", updateNames: &fdOptionalNames, ctrlTable: "fd_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fdatasync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fsync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagHardIRQ, name: "hardirq"},
@@ -378,11 +389,51 @@ func parseKernelRelease(version string) int {
 
 func getRedHatRelease() int {
 	data, err := os.ReadFile("/etc/redhat-release")
+	if err == nil {
+		if result := parseRedHatRelease(string(data)); result != -1 {
+			return result
+		}
+	}
+
+	data, err = os.ReadFile("/etc/os-release")
 	if err != nil {
 		return -1
 	}
+	return parseOSRelease(string(data))
+}
 
-	return parseRedHatRelease(string(data))
+// parseOSRelease detects RH-family distros from /etc/os-release.
+// Matches ID or ID_LIKE containing "rhel", "centos", "almalinux", or "rocky",
+// then parses VERSION_ID=X.Y to return X*256+Y. Returns -1 on no match.
+func parseOSRelease(content string) int {
+	major := 0
+	minor := 0
+	isRHEL := false
+
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "ID=") || strings.HasPrefix(line, "ID_LIKE=") {
+			low := strings.ToLower(line)
+			if strings.Contains(low, "rhel") || strings.Contains(low, "centos") ||
+				strings.Contains(low, "almalinux") || strings.Contains(low, "rocky") {
+				isRHEL = true
+			}
+		} else if strings.HasPrefix(line, "VERSION_ID=") {
+			val := strings.TrimPrefix(line, "VERSION_ID=")
+			val = strings.Trim(val, "\"")
+			parts := strings.SplitN(val, ".", 2)
+			if len(parts) >= 1 {
+				major = parseLeadingLong(parts[0])
+			}
+			if len(parts) >= 2 {
+				minor = parseLeadingLong(parts[1])
+			}
+		}
+	}
+
+	if isRHEL && major > 0 {
+		return major*256 + minor
+	}
+	return -1
 }
 
 func parseRedHatRelease(release string) int {
@@ -898,6 +949,7 @@ func writeMapCompatibilityDebug(w io.Writer, unsupportedType uint32, supported m
 func fillNames() {
 	updateNames(dcOptionalNames)
 	updateNames(swapOptionalNames)
+	updateNames(fdOptionalNames)
 	updateNames(zfsOptionalNames)
 }
 

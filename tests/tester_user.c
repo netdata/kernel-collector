@@ -57,6 +57,18 @@ static ebpf_specify_name_t swap_optional_name[] = { {.program_name = "netdata_sw
                                                     .optional = NULL,
                                                     .retprobe = 0}};
 
+// close_fd replaced __close_fd in kernel 5.11; RH backported this rename to their 5.10 kernels.
+static ebpf_specify_name_t fd_optional_name[] = { {.program_name = "netdata_close_buffer",
+                                                    .function_to_attach = "close_fd",
+                                                    .fallback_function_to_attach = "__close_fd",
+                                                    .optional = NULL,
+                                                    .retprobe = 0},
+                                                   {.program_name = NULL,
+                                                    .function_to_attach = NULL,
+                                                    .fallback_function_to_attach = NULL,
+                                                    .optional = NULL,
+                                                    .retprobe = 0}};
+
 // Versions 3_10, 4_18 and 5_14 must be always present to keep compatibility with RH family
 // Version 4_14, 4_16 must be present for syscalls with old name convention
 // Version 5_4 must be present for kernels newer than 4.17.0
@@ -78,7 +90,7 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .flags = NETDATA_FLAG_FD, .name = "fd", .update_names = NULL, .ctrl_table = "fd_ctrl" },
+      .flags = NETDATA_FLAG_FD, .name = "fd", .update_names = fd_optional_name, .ctrl_table = "fd_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "fdatasync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
@@ -861,6 +873,40 @@ int ebpf_get_kernel_version()
  *
  * @param return It returns the Red Hat version on success and -1 otherwise.
  */
+/* Parse /etc/os-release to detect RH-family distros that lack /etc/redhat-release
+ * (e.g. minimal Alma 9 containers). Returns major*256+minor on match, -1 otherwise. */
+static int ebpf_get_rh_from_os_release(void)
+{
+    FILE *fp = fopen("/etc/os-release", "r");
+    if (!fp)
+        return -1;
+
+    char line[VERSION_STRING_LEN + 1];
+    int major = 0, minor = 0, is_rhel = 0;
+
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "ID=", 3) == 0 || strncmp(line, "ID_LIKE=", 8) == 0) {
+            if (strstr(line, "rhel") || strstr(line, "centos") ||
+                strstr(line, "almalinux") || strstr(line, "rocky"))
+                is_rhel = 1;
+        } else if (strncmp(line, "VERSION_ID=", 11) == 0) {
+            char *val = line + 11;
+            if (*val == '"')
+                val++;
+            char *endp;
+            major = (int)strtol(val, &endp, 10);
+            if (*endp == '.')
+                minor = (int)strtol(endp + 1, NULL, 10);
+        }
+    }
+
+    fclose(fp);
+
+    if (is_rhel && major > 0)
+        return major * 256 + minor;
+    return -1;
+}
+
 int ebpf_get_redhat_release()
 {
     char buffer[VERSION_STRING_LEN + 1];
@@ -897,9 +943,9 @@ int ebpf_get_redhat_release()
 
         fclose(fp);
         return ((major * 256) + minor);
-    } else {
-        return -1;
     }
+
+    return ebpf_get_rh_from_os_release();
 }
 
 /**
@@ -2292,6 +2338,7 @@ static void ebpf_fill_names()
 {
     ebpf_update_names(dc_optional_name);
     ebpf_update_names(swap_optional_name);
+    ebpf_update_names(fd_optional_name);
 }
 
 /**
@@ -2303,6 +2350,7 @@ static void ebpf_clean_name_vectors()
 {
     ebpf_clean_optional(dc_optional_name);
     ebpf_clean_optional(swap_optional_name);
+    ebpf_clean_optional(fd_optional_name);
 }
 
 /**
