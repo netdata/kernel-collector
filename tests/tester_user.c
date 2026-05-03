@@ -2003,13 +2003,14 @@ static uint64_t ebpf_set_common_flag()
  *
  * Parse arguments given from command line.
  *
- * @param argc is the number of arguments
- * @param argv vector with values.
- * @param kver is the current kernel version
+ * @param argc        is the number of arguments
+ * @param argv        vector with values.
+ * @param kver        is the current kernel version
+ * @param rhf_version Red Hat family version (-1 if not RH)
  *
  * @return It returns the flags used during the simulation.
  */
-uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
+uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
 {
     uint64_t flags = 0;
     int option_index = 0;
@@ -2260,12 +2261,12 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         }
     }
 
-    if (buffer_mode && kver < NETDATA_EBPF_KERNEL_5_8) {
+    if (buffer_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_5_8) {
         fprintf(stdlog, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n");
         exit(1);
     }
 
-    if (arena_mode && kver < NETDATA_EBPF_KERNEL_6_9) {
+    if (arena_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_6_9) {
         fprintf(stdlog, "\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n");
         exit(1);
     }
@@ -2345,7 +2346,7 @@ int main(int argc, char **argv)
         nprocesses = NETDATA_DEFAULT_PROCESS_NUMBER;
     }
 
-    uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel);
+    uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel, rhf_version);
 
     // Start JSON output
     fprintf(stdlog, "{");

@@ -281,7 +281,7 @@ func run() int {
 	}
 
 	logger := &logState{writer: os.Stderr}
-	opts, parseCode := parseArguments(os.Args[1:], kernelVersion, logger)
+	opts, parseCode := parseArguments(os.Args[1:], kernelVersion, rhfVersion, logger)
 	if logger.file != nil {
 		defer logger.file.Close()
 	}
@@ -469,7 +469,7 @@ func setCommonFlag() uint64 {
 	return flagCollectors & ^(flagFS | flagLoadBinary | flagMDFlush | flagContent)
 }
 
-func parseArguments(args []string, kernelVersion int, logger *logState) (options, int) {
+func parseArguments(args []string, kernelVersion int, rhfVersion int, logger *logState) (options, int) {
 	opts := options{
 		iterations: 1,
 		mapLevel:   0,
@@ -586,12 +586,12 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		opts.flags &^= flagOOMKill
 	}
 
-	if opts.bufferMode && kernelVersion < netdataEBPFKernel58 {
+	if opts.bufferMode && rhfVersion == -1 && kernelVersion < netdataEBPFKernel58 {
 		fmt.Fprintf(logger.writer, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n")
 		return opts, 1
 	}
 
-	if opts.arenaMode && kernelVersion < netdataEBPFKernel69 {
+	if opts.arenaMode && rhfVersion == -1 && kernelVersion < netdataEBPFKernel69 {
 		fmt.Fprintf(logger.writer, "\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n")
 		return opts, 1
 	}

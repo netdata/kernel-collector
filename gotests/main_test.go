@@ -337,7 +337,7 @@ func TestBinaryAndIPHelpers(t *testing.T) {
 
 func TestParseArgumentsUnitTest(t *testing.T) {
 	var log bytes.Buffer
-	opts, code := parseArguments([]string{"--unit-test"}, netdataEBPFKernel68, &logState{writer: &log})
+	opts, code := parseArguments([]string{"--unit-test"}, netdataEBPFKernel68, -1, &logState{writer: &log})
 	if code != 0 {
 		t.Fatalf("unexpected parse code: %d", code)
 	}
@@ -355,7 +355,7 @@ func TestParseArgumentsUnitTest(t *testing.T) {
 func TestParseArgumentsAll(t *testing.T) {
 	t.Run("--all enables content flag for PID collection", func(t *testing.T) {
 		var log bytes.Buffer
-		opts, code := parseArguments([]string{"--all"}, netdataEBPFKernel68, &logState{writer: &log})
+		opts, code := parseArguments([]string{"--all"}, netdataEBPFKernel68, -1, &logState{writer: &log})
 		if code != 0 {
 			t.Fatalf("unexpected parse code: %d", code)
 		}
@@ -369,7 +369,7 @@ func TestParseArgumentsAll(t *testing.T) {
 
 	t.Run("--pid 3 is accepted", func(t *testing.T) {
 		var log bytes.Buffer
-		opts, code := parseArguments([]string{"--all", "--pid", "3"}, netdataEBPFKernel68, &logState{writer: &log})
+		opts, code := parseArguments([]string{"--all", "--pid", "3"}, netdataEBPFKernel68, -1, &logState{writer: &log})
 		if code != 0 {
 			t.Fatalf("unexpected parse code: %d", code)
 		}
@@ -385,7 +385,7 @@ func TestParseArgumentsAll(t *testing.T) {
 func TestParseArgumentsBuffer(t *testing.T) {
 	t.Run("--buffer enables content flag for ring buffer data", func(t *testing.T) {
 		var log bytes.Buffer
-		opts, code := parseArguments([]string{"--buffer"}, netdataEBPFKernel612, &logState{writer: &log})
+		opts, code := parseArguments([]string{"--buffer"}, netdataEBPFKernel612, -1, &logState{writer: &log})
 		if code != 0 {
 			t.Fatalf("unexpected parse code: %d", code)
 		}
@@ -399,7 +399,7 @@ func TestParseArgumentsBuffer(t *testing.T) {
 
 	t.Run("--arena enables content flag for arena data", func(t *testing.T) {
 		var log bytes.Buffer
-		opts, code := parseArguments([]string{"--arena"}, netdataEBPFKernel69, &logState{writer: &log})
+		opts, code := parseArguments([]string{"--arena"}, netdataEBPFKernel69, -1, &logState{writer: &log})
 		if code != 0 {
 			t.Fatalf("unexpected parse code: %d", code)
 		}
@@ -408,6 +408,34 @@ func TestParseArgumentsBuffer(t *testing.T) {
 		}
 		if opts.flags&flagContent == 0 {
 			t.Fatal("--arena must enable flagContent so arena data is collected and ring size is shown")
+		}
+	})
+
+	t.Run("--buffer on RH kernel below 5.8 skips version abort", func(t *testing.T) {
+		var log bytes.Buffer
+		// netdataMinimumEBPFKernel (4.11) is below the 5.8 ring-buffer threshold.
+		// On a non-RH kernel this must be rejected; on RH it must proceed.
+		_, nonRHCode := parseArguments([]string{"--buffer"}, netdataMinimumEBPFKernel, -1, &logState{writer: &log})
+		if nonRHCode == 0 {
+			t.Fatal("non-RH kernel below 5.8 must be rejected for --buffer")
+		}
+		log.Reset()
+		_, rhCode := parseArguments([]string{"--buffer"}, netdataMinimumEBPFKernel, 1, &logState{writer: &log})
+		if rhCode != 0 {
+			t.Fatalf("RH kernel must bypass version check for --buffer, got code %d", rhCode)
+		}
+	})
+
+	t.Run("--arena on RH kernel below 6.9 skips version abort", func(t *testing.T) {
+		var log bytes.Buffer
+		_, nonRHCode := parseArguments([]string{"--arena"}, netdataEBPFKernel514, -1, &logState{writer: &log})
+		if nonRHCode == 0 {
+			t.Fatal("non-RH kernel below 6.9 must be rejected for --arena")
+		}
+		log.Reset()
+		_, rhCode := parseArguments([]string{"--arena"}, netdataEBPFKernel514, 1, &logState{writer: &log})
+		if rhCode != 0 {
+			t.Fatalf("RH kernel must bypass version check for --arena, got code %d", rhCode)
 		}
 	})
 
