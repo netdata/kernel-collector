@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -45,6 +46,9 @@
 #define SOCKET_VAL_UDP_RECV_CALLS      92   /* __u32 */
 #define SOCKET_VAL_UDP_BYTES_SENT      96   /* __u64 */
 #define SOCKET_VAL_UDP_BYTES_RECV      104  /* __u64 */
+
+#define SOCKET_ARENA_MAP_PAGES 256
+#define SOCKET_ARENA_SLOT_COUNT 1024
 
 #define SOCKET_NAME_LEN  16
 #define SOCKET_SLEEP_SEC 5
@@ -235,6 +239,11 @@ typedef struct {
     size_t capacity;
 } socket_event_collection_t;
 
+typedef struct {
+    uint32_t head;
+    struct netdata_socket_event_t events[SOCKET_ARENA_SLOT_COUNT];
+} socket_arena_state_t;
+
 static int socket_entries_match(const socket_entry_t *a, const socket_entry_t *b)
 {
     return memcmp(a->saddr, b->saddr, sizeof(a->saddr)) == 0 &&
@@ -297,25 +306,17 @@ static socket_entry_t *socket_collection_get(socket_event_collection_t *coll, co
     return &coll->entries[coll->size++];
 }
 
+static void socket_collect_event(socket_event_collection_t *coll, const struct netdata_socket_event_t *ev);
+
 static int socket_ringbuf_sample_cb(void *ctx, void *data, size_t size)
 {
     socket_event_collection_t *coll = ctx;
-    socket_entry_t sample = { };
-    struct netdata_socket_event_t *ev = data;
 
     (void)size;
-
-    if (!coll || !ev)
+    if (!coll || !data)
         return 0;
 
-    socket_decode_key(&sample, (const uint8_t *)&ev->idx);
-    socket_aggregate_percpu(&sample, (const uint8_t *)&ev->data, sizeof(ev->data), 1);
-
-    int created = 0;
-    socket_entry_t *entry = socket_collection_get(coll, &sample, &created);
-    if (entry && !created)
-        socket_merge_entry(entry, &sample);
-
+    socket_collect_event(coll, (const struct netdata_socket_event_t *)data);
     return 0;
 }
 
@@ -325,6 +326,47 @@ static void socket_collection_free(socket_event_collection_t *coll)
     coll->entries = NULL;
     coll->size = 0;
     coll->capacity = 0;
+}
+
+static void socket_collect_event(socket_event_collection_t *coll, const struct netdata_socket_event_t *ev)
+{
+    socket_entry_t sample = { };
+    int created = 0;
+    socket_entry_t *entry;
+
+    if (!coll || !ev)
+        return;
+
+    socket_decode_key(&sample, (const uint8_t *)&ev->idx);
+    socket_aggregate_percpu(&sample, (const uint8_t *)&ev->data, sizeof(ev->data), 1);
+
+    entry = socket_collection_get(coll, &sample, &created);
+    if (entry && !created)
+        socket_merge_entry(entry, &sample);
+}
+
+static void socket_collect_arena_state(socket_event_collection_t *coll, const socket_arena_state_t *state)
+{
+    uint32_t head;
+    uint32_t start;
+    uint32_t i;
+
+    if (!coll || !state)
+        return;
+
+    head = state->head;
+    if (head == 0)
+        return;
+
+    start = (head > SOCKET_ARENA_SLOT_COUNT) ? (head - SOCKET_ARENA_SLOT_COUNT) : 0;
+    for (i = start; i < head; i++) {
+        const struct netdata_socket_event_t *ev = &state->events[i % SOCKET_ARENA_SLOT_COUNT];
+
+        if (ev->data.first == 0 && ev->data.ct == 0 && ev->idx.pid == 0)
+            continue;
+
+        socket_collect_event(coll, ev);
+    }
 }
 
 /* -------------------------------------------------------------------------
@@ -445,6 +487,8 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
     int collection_seconds = iterations * SOCKET_SLEEP_SEC;
     socket_event_collection_t coll = { };
     struct ring_buffer *rb = NULL;
+    socket_arena_state_t *arena = NULL;
+    size_t arena_size = (size_t)sysconf(_SC_PAGESIZE) * SOCKET_ARENA_MAP_PAGES;
     uint32_t value_size = (uint32_t)sizeof(netdata_socket_t);
 
     fd = bpf_map__fd(map);
@@ -467,7 +511,14 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
             (unsigned)sizeof(netdata_socket_idx_t), value_size,
             type, fd, collection_seconds);
 
-    rb = ring_buffer__new(fd, socket_ringbuf_sample_cb, &coll, NULL);
+    if (type == BPF_MAP_TYPE_RINGBUF) {
+        rb = ring_buffer__new(fd, socket_ringbuf_sample_cb, &coll, NULL);
+    } else {
+        arena = mmap(NULL, arena_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (arena == MAP_FAILED)
+            arena = NULL;
+    }
+
     if (rb) {
         int sec;
 
@@ -477,6 +528,13 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
         }
 
         ring_buffer__poll(rb, 0);
+    } else if (arena) {
+        int sec;
+
+        for (sec = 0; sec < collection_seconds; sec++)
+            sleep(1);
+
+        socket_collect_arena_state(&coll, arena);
     }
 
     if (coll.size > 0) {
@@ -498,5 +556,7 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
 
     if (rb)
         ring_buffer__free(rb);
+    if (arena)
+        munmap(arena, arena_size);
     socket_collection_free(&coll);
 }

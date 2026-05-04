@@ -271,12 +271,17 @@ func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
 	}
 
 	meta := m.meta()
-	rb, errCode := newSocketRingBuffer(meta.FD)
-	if rb != nil {
-		defer rb.free()
-	}
-
 	collectionSeconds := iterations * socketSleepSec
+	collector := &socketRingbufCollector{entries: make(map[string]*socketEntry)}
+	var rb *socketRingBuffer
+	errCode := 0
+
+	if meta.Type == bpfMapTypeRingBuf {
+		rb, errCode = newSocketRingBuffer(meta.FD)
+		if rb != nil {
+			defer rb.free()
+		}
+	}
 
 	fmt.Fprintf(w,
 		"        \"socket_connections\" : {\n"+
@@ -293,9 +298,17 @@ func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
 			rb.poll(0)
 		}
 		rb.poll(0)
+		socketWriteCollectedEntries(w, getSocketRingbufCollector(rb.handle))
+	} else {
+		for sec := 0; sec < collectionSeconds; sec++ {
+			time.Sleep(time.Second)
+		}
+		if collectSocketArenaEntries(meta.FD, collector) == 0 {
+			socketWriteCollectedEntries(w, collector)
+		}
 	}
 
 	if rb != nil {
-		socketWriteCollectedEntries(w, getSocketRingbufCollector(rb.handle))
+		return
 	}
 }

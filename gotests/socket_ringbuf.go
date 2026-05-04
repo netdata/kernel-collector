@@ -29,8 +29,10 @@ void netdata_ringbuf_stats_free(struct netdata_ringbuf_stats *stats);
 import "C"
 
 import (
+	"encoding/binary"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"unsafe"
 )
 
@@ -38,6 +40,10 @@ const (
 	socketEventKeySize     = socketIdxPidOffset + 4
 	socketEventValueSize   = socketValUDPBytesRecv + 8
 	socketEventDataOffset   = socketEventKeySize
+	socketArenaMapPages     = 256
+	socketArenaSlotCount    = 1024
+	socketArenaSlotSize     = socketEventKeySize + socketEventValueSize
+	socketArenaStateHeader  = 4
 )
 
 type socketRingbufCollector struct {
@@ -106,6 +112,60 @@ func (c *socketRingbufCollector) add(raw []byte) {
 	entry := sample
 	c.entries[key] = &entry
 	c.order = append(c.order, key)
+}
+
+func socketArenaSlotEmpty(raw []byte) bool {
+	for _, b := range raw {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func collectSocketArenaEntries(mapFD int, collector *socketRingbufCollector) int {
+	pageSize := syscall.Getpagesize()
+	arenaSize := socketArenaMapPages * pageSize
+	mapped, err := syscall.Mmap(mapFD, 0, arenaSize, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	if err != nil {
+		if errno, ok := err.(syscall.Errno); ok {
+			return -int(errno)
+		}
+		return -1
+	}
+	defer syscall.Munmap(mapped)
+
+	if len(mapped) < socketArenaStateHeader {
+		return -1
+	}
+
+	head := binary.LittleEndian.Uint32(mapped[:socketArenaStateHeader])
+	if head == 0 {
+		return 0
+	}
+
+	start := uint32(0)
+	if head > socketArenaSlotCount {
+		start = head - socketArenaSlotCount
+	}
+
+	for i := start; i < head; i++ {
+		slot := int(i % socketArenaSlotCount)
+		base := socketArenaStateHeader + slot*socketArenaSlotSize
+		end := base + socketArenaSlotSize
+		if end > len(mapped) {
+			break
+		}
+
+		raw := mapped[base:end]
+		if socketArenaSlotEmpty(raw) {
+			continue
+		}
+
+		collector.add(raw)
+	}
+
+	return 0
 }
 
 func socketMergeEntry(dst, src *socketEntry) {
