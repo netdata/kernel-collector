@@ -1223,10 +1223,14 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 	}
 
 	if maps {
-		if ctrl != "" {
-			fillCtrl(obj, ctrl, opts.mapLevel, nprocesses)
+		if hasSocketTable(obj) {
+			runSocketTableTester(w, obj, opts.iterations)
+		} else {
+			if ctrl != "" {
+				fillCtrl(obj, ctrl, opts.mapLevel, nprocesses)
+			}
+			testMaps(w, obj, ctrl, opts.iterations, nprocesses)
 		}
-		testMaps(w, obj, ctrl, opts.iterations, nprocesses)
 	}
 
 	for _, link := range summary.links {

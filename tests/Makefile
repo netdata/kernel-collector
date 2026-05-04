@@ -5,7 +5,7 @@ LIBBPF = ../libbpf
 LIBBPF_READY = ../.local_libbpf/libbpf.a
 TESTER_BIN = legacy_test
 GO_TESTER_BIN = ../gotests/go_tester
-TESTER_SRCS = tester_user.c tester_dns.c
+TESTER_SRCS = tester_user.c tester_dns.c tester_socket.c
 GO_TESTER_SRCS = $(wildcard ../gotests/*.go ../gotests/go.mod ../gotests/go.sum)
 TESTER_DEBUG_CFLAGS ?= -g
 GO_TESTER_GCFLAGS ?= all=-dwarf=true

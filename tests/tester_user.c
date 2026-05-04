@@ -19,6 +19,7 @@
 // Libbpf
 #include "tester_user.h"
 #include "tester_dns.h"
+#include "tester_socket.h"
 
 static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_lookup_fast",
                                                     .function_to_attach = "lookup_fast",
@@ -1804,11 +1805,15 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     }
 
     if (!errors && maps) {
-        if (ctrl) {
-            ebpf_fill_ctrl(obj, ctrl);
-        }
+        if (ebpf_object_has_socket_table(obj)) {
+            ebpf_socket_table_tester(obj, stdlog, end_iteration);
+        } else {
+            if (ctrl) {
+                ebpf_fill_ctrl(obj, ctrl);
+            }
 
-        ebpf_test_maps(obj, ctrl);
+            ebpf_test_maps(obj, ctrl);
+        }
     }
 
     if (!errors) {
