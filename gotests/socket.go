@@ -229,3 +229,73 @@ func socketReadEntries(w io.Writer, fd, keySize, stride, ncpus int) {
 		fmt.Fprint(w, "\n")
 	}
 }
+
+func socketKeyString(key []byte) string {
+	return string(key[:socketEventKeySize])
+}
+
+func hasSocketEvents(obj *bpfObject) bool {
+	return obj.findMapByName("socket_events") != nil
+}
+
+func socketWriteCollectedEntries(w io.Writer, coll *socketRingbufCollector) {
+	if coll == nil {
+		return
+	}
+
+	coll.mu.Lock()
+	defer coll.mu.Unlock()
+
+	first := true
+	for _, key := range coll.order {
+		entry := coll.entries[key]
+		if entry == nil {
+			continue
+		}
+		if !first {
+			fmt.Fprint(w, ",\n")
+		}
+		socketWriteEntryJSON(w, entry)
+		first = false
+	}
+
+	if !first {
+		fmt.Fprint(w, "\n")
+	}
+}
+
+func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
+	m := obj.findMapByName("socket_events")
+	if m == nil {
+		return
+	}
+
+	meta := m.meta()
+	rb, errCode := newSocketRingBuffer(meta.FD)
+	if rb != nil {
+		defer rb.free()
+	}
+
+	collectionSeconds := iterations * socketSleepSec
+
+	fmt.Fprintf(w,
+		"        \"socket_connections\" : {\n"+
+			"            \"Info\" : { \"Length\" : { \"Key\" : %d, \"Value\" : %d},\n"+
+			"                       \"Type\" : %d,\n"+
+			"                       \"FD\" : %d,\n"+
+			"                       \"Collection Seconds\" : %d,\n"+
+			"                       \"Data\" : [\n",
+		socketEventKeySize, socketEventValueSize, meta.Type, meta.FD, collectionSeconds)
+
+	if errCode == 0 && rb != nil {
+		for sec := 0; sec < collectionSeconds; sec++ {
+			time.Sleep(time.Second)
+			rb.poll(0)
+		}
+		rb.poll(0)
+	}
+
+	if rb != nil {
+		socketWriteCollectedEntries(w, getSocketRingbufCollector(rb.handle))
+	}
+}

@@ -6,6 +6,10 @@
 // Conflict with CO-RE code
 // #include <linux/in6.h>
 
+#ifndef TASK_COMM_LEN
+#define TASK_COMM_LEN 16
+#endif
+
 /**
  *      SOCKET
  */

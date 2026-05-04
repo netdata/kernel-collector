@@ -764,7 +764,7 @@ func TestModeSuffix(t *testing.T) {
 }
 
 func TestModuleModeLookup(t *testing.T) {
-	bufferArenaModules := []string{"cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns"}
+	bufferArenaModules := []string{"cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket"}
 	for _, name := range bufferArenaModules {
 		if !moduleHasBuffer(name) {
 			t.Fatalf("expected %q to have buffer support", name)
@@ -774,7 +774,7 @@ func TestModuleModeLookup(t *testing.T) {
 		}
 	}
 
-	plainOnlyModules := []string{"btrfs", "disk", "ext4", "hardirq", "mdflush", "mount", "nfs", "network_viewer", "softirq", "socket", "xfs", "zfs"}
+	plainOnlyModules := []string{"btrfs", "disk", "ext4", "hardirq", "mdflush", "mount", "nfs", "network_viewer", "softirq", "xfs", "zfs"}
 	for _, name := range plainOnlyModules {
 		if moduleHasBuffer(name) {
 			t.Fatalf("expected %q to not have buffer support", name)

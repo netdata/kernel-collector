@@ -10,28 +10,25 @@
 
 #include <libbpf.h>
 
+#include "../includes/netdata_socket_buffer.h"
 #include "tester_socket.h"
 
 /*
  * Binary layout of netdata_socket_idx_t (40 bytes).
  * Offsets must match kernel struct in includes/netdata_socket.h.
  */
-#define SOCKET_IDX_SADDR_OFFSET  0    /* union netdata_ip: 16 bytes */
-#define SOCKET_IDX_DADDR_OFFSET  16   /* union netdata_ip: 16 bytes */
-#define SOCKET_IDX_DPORT_OFFSET  32   /* __u16: 2 bytes             */
-#define SOCKET_IDX_PID_OFFSET    36   /* __u32: 4 bytes (after 2B pad) */
-#define SOCKET_IDX_SIZE          40
+#define SOCKET_IDX_SADDR_OFFSET  0    /* union netdata_ip: 16 bytes            */
+#define SOCKET_IDX_DADDR_OFFSET  16   /* union netdata_ip: 16 bytes            */
+#define SOCKET_IDX_DPORT_OFFSET  32   /* __u16: 2 bytes                        */
+#define SOCKET_IDX_PID_OFFSET    36   /* __u32: 4 bytes (after 2B implicit pad) */
 
 /*
  * Binary layout of netdata_socket_t (112 bytes).
  * Offsets must match kernel struct in includes/netdata_socket.h.
  */
 #define SOCKET_VAL_NAME_OFFSET         0    /* char[16]  */
-#define SOCKET_VAL_FIRST_OFFSET        16   /* __u64     */
-#define SOCKET_VAL_CT_OFFSET           24   /* __u64     */
 #define SOCKET_VAL_PROTOCOL_OFFSET     32   /* __u16     */
 #define SOCKET_VAL_FAMILY_OFFSET       34   /* __u16     */
-#define SOCKET_VAL_EXTORIGIN_OFFSET    36   /* __u32     */
 /* tcp sub-struct starts at offset 40 */
 #define SOCKET_VAL_TCP_SENT_CALLS      40   /* __u32 */
 #define SOCKET_VAL_TCP_RECV_CALLS      44   /* __u32 */
@@ -48,7 +45,6 @@
 #define SOCKET_VAL_UDP_RECV_CALLS      92   /* __u32 */
 #define SOCKET_VAL_UDP_BYTES_SENT      96   /* __u64 */
 #define SOCKET_VAL_UDP_BYTES_RECV      104  /* __u64 */
-#define SOCKET_VAL_SIZE                112
 
 #define SOCKET_NAME_LEN  16
 #define SOCKET_SLEEP_SEC 5
@@ -233,26 +229,134 @@ static void socket_write_entry_json(FILE *out, const socket_entry_t *e)
             (unsigned long long)e->udp_bytes_recv);
 }
 
+typedef struct {
+    socket_entry_t *entries;
+    size_t size;
+    size_t capacity;
+} socket_event_collection_t;
+
+static int socket_entries_match(const socket_entry_t *a, const socket_entry_t *b)
+{
+    return memcmp(a->saddr, b->saddr, sizeof(a->saddr)) == 0 &&
+           memcmp(a->daddr, b->daddr, sizeof(a->daddr)) == 0 &&
+           a->dport == b->dport &&
+           a->pid == b->pid;
+}
+
+static void socket_merge_entry(socket_entry_t *dst, const socket_entry_t *src)
+{
+    if (dst->name[0] == '\0' && src->name[0] != '\0') {
+        memcpy(dst->name, src->name, sizeof(dst->name));
+        dst->protocol = src->protocol;
+        dst->family = src->family;
+    }
+
+    dst->tcp_sent_calls   += src->tcp_sent_calls;
+    dst->tcp_recv_calls   += src->tcp_recv_calls;
+    dst->tcp_bytes_sent   += src->tcp_bytes_sent;
+    dst->tcp_bytes_recv   += src->tcp_bytes_recv;
+    dst->tcp_close        += src->tcp_close;
+    dst->tcp_retransmit   += src->tcp_retransmit;
+    dst->tcp_ipv4_connect += src->tcp_ipv4_connect;
+    dst->tcp_ipv6_connect += src->tcp_ipv6_connect;
+    dst->udp_sent_calls   += src->udp_sent_calls;
+    dst->udp_recv_calls   += src->udp_recv_calls;
+    dst->udp_bytes_sent   += src->udp_bytes_sent;
+    dst->udp_bytes_recv   += src->udp_bytes_recv;
+
+    if (src->tcp_state)
+        dst->tcp_state = src->tcp_state;
+}
+
+static socket_entry_t *socket_collection_get(socket_event_collection_t *coll, const socket_entry_t *sample, int *created)
+{
+    size_t i;
+
+    for (i = 0; i < coll->size; i++) {
+        if (socket_entries_match(&coll->entries[i], sample))
+        {
+            if (created)
+                *created = 0;
+            return &coll->entries[i];
+        }
+    }
+
+    if (coll->size == coll->capacity) {
+        size_t new_capacity = coll->capacity ? coll->capacity * 2 : 32;
+        socket_entry_t *new_entries = realloc(coll->entries, new_capacity * sizeof(*new_entries));
+        if (!new_entries)
+            return NULL;
+
+        coll->entries = new_entries;
+        coll->capacity = new_capacity;
+    }
+
+    coll->entries[coll->size] = *sample;
+    if (created)
+        *created = 1;
+    return &coll->entries[coll->size++];
+}
+
+static int socket_ringbuf_sample_cb(void *ctx, void *data, size_t size)
+{
+    socket_event_collection_t *coll = ctx;
+    socket_entry_t sample = { };
+    struct netdata_socket_event_t *ev = data;
+
+    (void)size;
+
+    if (!coll || !ev)
+        return 0;
+
+    socket_decode_key(&sample, (const uint8_t *)&ev->idx);
+    socket_aggregate_percpu(&sample, (const uint8_t *)&ev->data, sizeof(ev->data), 1);
+
+    int created = 0;
+    socket_entry_t *entry = socket_collection_get(coll, &sample, &created);
+    if (entry && !created)
+        socket_merge_entry(entry, &sample);
+
+    return 0;
+}
+
+static void socket_collection_free(socket_event_collection_t *coll)
+{
+    free(coll->entries);
+    coll->entries = NULL;
+    coll->size = 0;
+    coll->capacity = 0;
+}
+
 /* -------------------------------------------------------------------------
  * Public interface.
  * -------------------------------------------------------------------------*/
 
-int ebpf_object_has_socket_table(struct bpf_object *obj)
+struct bpf_map *ebpf_find_socket_table(struct bpf_object *obj)
 {
     struct bpf_map *map;
 
     bpf_object__for_each_map(map, obj) {
         if (!strcmp(bpf_map__name(map), "tbl_nd_socket"))
-            return 1;
+            return map;
     }
 
-    return 0;
+    return NULL;
 }
 
-void ebpf_socket_table_tester(struct bpf_object *obj, FILE *out, int iterations)
+struct bpf_map *ebpf_find_socket_events(struct bpf_object *obj)
 {
-    struct bpf_map *map = NULL;
-    struct bpf_map *m;
+    struct bpf_map *map;
+
+    bpf_object__for_each_map(map, obj) {
+        if (!strcmp(bpf_map__name(map), "socket_events"))
+            return map;
+    }
+
+    return NULL;
+}
+
+void ebpf_socket_table_tester(struct bpf_map *map, FILE *out, int iterations)
+{
     int fd;
     uint32_t key_size, value_size, map_type;
     int ncpus;
@@ -260,21 +364,8 @@ void ebpf_socket_table_tester(struct bpf_object *obj, FILE *out, int iterations)
     uint8_t *key_buf     = NULL;
     uint8_t *next_key    = NULL;
     uint8_t *percpu_buf  = NULL;
-    int entry_count = 0;
-    int first       = 1;
+    int first            = 1;
     int collection_seconds = iterations * SOCKET_SLEEP_SEC;
-
-    bpf_object__for_each_map(m, obj) {
-        if (!strcmp(bpf_map__name(m), "tbl_nd_socket")) {
-            map = m;
-            break;
-        }
-    }
-
-    if (!map) {
-        fprintf(out, "        \"Total tables\" : 0\n");
-        return;
-    }
 
     fd         = bpf_map__fd(map);
 #ifdef LIBBPF_MAJOR_VERSION
@@ -332,7 +423,6 @@ void ebpf_socket_table_tester(struct bpf_object *obj, FILE *out, int iterations)
 
         socket_write_entry_json(out, &entry);
         first = 0;
-        entry_count++;
 
 advance:
         memcpy(key_buf, next_key, key_size);
@@ -342,14 +432,71 @@ write_footer:
     if (!first)
         fprintf(out, "\n");
 
+    cleanup:
+    free(key_buf);
+    free(next_key);
+    free(percpu_buf);
+}
+
+void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
+{
+    int fd;
+    uint32_t type;
+    int collection_seconds = iterations * SOCKET_SLEEP_SEC;
+    socket_event_collection_t coll = { };
+    struct ring_buffer *rb = NULL;
+    uint32_t value_size = (uint32_t)sizeof(netdata_socket_t);
+
+    fd = bpf_map__fd(map);
+#ifdef LIBBPF_MAJOR_VERSION
+    type = (uint32_t)bpf_map__type(map);
+#else
+    {
+        const struct bpf_map_def *def = bpf_map__def(map);
+        type = (uint32_t)def->type;
+    }
+#endif
+
+    fprintf(out,
+            "        \"socket_connections\" : {\n"
+            "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
+            "                       \"Type\" : %u,\n"
+            "                       \"FD\" : %d,\n"
+            "                       \"Collection Seconds\" : %d,\n"
+            "                       \"Data\" : [\n",
+            (unsigned)sizeof(netdata_socket_idx_t), value_size,
+            type, fd, collection_seconds);
+
+    rb = ring_buffer__new(fd, socket_ringbuf_sample_cb, &coll, NULL);
+    if (rb) {
+        int sec;
+
+        for (sec = 0; sec < collection_seconds; sec++) {
+            sleep(1);
+            ring_buffer__poll(rb, 0);
+        }
+
+        ring_buffer__poll(rb, 0);
+    }
+
+    if (coll.size > 0) {
+        size_t i;
+
+        for (i = 0; i < coll.size; i++) {
+            if (i)
+                fprintf(out, ",\n");
+            socket_write_entry_json(out, &coll.entries[i]);
+        }
+        fprintf(out, "\n");
+    }
+
     fprintf(out,
             "                                ]\n"
             "                      }\n"
             "        },\n"
             "        \"Total tables\" : 1\n");
 
-cleanup:
-    free(key_buf);
-    free(next_key);
-    free(percpu_buf);
+    if (rb)
+        ring_buffer__free(rb);
+    socket_collection_free(&coll);
 }

@@ -25,6 +25,13 @@ struct netdata_ringbuf_stats {
 	uint64_t bytes;
 };
 
+struct netdata_socket_ringbuf_ctx {
+	struct netdata_ringbuf_stats *stats;
+	uint64_t handle;
+};
+
+extern void socketRingbufSample(uint64_t handle, void *data, size_t size);
+
 #ifdef LIBBPF_MAJOR_VERSION
 static int netdata_libbpf_probe_bpf_map_type(unsigned int map_type)
 {
@@ -132,37 +139,75 @@ static int netdata_ring_buffer_sample_cb(void *ctx, void *data, size_t size)
 	return 0;
 }
 
-static struct netdata_ringbuf_stats *netdata_ringbuf_stats_new(void)
+static int netdata_socket_ring_buffer_sample_cb(void *ctx, void *data, size_t size)
+{
+	struct netdata_socket_ringbuf_ctx *socket_ctx = ctx;
+
+	if (socket_ctx) {
+		if (socket_ctx->stats) {
+			socket_ctx->stats->samples++;
+			socket_ctx->stats->bytes += size;
+		}
+		socketRingbufSample(socket_ctx->handle, data, size);
+	}
+
+	return 0;
+}
+
+struct netdata_ringbuf_stats *netdata_ringbuf_stats_new(void)
 {
 	return calloc(1, sizeof(struct netdata_ringbuf_stats));
 }
 
-static void netdata_ringbuf_stats_free(struct netdata_ringbuf_stats *stats)
+void netdata_ringbuf_stats_free(struct netdata_ringbuf_stats *stats)
 {
 	free(stats);
 }
 
-static uint64_t netdata_ringbuf_stats_samples(const struct netdata_ringbuf_stats *stats)
+uint64_t netdata_ringbuf_stats_samples(const struct netdata_ringbuf_stats *stats)
 {
 	return stats ? stats->samples : 0;
 }
 
-static uint64_t netdata_ringbuf_stats_bytes(const struct netdata_ringbuf_stats *stats)
+uint64_t netdata_ringbuf_stats_bytes(const struct netdata_ringbuf_stats *stats)
 {
 	return stats ? stats->bytes : 0;
 }
 
-static struct ring_buffer *netdata_ring_buffer_new(int map_fd, struct netdata_ringbuf_stats *stats)
+struct ring_buffer *netdata_ring_buffer_new(int map_fd, struct netdata_ringbuf_stats *stats)
 {
 	return ring_buffer__new(map_fd, netdata_ring_buffer_sample_cb, stats, NULL);
 }
 
-static int netdata_ring_buffer_poll(struct ring_buffer *rb, int timeout_ms)
+struct netdata_socket_ringbuf_ctx *netdata_socket_ringbuf_ctx_new(struct netdata_ringbuf_stats *stats, uint64_t handle)
+{
+	struct netdata_socket_ringbuf_ctx *ctx = calloc(1, sizeof(*ctx));
+
+	if (!ctx)
+		return NULL;
+
+	ctx->stats = stats;
+	ctx->handle = handle;
+
+	return ctx;
+}
+
+void netdata_socket_ringbuf_ctx_free(struct netdata_socket_ringbuf_ctx *ctx)
+{
+	free(ctx);
+}
+
+struct ring_buffer *netdata_socket_ring_buffer_new(int map_fd, struct netdata_socket_ringbuf_ctx *ctx)
+{
+	return ring_buffer__new(map_fd, netdata_socket_ring_buffer_sample_cb, ctx, NULL);
+}
+
+int netdata_ring_buffer_poll(struct ring_buffer *rb, int timeout_ms)
 {
 	return ring_buffer__poll(rb, timeout_ms);
 }
 
-static uint64_t netdata_ring_buffer_avail_data(const struct ring_buffer *rb)
+uint64_t netdata_ring_buffer_avail_data(const struct ring_buffer *rb)
 {
 	struct ring *ring = ring_buffer__ring((struct ring_buffer *)rb, 0);
 
@@ -172,7 +217,7 @@ static uint64_t netdata_ring_buffer_avail_data(const struct ring_buffer *rb)
 	return (uint64_t)ring__avail_data_size(ring);
 }
 
-static uint64_t netdata_ring_buffer_size(const struct ring_buffer *rb)
+uint64_t netdata_ring_buffer_size(const struct ring_buffer *rb)
 {
 	struct ring *ring = ring_buffer__ring((struct ring_buffer *)rb, 0);
 
@@ -182,7 +227,7 @@ static uint64_t netdata_ring_buffer_size(const struct ring_buffer *rb)
 	return (uint64_t)ring__size(ring);
 }
 
-static void netdata_ring_buffer_free(struct ring_buffer *rb)
+void netdata_ring_buffer_free(struct ring_buffer *rb)
 {
 	ring_buffer__free(rb);
 }

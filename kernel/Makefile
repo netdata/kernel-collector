@@ -113,6 +113,7 @@ NETDATA_RINGBUF_APPS= cachestat_buffer \
                       dc_buffer \
                       dns_buffer \
                       fd_buffer \
+                      socket_buffer \
                       oomkill_buffer \
                       process_buffer \
                       shm_buffer \
@@ -129,6 +130,7 @@ NETDATA_ARENA_APPS= cachestat_arena \
                     dc_arena \
                     dns_arena \
                     fd_arena \
+                    socket_arena \
                     oomkill_arena \
                     process_arena \
                     shm_arena \

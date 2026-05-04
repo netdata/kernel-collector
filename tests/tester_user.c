@@ -105,6 +105,8 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "msync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
@@ -1513,7 +1515,7 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
             value + zero,  value, zero);
 }
 
-static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
+static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
 {
     char error_buffer[128];
     const char *mode = ebpf_map_is_user_ringbuf(type) ? "user_ringbuf_producer" : "ringbuf_consumer";
@@ -1523,6 +1525,11 @@ static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint3
     ebpf_ringbuf_stats_t previous = { 0 };
     int setup_error = 0;
     int i;
+
+    if (!strcmp(name, "socket_events")) {
+        ebpf_socket_ringbuf_tester(map, stdlog, end_iteration);
+        return;
+    }
 
     fprintf(stdlog,
             "        \"%s\" : {\n"
@@ -1631,7 +1638,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         value_size = def->value_size;
 #endif
         if (!ebpf_map_supports_key_value_io(type)) {
-            ebpf_test_ringbuf_map(name, fd, type, key_size, value_size);
+            ebpf_test_ringbuf_map(map, name, fd, type, key_size, value_size);
             fprintf(stdlog, "                                ]\n"
                     "                      }\n"
                     "        },\n");
@@ -1805,8 +1812,13 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     }
 
     if (!errors && maps) {
-        if (ebpf_object_has_socket_table(obj)) {
-            ebpf_socket_table_tester(obj, stdlog, end_iteration);
+        struct bpf_map *socket_events = ebpf_find_socket_events(obj);
+        struct bpf_map *socket_table = ebpf_find_socket_table(obj);
+
+        if (socket_events) {
+            ebpf_socket_ringbuf_tester(socket_events, stdlog, end_iteration);
+        } else if (socket_table) {
+            ebpf_socket_table_tester(socket_table, stdlog, end_iteration);
         } else {
             if (ctrl) {
                 ebpf_fill_ctrl(obj, ctrl);
@@ -1844,7 +1856,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
 static int ebpf_module_has_buffer(const char *name)
 {
     static const char *buffer_modules[] = {
-        "cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", NULL
+        "cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket", NULL
     };
     int i;
     for (i = 0; buffer_modules[i]; i++) {
@@ -1866,6 +1878,7 @@ static int ebpf_module_has_arena(const char *name)
         "swap",
         "vfs",
         "dns",
+        "socket",
         NULL
     };
     size_t i;
@@ -2005,8 +2018,8 @@ static void ebpf_help()
                     "--content          Test content stored inside hash tables.\n"
                     "--iteration        Number of iterations when content is read, default value is 1.\n"
                     "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"
-                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n"
-                    "--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"
+                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n"
+                    "--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
                     "--btrfs            Latency for btrfs.\n"
