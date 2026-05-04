@@ -53,6 +53,7 @@ enum netdata_ebpf_kernel_versions {
     NETDATA_EBPF_KERNEL_5_15 = 331520,  //  331520 = 5 * 65536 + 15 * 256
     NETDATA_EBPF_KERNEL_5_16 = 331776,  //  331776 = 5 * 65536 + 16 * 256
     NETDATA_EBPF_KERNEL_6_8  = 395264,  //  395264 = 6 * 65536 +  8 * 256
+    NETDATA_EBPF_KERNEL_6_9  = 395520,  //  395520 = 6 * 65536 +  9 * 256
     NETDATA_EBPF_KERNEL_6_12 = 396288   //  396288 = 6 * 65536 + 12 * 256
 };
 
@@ -164,7 +165,8 @@ enum netdata_thread_OPT {
     NETDATA_OPT_CONTENT,
     NETDATA_OPT_ITERATION,
     NETDATA_OPT_PID,
-    NETDATA_OPT_BUFFER
+    NETDATA_OPT_BUFFER,
+    NETDATA_OPT_ARENA
 };
 
 typedef struct ebpf_specify_name {
@@ -178,6 +180,7 @@ typedef struct ebpf_specify_name {
 typedef struct ebpf_module {
     uint32_t kernels;
     uint32_t buffer_kernels; /* kernel bitmask for buffer mode; 0 = use kernels */
+    uint32_t arena_kernels;  /* kernel bitmask for arena mode; 0 = use kernels */
     uint64_t flags;
     char *name;
     ebpf_specify_name_t *update_names;

@@ -123,9 +123,30 @@ else
 NETDATA_RINGBUF_APPS=
 endif
 
-all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS)
+# BPF_MAP_TYPE_ARENA requires kernel >= 6.9 (395520 = 6 * 65536 + 9 * 256)
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 395520 ; echo $$?),0)
+NETDATA_ARENA_APPS= cachestat_arena \
+                    dc_arena \
+                    dns_arena \
+                    fd_arena \
+                    oomkill_arena \
+                    process_arena \
+                    shm_arena \
+                    swap_arena \
+                    vfs_arena \
+                    #
+else
+NETDATA_ARENA_APPS=
+endif
 
-dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS}
+# Arena objects need address-space-cast support so the verifier sees PTR_TO_ARENA
+ifneq ($(NETDATA_ARENA_APPS),)
+$(addsuffix _kern.o,$(NETDATA_ARENA_APPS)): EXTRA_CFLAGS += -D__BPF_FEATURE_ADDR_SPACE_CAST -Wno-address-space-conversion
+endif
+
+all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
+
+dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS} ${NETDATA_ARENA_APPS}
 
 libbpf:
 	# -fPIE added to be compatible with olders clang/gcc
@@ -169,6 +190,8 @@ $(NETDATA_APPS): %: %_kern.o
 ${NETDATA_ALL_APPS}: %: %_kern.o
 
 ${NETDATA_RINGBUF_APPS}: %: %_kern.o
+
+${NETDATA_ARENA_APPS}: %: %_kern.o
 
 tester: libbpf
 	cd ../tests && $(MAKE) tester

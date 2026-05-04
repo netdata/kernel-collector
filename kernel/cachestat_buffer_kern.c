@@ -11,6 +11,7 @@
 #include "bpf_tracing.h"
 #include "bpf_helpers.h"
 #include "netdata_common.h"
+#include "netdata_arena_common.h"
 #include "netdata_cache.h"
 #include "netdata_cache_buffer.h"
 
@@ -30,15 +31,23 @@ NETDATA_BPF_ARRAY_DEF(cstat_ctrl, __u32, __u64, NETDATA_CONTROLLER_END);
  *
  ***********************************************************************************/
 
-static __always_inline void netdata_cachestat_fill_event(struct netdata_cachestat_event_t *ev, void *ctrl)
+static __always_inline void netdata_cachestat_fill_event(struct netdata_cachestat_event_t __arena *ev, void *ctrl)
 {
     __u32 tgid = 0;
+    char comm[TASK_COMM_LEN];
     ev->ct   = bpf_ktime_get_ns();
     ev->pid  = netdata_get_pid(ctrl, &tgid);
     ev->tgid = tgid;
-    libnetdata_update_uid_gid(&ev->uid, &ev->gid);
+    {
+        __u64 uid_gid = bpf_get_current_uid_gid();
+        ev->uid = (__u32)uid_gid;
+        ev->gid = (__u32)(uid_gid >> 32);
+    }
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0))
-    bpf_get_current_comm(ev->name, TASK_COMM_LEN);
+    bpf_get_current_comm(comm, TASK_COMM_LEN);
+#pragma unroll
+    for (int i = 0; i < TASK_COMM_LEN; i++)
+        ev->name[i] = comm[i];
 #else
     ev->name[0] = '\0';
 #endif
@@ -59,7 +68,7 @@ int netdata_add_to_page_cache_lru_buffer(struct pt_regs *ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    struct netdata_cachestat_event_t *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
+    struct netdata_cachestat_event_t __arena *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
     if (!ev)
         return 0;
 
@@ -78,7 +87,7 @@ int netdata_mark_page_accessed_buffer(struct pt_regs *ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    struct netdata_cachestat_event_t *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
+    struct netdata_cachestat_event_t __arena *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
     if (!ev)
         return 0;
 
@@ -111,7 +120,7 @@ int netdata_set_page_dirty_buffer(struct pt_regs *ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    struct netdata_cachestat_event_t *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
+    struct netdata_cachestat_event_t __arena *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
     if (!ev)
         return 0;
 
@@ -136,7 +145,7 @@ int netdata_account_page_dirtied_buffer(struct pt_regs *ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    struct netdata_cachestat_event_t *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
+    struct netdata_cachestat_event_t __arena *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
     if (!ev)
         return 0;
 
@@ -157,7 +166,7 @@ int netdata_mark_buffer_dirty_buffer(struct pt_regs *ctx)
     if (!monitor_apps(&cstat_ctrl))
         return 0;
 
-    struct netdata_cachestat_event_t *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
+    struct netdata_cachestat_event_t __arena *ev = bpf_ringbuf_reserve(&cachestat_events, sizeof(*ev), 0);
     if (!ev)
         return 0;
 

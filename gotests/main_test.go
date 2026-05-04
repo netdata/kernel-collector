@@ -92,6 +92,63 @@ func TestKernelSelectionHelpers(t *testing.T) {
 		})
 	}
 
+	osReleaseCases := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name: "alma 9 without redhat-release",
+			content: `NAME="AlmaLinux"
+VERSION="9.4 (Seafoam Ocelot)"
+ID="almalinux"
+ID_LIKE="rhel centos fedora"
+VERSION_ID="9.4"
+PLATFORM_ID="platform:el9"
+`,
+			want: 9*256 + 4,
+		},
+		{
+			name: "rhel 8 via ID_LIKE",
+			content: `NAME="Red Hat Enterprise Linux"
+VERSION="8.9 (Ootpa)"
+ID="rhel"
+VERSION_ID="8.9"
+`,
+			want: 8*256 + 9,
+		},
+		{
+			name: "rocky linux",
+			content: `NAME="Rocky Linux"
+ID="rocky"
+ID_LIKE="rhel centos fedora"
+VERSION_ID="9.3"
+`,
+			want: 9*256 + 3,
+		},
+		{
+			name: "debian ignored",
+			content: `NAME="Debian GNU/Linux"
+ID=debian
+VERSION_ID="12"
+`,
+			want: -1,
+		},
+		{
+			name: "empty content",
+			content: ``,
+			want:    -1,
+		},
+	}
+
+	for _, tc := range osReleaseCases {
+		t.Run("os-release "+tc.name, func(t *testing.T) {
+			if got := parseOSRelease(tc.content); got != tc.want {
+				t.Fatalf("unexpected parsed os-release for %q: got %d want %d", tc.name, got, tc.want)
+			}
+		})
+	}
+
 	leadingCases := []struct {
 		input string
 		want  int
@@ -162,11 +219,13 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			{name: "wrong family", filename: "pnetdata_ebpf_swap.3.10.o", module: "swap", version: "3.10", rhf: 1, wantMatch: false},
 			{name: "non-rhf exact", filename: "pnetdata_ebpf_swap.5.14.o", module: "swap", version: "5.14", rhf: -1, wantMatch: true},
 			{name: "non-rhf rejects rhf", filename: "pnetdata_ebpf_swap.5.14.rhf.o", module: "swap", version: "5.14", rhf: -1, wantMatch: false},
+			{name: "arena suffix exact", filename: "pnetdata_ebpf_swap_arena.6.12.o", module: "swap", version: "6.12", rhf: -1, wantMatch: true},
 		}
 
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf, false); got != tc.wantMatch {
+				arenaMode := tc.name == "arena suffix exact"
+				if got := candidateMatches(tc.filename, tc.module, tc.isReturn, tc.version, tc.rhf, false, arenaMode); got != tc.wantMatch {
 					t.Fatalf("unexpected match result for %q: got %v want %v", tc.filename, got, tc.wantMatch)
 				}
 			})
@@ -188,7 +247,7 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			}
 		}
 
-		got := discoverCandidates("swap", false, 1, netdataV310, 0, dir, false)
+		got := discoverCandidates("swap", false, 1, netdataV310, 0, dir, false, false)
 		want := []string{
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.rhf.o"),
 			filepath.Join(dir, "pnetdata_ebpf_swap.3.10.variant.rhf.o"),
@@ -219,10 +278,31 @@ func TestCandidateSelectionHelpers(t *testing.T) {
 			}
 		}
 
-		got := discoverCandidates("swap", false, -1, netdataV54|netdataV68|netdataV612, 11, dir, false)
+		got := discoverCandidates("swap", false, -1, netdataV54|netdataV68|netdataV612, 11, dir, false, false)
 		want := []string{filepath.Join(dir, "pnetdata_ebpf_swap.6.12.o")}
 		if len(got) != len(want) || got[0] != want[0] {
 			t.Fatalf("unexpected candidates: got %v want %v", got, want)
+		}
+	})
+
+	t.Run("discovers arena candidates when arena mode is enabled", func(t *testing.T) {
+		dir := t.TempDir()
+		files := []string{
+			"pnetdata_ebpf_swap_arena.5.4.o",
+			"pnetdata_ebpf_swap_buffer.5.4.o",
+			"pnetdata_ebpf_swap_arena.6.12.o",
+			"pnetdata_ebpf_swap_buffer.6.12.o",
+		}
+		for _, name := range files {
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatalf("cannot create %s: %v", name, err)
+			}
+		}
+
+		got := discoverCandidates("swap", false, -1, netdataV54|netdataV68|netdataV612, 11, dir, false, true)
+		want := []string{filepath.Join(dir, "pnetdata_ebpf_swap_arena.6.12.o")}
+		if len(got) != len(want) || got[0] != want[0] {
+			t.Fatalf("unexpected arena candidates: got %v want %v", got, want)
 		}
 	})
 
@@ -314,7 +394,7 @@ func TestBinaryAndIPHelpers(t *testing.T) {
 
 func TestParseArgumentsUnitTest(t *testing.T) {
 	var log bytes.Buffer
-	opts, code := parseArguments([]string{"--unit-test"}, netdataEBPFKernel68, &logState{writer: &log})
+	opts, code := parseArguments([]string{"--unit-test"}, netdataEBPFKernel68, -1, &logState{writer: &log})
 	if code != 0 {
 		t.Fatalf("unexpected parse code: %d", code)
 	}
@@ -332,7 +412,7 @@ func TestParseArgumentsUnitTest(t *testing.T) {
 func TestParseArgumentsAll(t *testing.T) {
 	t.Run("--all enables content flag for PID collection", func(t *testing.T) {
 		var log bytes.Buffer
-		opts, code := parseArguments([]string{"--all"}, netdataEBPFKernel68, &logState{writer: &log})
+		opts, code := parseArguments([]string{"--all"}, netdataEBPFKernel68, -1, &logState{writer: &log})
 		if code != 0 {
 			t.Fatalf("unexpected parse code: %d", code)
 		}
@@ -346,7 +426,7 @@ func TestParseArgumentsAll(t *testing.T) {
 
 	t.Run("--pid 3 is accepted", func(t *testing.T) {
 		var log bytes.Buffer
-		opts, code := parseArguments([]string{"--all", "--pid", "3"}, netdataEBPFKernel68, &logState{writer: &log})
+		opts, code := parseArguments([]string{"--all", "--pid", "3"}, netdataEBPFKernel68, -1, &logState{writer: &log})
 		if code != 0 {
 			t.Fatalf("unexpected parse code: %d", code)
 		}
@@ -362,7 +442,7 @@ func TestParseArgumentsAll(t *testing.T) {
 func TestParseArgumentsBuffer(t *testing.T) {
 	t.Run("--buffer enables content flag for ring buffer data", func(t *testing.T) {
 		var log bytes.Buffer
-		opts, code := parseArguments([]string{"--buffer"}, netdataEBPFKernel612, &logState{writer: &log})
+		opts, code := parseArguments([]string{"--buffer"}, netdataEBPFKernel612, -1, &logState{writer: &log})
 		if code != 0 {
 			t.Fatalf("unexpected parse code: %d", code)
 		}
@@ -371,6 +451,56 @@ func TestParseArgumentsBuffer(t *testing.T) {
 		}
 		if opts.flags&flagContent == 0 {
 			t.Fatal("--buffer must enable flagContent so ring buffer data is collected and ring size is shown")
+		}
+	})
+
+	t.Run("--arena enables content flag for arena data", func(t *testing.T) {
+		var log bytes.Buffer
+		opts, code := parseArguments([]string{"--arena"}, netdataEBPFKernel69, -1, &logState{writer: &log})
+		if code != 0 {
+			t.Fatalf("unexpected parse code: %d", code)
+		}
+		if !opts.arenaMode {
+			t.Fatal("--arena must set arenaMode")
+		}
+		if opts.flags&flagContent == 0 {
+			t.Fatal("--arena must enable flagContent so arena data is collected and ring size is shown")
+		}
+	})
+
+	t.Run("--buffer on RH kernel below 5.8 skips version abort", func(t *testing.T) {
+		var log bytes.Buffer
+		// netdataMinimumEBPFKernel (4.11) is below the 5.8 ring-buffer threshold.
+		// On a non-RH kernel this must be rejected; on RH it must proceed.
+		_, nonRHCode := parseArguments([]string{"--buffer"}, netdataMinimumEBPFKernel, -1, &logState{writer: &log})
+		if nonRHCode == 0 {
+			t.Fatal("non-RH kernel below 5.8 must be rejected for --buffer")
+		}
+		log.Reset()
+		_, rhCode := parseArguments([]string{"--buffer"}, netdataMinimumEBPFKernel, 1, &logState{writer: &log})
+		if rhCode != 0 {
+			t.Fatalf("RH kernel must bypass version check for --buffer, got code %d", rhCode)
+		}
+	})
+
+	t.Run("--arena on RH kernel below 6.9 skips version abort", func(t *testing.T) {
+		var log bytes.Buffer
+		_, nonRHCode := parseArguments([]string{"--arena"}, netdataEBPFKernel514, -1, &logState{writer: &log})
+		if nonRHCode == 0 {
+			t.Fatal("non-RH kernel below 6.9 must be rejected for --arena")
+		}
+		log.Reset()
+		_, rhCode := parseArguments([]string{"--arena"}, netdataEBPFKernel514, 1, &logState{writer: &log})
+		if rhCode != 0 {
+			t.Fatalf("RH kernel must bypass version check for --arena, got code %d", rhCode)
+		}
+	})
+
+	t.Run("mountName uses arena suffix", func(t *testing.T) {
+		got := mountName(11, "swap", false, -1, "/tmp", false, true)
+		want := "/tmp/pnetdata_ebpf_swap_arena.6.12.o"
+		if got != want {
+			t.Fatalf("unexpected arena mount name: got %q want %q", got, want)
 		}
 	})
 }

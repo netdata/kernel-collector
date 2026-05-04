@@ -41,6 +41,11 @@ static ebpf_specify_name_t swap_optional_name[] = { {.program_name = "netdata_sw
                                                       .fallback_function_to_attach = "swap_writepage",
                                                       .optional = NULL,
                                                       .retprobe = 0},
+                                                     {.program_name = "netdata_swap_readpage_buffer",
+                                                      .function_to_attach = "swap_read_folio",
+                                                      .fallback_function_to_attach = "swap_readpage",
+                                                      .optional = NULL,
+                                                      .retprobe = 0},
                                                      {.program_name = "netdata_swap_writepage_buffer",
                                                       .function_to_attach = "__swap_writepage",
                                                       .fallback_function_to_attach = "swap_writepage",
@@ -52,6 +57,18 @@ static ebpf_specify_name_t swap_optional_name[] = { {.program_name = "netdata_sw
                                                     .optional = NULL,
                                                     .retprobe = 0}};
 
+// close_fd replaced __close_fd in kernel 5.11; RH backported this rename to their 5.10 kernels.
+static ebpf_specify_name_t fd_optional_name[] = { {.program_name = "netdata_close_buffer",
+                                                    .function_to_attach = "close_fd",
+                                                    .fallback_function_to_attach = "__close_fd",
+                                                    .optional = NULL,
+                                                    .retprobe = 0},
+                                                   {.program_name = NULL,
+                                                    .function_to_attach = NULL,
+                                                    .fallback_function_to_attach = NULL,
+                                                    .optional = NULL,
+                                                    .retprobe = 0}};
+
 // Versions 3_10, 4_18 and 5_14 must be always present to keep compatibility with RH family
 // Version 4_14, 4_16 must be present for syscalls with old name convention
 // Version 5_4 must be present for kernels newer than 4.17.0
@@ -60,9 +77,11 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_BTRFS, .name = "btrfs", .update_names = NULL, .ctrl_table = "btrfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_15 | NETDATA_V5_14 | NETDATA_V5_16,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_CACHESTAT, .name = "cachestat", .update_names = NULL, .ctrl_table = "cstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_DC, .name = "dc", .update_names = dc_optional_name, .ctrl_table = "dcstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_DISK, .name = "disk", .update_names = NULL, .ctrl_table = "disk_ctrl" },
@@ -70,7 +89,8 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_EXT4, .name = "ext4", .update_names = NULL, .ctrl_table = "ext4_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .flags = NETDATA_FLAG_FD, .name = "fd", .update_names = NULL, .ctrl_table = "fd_ctrl" },
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .flags = NETDATA_FLAG_FD, .name = "fd", .update_names = fd_optional_name, .ctrl_table = "fd_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "fdatasync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
@@ -87,6 +107,7 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_DNS, .name = "dns", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
@@ -94,12 +115,15 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10 | NETDATA_V6_12,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_PROCESS, .name = "process", .update_names = NULL, .ctrl_table = "process_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_SHM, .name = "shm", .update_names = NULL, .ctrl_table = "shm_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOFTIRQ, .name = "softirq", .update_names = NULL, .ctrl_table = NULL },
@@ -111,9 +135,11 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_SYNC, .name = "sync_file_range", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8 | NETDATA_V6_12,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = swap_optional_name, .ctrl_table = "swap_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_XFS, .name = "xfs", .update_names = NULL, .ctrl_table = "xfs_ctrl" },
@@ -127,6 +153,7 @@ char *specific_ebpf = NULL;
 char *netdata_path = NULL;
 char *log_path = NULL;
 int buffer_mode = 0;
+int arena_mode = 0;
 #define NETDATA_DEFAULT_PROCESS_NUMBER 4096
 #define NETDATA_DNS_MAX_PORTS 32
 #define NETDATA_DNS_DEFAULT_PORT 53
@@ -449,6 +476,15 @@ static void ebpf_free_candidate_list(ebpf_candidate_list_t *list)
     memset(list, 0, sizeof(*list));
 }
 
+static const char *ebpf_mode_suffix(void)
+{
+    if (arena_mode)
+        return "_arena";
+    if (buffer_mode)
+        return "_buffer";
+    return "";
+}
+
 static int ebpf_candidate_matches(const char *filename, const char *name, int is_return,
                                   const char *version, int rhf_version)
 {
@@ -459,10 +495,7 @@ static int ebpf_candidate_matches(const char *filename, const char *name, int is
     const char *rest;
     int has_rhf;
 
-    if (buffer_mode)
-        snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s_buffer.", (is_return) ? 'r' : 'p', name);
-    else
-        snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s.", (is_return) ? 'r' : 'p', name);
+    snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s%s.", (is_return) ? 'r' : 'p', name, ebpf_mode_suffix());
     prefix_len = strlen(prefix);
     if (filename_len <= prefix_len + 2)
         return 0;
@@ -840,6 +873,40 @@ int ebpf_get_kernel_version()
  *
  * @param return It returns the Red Hat version on success and -1 otherwise.
  */
+/* Parse /etc/os-release to detect RH-family distros that lack /etc/redhat-release
+ * (e.g. minimal Alma 9 containers). Returns major*256+minor on match, -1 otherwise. */
+static int ebpf_get_rh_from_os_release(void)
+{
+    FILE *fp = fopen("/etc/os-release", "r");
+    if (!fp)
+        return -1;
+
+    char line[VERSION_STRING_LEN + 1];
+    int major = 0, minor = 0, is_rhel = 0;
+
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "ID=", 3) == 0 || strncmp(line, "ID_LIKE=", 8) == 0) {
+            if (strstr(line, "rhel") || strstr(line, "centos") ||
+                strstr(line, "almalinux") || strstr(line, "rocky"))
+                is_rhel = 1;
+        } else if (strncmp(line, "VERSION_ID=", 11) == 0) {
+            char *val = line + 11;
+            if (*val == '"')
+                val++;
+            char *endp;
+            major = (int)strtol(val, &endp, 10);
+            if (*endp == '.')
+                minor = (int)strtol(endp + 1, NULL, 10);
+        }
+    }
+
+    fclose(fp);
+
+    if (is_rhel && major > 0)
+        return major * 256 + minor;
+    return -1;
+}
+
 int ebpf_get_redhat_release()
 {
     char buffer[VERSION_STRING_LEN + 1];
@@ -876,9 +943,9 @@ int ebpf_get_redhat_release()
 
         fclose(fp);
         return ((major * 256) + minor);
-    } else {
-        return -1;
     }
+
+    return ebpf_get_rh_from_os_release();
 }
 
 /**
@@ -1033,20 +1100,13 @@ static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, in
     if (!path)
         path = ebpf_strdup_string(".");
 
-    if (buffer_mode)
-        snprintf(out, len, "%s/%cnetdata_ebpf_%s_buffer.%s%s.o",
-                path,
-                (is_return) ? 'r' : 'p',
-                name,
-                version,
-                (rhf_version != -1) ? ".rhf" : "");
-    else
-        snprintf(out, len, "%s/%cnetdata_ebpf_%s.%s%s.o",
-                path,
-                (is_return) ? 'r' : 'p',
-                name,
-                version,
-                (rhf_version != -1) ? ".rhf" : "");
+    snprintf(out, len, "%s/%cnetdata_ebpf_%s%s.%s%s.o",
+            path,
+            (is_return) ? 'r' : 'p',
+            name,
+            ebpf_mode_suffix(),
+            version,
+            (rhf_version != -1) ? ".rhf" : "");
     free(path);
 }
 
@@ -1197,6 +1257,10 @@ static void ebpf_update_names(ebpf_specify_name_t *names)
 
                 len = strlen(cmp);
                 if (strncmp(cmp, data, len))
+                    continue;
+
+                /* Reject prefix-only matches (e.g. "swap_read_folio_bdev_sync" != "swap_read_folio") */
+                if (data[len] != ' ' && data[len] != '\n' && data[len] != '\0')
                     continue;
 
                 end = strchr(data, ' ');
@@ -1785,6 +1849,30 @@ static int ebpf_module_has_buffer(const char *name)
     return 0;
 }
 
+static int ebpf_module_has_arena(const char *name)
+{
+    const char *arena_modules[] = {
+        "cachestat",
+        "dc",
+        "fd",
+        "oomkill",
+        "process",
+        "shm",
+        "swap",
+        "vfs",
+        "dns",
+        NULL
+    };
+    size_t i;
+
+    for (i = 0; arena_modules[i]; i++) {
+        if (!strcmp(name, arena_modules[i]))
+            return 1;
+    }
+
+    return 0;
+}
+
 static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return, uint64_t flags)
 {
     ebpf_map_support_t map_support;
@@ -1793,6 +1881,11 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
+        if (arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name)) {
+            i++;
+            continue;
+        }
+
         if (buffer_mode && !ebpf_module_has_buffer(ebpf_modules[i].name)) {
             i++;
             continue;
@@ -1804,8 +1897,10 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
             char *first_incompatible = NULL;
             int unsupported_type = 0;
             size_t j;
-            uint32_t kernels_to_use = (buffer_mode && ebpf_modules[i].buffer_kernels) ?
-                                      ebpf_modules[i].buffer_kernels : ebpf_modules[i].kernels;
+            uint32_t kernels_to_use = (arena_mode && ebpf_modules[i].arena_kernels) ?
+                                      ebpf_modules[i].arena_kernels :
+                                      ((buffer_mode && ebpf_modules[i].buffer_kernels) ?
+                                       ebpf_modules[i].buffer_kernels : ebpf_modules[i].kernels);
             uint32_t max_idx = ebpf_select_max_index(rhf_version, kver);
             uint32_t idx = ebpf_select_index(kernels_to_use, rhf_version, kver);
 
@@ -1905,7 +2000,8 @@ static void ebpf_help()
                     "--content          Test content stored inside hash tables.\n"
                     "--iteration        Number of iterations when content is read, default value is 1.\n"
                     "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"
-                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"
+                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n"
+                    "--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
                     "--btrfs            Latency for btrfs.\n"
@@ -1953,13 +2049,14 @@ static uint64_t ebpf_set_common_flag()
  *
  * Parse arguments given from command line.
  *
- * @param argc is the number of arguments
- * @param argv vector with values.
- * @param kver is the current kernel version
+ * @param argc        is the number of arguments
+ * @param argv        vector with values.
+ * @param kver        is the current kernel version
+ * @param rhf_version Red Hat family version (-1 if not RH)
  *
  * @return It returns the flags used during the simulation.
  */
-uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
+uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
 {
     uint64_t flags = 0;
     int option_index = 0;
@@ -2000,6 +2097,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
         {"iteration",          required_argument,    0,  0 },
         {"pid",                required_argument,    0,  0 },
         {"buffer",             no_argument,          0,  0 },
+        {"arena",              no_argument,          0,  0 },
 
         // this must be always the last option
         {0,                no_argument, 0, 0}
@@ -2162,7 +2260,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
             case NETDATA_OPT_LOG_PATH:
                 {
                     log_path = optarg;
-                    stdlog = fopen(log_path, "a+");
+                    stdlog = fopen(log_path, "w");
                     if (!stdlog) {
                         stdlog = stderr;
                         fprintf(stdlog, "\"Error\": \"Cannot open %s\",\n", log_path);
@@ -2200,11 +2298,22 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver)
                     flags |= NETDATA_FLAG_CONTENT;
                     break;
                 }
+            case NETDATA_OPT_ARENA:
+                {
+                    arena_mode = 1;
+                    flags |= NETDATA_FLAG_CONTENT;
+                    break;
+                }
         }
     }
 
-    if (buffer_mode && kver < NETDATA_EBPF_KERNEL_5_8) {
+    if (buffer_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_5_8) {
         fprintf(stdlog, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n");
+        exit(1);
+    }
+
+    if (arena_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_6_9) {
+        fprintf(stdlog, "\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n");
         exit(1);
     }
 
@@ -2229,6 +2338,7 @@ static void ebpf_fill_names()
 {
     ebpf_update_names(dc_optional_name);
     ebpf_update_names(swap_optional_name);
+    ebpf_update_names(fd_optional_name);
 }
 
 /**
@@ -2240,6 +2350,7 @@ static void ebpf_clean_name_vectors()
 {
     ebpf_clean_optional(dc_optional_name);
     ebpf_clean_optional(swap_optional_name);
+    ebpf_clean_optional(fd_optional_name);
 }
 
 /**
@@ -2283,7 +2394,7 @@ int main(int argc, char **argv)
         nprocesses = NETDATA_DEFAULT_PROCESS_NUMBER;
     }
 
-    uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel);
+    uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel, rhf_version);
 
     // Start JSON output
     fprintf(stdlog, "{");

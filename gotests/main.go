@@ -37,6 +37,7 @@ const (
 	netdataEBPFKernel515        = 331520
 	netdataEBPFKernel516        = 331776
 	netdataEBPFKernel68         = 395264
+	netdataEBPFKernel69         = 395520
 	netdataEBPFKernel612        = 396288
 
 	netdataV310 = 1 << 0
@@ -99,6 +100,7 @@ type specifyName struct {
 type module struct {
 	kernels       uint32
 	bufferKernels uint32
+	arenaKernels  uint32
 	flags         uint64
 	name          string
 	updateNames   *[]specifyName
@@ -116,6 +118,7 @@ type options struct {
 	unitTest     bool
 	showHelp     bool
 	bufferMode   bool
+	arenaMode    bool
 }
 
 type logState struct {
@@ -170,6 +173,31 @@ var (
 			retprobe:         false,
 			required:         true,
 		},
+		{
+			programName:      "netdata_swap_readpage_buffer",
+			functionToAttach: "swap_read_folio",
+			fallbackFunction: "swap_readpage",
+			retprobe:         false,
+			required:         true,
+		},
+		{
+			programName:      "netdata_swap_writepage_buffer",
+			functionToAttach: "__swap_writepage",
+			fallbackFunction: "swap_writepage",
+			retprobe:         false,
+			required:         true,
+		},
+	}
+
+	// close_fd replaced __close_fd in kernel 5.11; RH backported this rename to their 5.10 kernels.
+	fdOptionalNames = []specifyName{
+		{
+			programName:      "netdata_close_buffer",
+			functionToAttach: "close_fd",
+			fallbackFunction: "__close_fd",
+			retprobe:         false,
+			required:         true,
+		},
 	}
 
 	zfsOptionalNames = []specifyName{
@@ -217,11 +245,11 @@ var (
 
 	ebpfModules = []module{
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV510 | netdataV514, flags: flagBtrfs, name: "btrfs", ctrlTable: "btrfs_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV516, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV516, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagDisk, name: "disk", ctrlTable: "disk_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagExt4, name: "ext4", ctrlTable: "ext4_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagFD, name: "fd", ctrlTable: "fd_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagFD, name: "fd", updateNames: &fdOptionalNames, ctrlTable: "fd_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fdatasync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fsync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagHardIRQ, name: "hardirq"},
@@ -229,18 +257,18 @@ var (
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMount, name: "mount"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "msync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDNS, name: "dns"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDNS, name: "dns"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNFS, name: "nfs", ctrlTable: "nfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNetworkViewer, name: "network_viewer", ctrlTable: "nv_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagOOMKill, name: "oomkill"},
-		{kernels: netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV510 | netdataV612, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagProcess, name: "process", ctrlTable: "process_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSHM, name: "shm", ctrlTable: "shm_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagOOMKill, name: "oomkill"},
+		{kernels: netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV510 | netdataV612, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagProcess, name: "process", ctrlTable: "process_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSHM, name: "shm", ctrlTable: "shm_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSoftIRQ, name: "softirq"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "syncfs"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync_file_range"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68 | netdataV612, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSwap, name: "swap", updateNames: &swapOptionalNames, ctrlTable: "swap_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68 | netdataV612, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSwap, name: "swap", updateNames: &swapOptionalNames, ctrlTable: "swap_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagXFS, name: "xfs", ctrlTable: "xfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagZFS, name: "zfs", updateNames: &zfsOptionalNames, ctrlTable: "zfs_ctrl"},
 	}
@@ -264,7 +292,7 @@ func run() int {
 	}
 
 	logger := &logState{writer: os.Stderr}
-	opts, parseCode := parseArguments(os.Args[1:], kernelVersion, logger)
+	opts, parseCode := parseArguments(os.Args[1:], kernelVersion, rhfVersion, logger)
 	if logger.file != nil {
 		defer logger.file.Close()
 	}
@@ -361,11 +389,51 @@ func parseKernelRelease(version string) int {
 
 func getRedHatRelease() int {
 	data, err := os.ReadFile("/etc/redhat-release")
+	if err == nil {
+		if result := parseRedHatRelease(string(data)); result != -1 {
+			return result
+		}
+	}
+
+	data, err = os.ReadFile("/etc/os-release")
 	if err != nil {
 		return -1
 	}
+	return parseOSRelease(string(data))
+}
 
-	return parseRedHatRelease(string(data))
+// parseOSRelease detects RH-family distros from /etc/os-release.
+// Matches ID or ID_LIKE containing "rhel", "centos", "almalinux", or "rocky",
+// then parses VERSION_ID=X.Y to return X*256+Y. Returns -1 on no match.
+func parseOSRelease(content string) int {
+	major := 0
+	minor := 0
+	isRHEL := false
+
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "ID=") || strings.HasPrefix(line, "ID_LIKE=") {
+			low := strings.ToLower(line)
+			if strings.Contains(low, "rhel") || strings.Contains(low, "centos") ||
+				strings.Contains(low, "almalinux") || strings.Contains(low, "rocky") {
+				isRHEL = true
+			}
+		} else if strings.HasPrefix(line, "VERSION_ID=") {
+			val := strings.TrimPrefix(line, "VERSION_ID=")
+			val = strings.Trim(val, "\"")
+			parts := strings.SplitN(val, ".", 2)
+			if len(parts) >= 1 {
+				major = parseLeadingLong(parts[0])
+			}
+			if len(parts) >= 2 {
+				minor = parseLeadingLong(parts[1])
+			}
+		}
+	}
+
+	if isRHEL && major > 0 {
+		return major*256 + minor
+	}
+	return -1
 }
 
 func parseRedHatRelease(release string) int {
@@ -415,7 +483,8 @@ func helpText(exe string) string {
 		"--content          Test content stored inside hash tables.\n"+
 		"--iteration        Number of iterations when content is read, default value is 1.\n"+
 		"--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"+
-		"--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"+
+		"--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n"+
+		"--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"+
 		"You can also specify an unique eBPF program developed by Netdata with the following\n"+
 		"options:\n"+
 		"--btrfs            Latency for btrfs.\n"+
@@ -451,7 +520,7 @@ func setCommonFlag() uint64 {
 	return flagCollectors & ^(flagFS | flagLoadBinary | flagMDFlush | flagContent)
 }
 
-func parseArguments(args []string, kernelVersion int, logger *logState) (options, int) {
+func parseArguments(args []string, kernelVersion int, rhfVersion int, logger *logState) (options, int) {
 	opts := options{
 		iterations: 1,
 		mapLevel:   0,
@@ -525,7 +594,7 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		case "log-path":
 			value, i = optionValue(args, i, value)
 			opts.logPath = value
-			file, err := os.OpenFile(value, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o644)
+			file, err := os.OpenFile(value, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
 				logger.writer = os.Stderr
 				fmt.Fprintf(logger.writer, "\"Error\": \"Cannot open %s\",\n", value)
@@ -554,6 +623,9 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		case "buffer":
 			opts.bufferMode = true
 			opts.flags |= flagContent
+		case "arena":
+			opts.arenaMode = true
+			opts.flags |= flagContent
 		}
 	}
 
@@ -565,8 +637,13 @@ func parseArguments(args []string, kernelVersion int, logger *logState) (options
 		opts.flags &^= flagOOMKill
 	}
 
-	if opts.bufferMode && kernelVersion < netdataEBPFKernel58 {
+	if opts.bufferMode && rhfVersion == -1 && kernelVersion < netdataEBPFKernel58 {
 		fmt.Fprintf(logger.writer, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n")
+		return opts, 1
+	}
+
+	if opts.arenaMode && rhfVersion == -1 && kernelVersion < netdataEBPFKernel69 {
+		fmt.Fprintf(logger.writer, "\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n")
 		return opts, 1
 	}
 
@@ -637,13 +714,18 @@ func resolveBinaryDir(netdataPath string) string {
 	return netdataPath
 }
 
-func candidateMatches(filename string, moduleName string, isReturn bool, version string, rhfVersion int, bufferMode bool) bool {
-	var prefix string
-	if bufferMode {
-		prefix = fmt.Sprintf("%cnetdata_ebpf_%s_buffer.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName)
-	} else {
-		prefix = fmt.Sprintf("%cnetdata_ebpf_%s.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName)
+func modeSuffix(bufferMode bool, arenaMode bool) string {
+	if arenaMode {
+		return "_arena"
 	}
+	if bufferMode {
+		return "_buffer"
+	}
+	return ""
+}
+
+func candidateMatches(filename string, moduleName string, isReturn bool, version string, rhfVersion int, bufferMode bool, arenaMode bool) bool {
+	prefix := fmt.Sprintf("%cnetdata_ebpf_%s%s.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName, modeSuffix(bufferMode, arenaMode))
 	if !strings.HasPrefix(filename, prefix) || !strings.HasSuffix(filename, ".o") {
 		return false
 	}
@@ -664,7 +746,7 @@ func candidateMatches(filename string, moduleName string, isReturn bool, version
 	return !hasRHF
 }
 
-func candidateVersionIndex(filename string, moduleName string, isReturn bool, rhfVersion int, kernels uint32, maxIndex uint32, bufferMode bool) int {
+func candidateVersionIndex(filename string, moduleName string, isReturn bool, rhfVersion int, kernels uint32, maxIndex uint32, bufferMode bool, arenaMode bool) int {
 	if rhfVersion == -1 {
 		kernels &^= netdataV514
 	}
@@ -673,7 +755,7 @@ func candidateVersionIndex(filename string, moduleName string, isReturn bool, rh
 		if kernels&(1<<uint32(idx)) == 0 {
 			continue
 		}
-		if candidateMatches(filename, moduleName, isReturn, selectKernelName(uint32(idx)), rhfVersion, bufferMode) {
+		if candidateMatches(filename, moduleName, isReturn, selectKernelName(uint32(idx)), rhfVersion, bufferMode, arenaMode) {
 			return idx
 		}
 	}
@@ -681,7 +763,7 @@ func candidateVersionIndex(filename string, moduleName string, isReturn bool, rh
 	return -1
 }
 
-func discoverCandidates(moduleName string, isReturn bool, rhfVersion int, kernels uint32, maxIndex uint32, netdataPath string, bufferMode bool) []string {
+func discoverCandidates(moduleName string, isReturn bool, rhfVersion int, kernels uint32, maxIndex uint32, netdataPath string, bufferMode bool, arenaMode bool) []string {
 	path := resolveBinaryDir(netdataPath)
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -695,7 +777,7 @@ func discoverCandidates(moduleName string, isReturn bool, rhfVersion int, kernel
 			continue
 		}
 
-		candidateIndex := candidateVersionIndex(entry.Name(), moduleName, isReturn, rhfVersion, kernels, maxIndex, bufferMode)
+		candidateIndex := candidateVersionIndex(entry.Name(), moduleName, isReturn, rhfVersion, kernels, maxIndex, bufferMode, arenaMode)
 		if candidateIndex < 0 {
 			continue
 		}
@@ -867,6 +949,7 @@ func writeMapCompatibilityDebug(w io.Writer, unsupportedType uint32, supported m
 func fillNames() {
 	updateNames(dcOptionalNames)
 	updateNames(swapOptionalNames)
+	updateNames(fdOptionalNames)
 	updateNames(zfsOptionalNames)
 }
 
@@ -910,6 +993,11 @@ func updateNames(names []specifyName) {
 					continue
 				}
 
+				// Reject prefix-only matches (e.g. "swap_read_folio_bdev_sync" != "swap_read_folio")
+				if len(data) > len(candidate) && data[len(candidate)] != ' ' && data[len(candidate)] != '\t' {
+					continue
+				}
+
 				end := strings.IndexAny(data, " \n")
 				if end < 0 {
 					end = len(data)
@@ -941,6 +1029,21 @@ func moduleHasBuffer(name string) bool {
 	return bufferModules[name]
 }
 
+func moduleHasArena(name string) bool {
+	arenaModules := map[string]bool{
+		"cachestat": true,
+		"dc":        true,
+		"fd":        true,
+		"oomkill":   true,
+		"process":   true,
+		"shm":       true,
+		"swap":      true,
+		"vfs":       true,
+		"dns":       true,
+	}
+	return arenaModules[name]
+}
+
 func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bool, opts options, nprocesses int) {
 	supportedMapTypes := detectSupportedMapTypes(rhfVersion, kernelVersion)
 
@@ -949,17 +1052,23 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 			continue
 		}
 
+		if opts.arenaMode && !moduleHasArena(mod.name) {
+			continue
+		}
+
 		if opts.bufferMode && !moduleHasBuffer(mod.name) {
 			continue
 		}
 
 		kernels := mod.kernels
-		if opts.bufferMode && mod.bufferKernels != 0 {
+		if opts.arenaMode && mod.arenaKernels != 0 {
+			kernels = mod.arenaKernels
+		} else if opts.bufferMode && mod.bufferKernels != 0 {
 			kernels = mod.bufferKernels
 		}
 		maxIndex := selectMaxIndex(rhfVersion, kernelVersion)
 		idx := selectIndex(kernels, rhfVersion, kernelVersion)
-		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, opts.bufferMode)
+		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, opts.bufferMode, opts.arenaMode)
 		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
 
 		if len(compatible) == 0 {
@@ -970,7 +1079,7 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 				continue
 			}
 
-			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath, opts.bufferMode)}
+			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath, opts.bufferMode, opts.arenaMode)}
 		}
 
 		for _, filename := range compatible {
@@ -1037,7 +1146,7 @@ func selectIndex(kernels uint32, rhfVersion int, kernelVersion int) uint32 {
 	return 0
 }
 
-func mountName(kernelIndex uint32, name string, isReturn bool, rhfVersion int, netdataPath string, bufferMode bool) string {
+func mountName(kernelIndex uint32, name string, isReturn bool, rhfVersion int, netdataPath string, bufferMode bool, arenaMode bool) string {
 	version := selectKernelName(kernelIndex)
 	path := netdataPath
 	if path == "" {
@@ -1064,12 +1173,7 @@ func mountName(kernelIndex uint32, name string, isReturn bool, rhfVersion int, n
 		suffix = ".rhf"
 	}
 
-	var bufferStr string
-	if bufferMode {
-		bufferStr = "_buffer"
-	}
-
-	return fmt.Sprintf("%s/%cnetdata_ebpf_%s%s.%s%s.o", path, prefix, name, bufferStr, version, suffix)
+	return fmt.Sprintf("%s/%cnetdata_ebpf_%s%s.%s%s.o", path, prefix, name, modeSuffix(bufferMode, arenaMode), version, suffix)
 }
 
 func startExternalJSON(w io.Writer, filename string) {
