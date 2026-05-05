@@ -561,6 +561,8 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
     } else if (arena) {
         int sec;
 
+        fprintf(stderr, "[socket_arena_diag] collecting for %ds — open external connections now\n",
+                collection_seconds);
         for (sec = 0; sec < collection_seconds; sec++)
             sleep(1);
 

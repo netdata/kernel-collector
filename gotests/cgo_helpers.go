@@ -477,25 +477,54 @@ func (m *bpfMap) name() string {
 	return C.GoString(C.bpf_map__name(m.ptr))
 }
 
-// initialValue returns a pointer to the arena data section for BPF_MAP_TYPE_ARENA maps.
-// libbpf places the data section at the END of the arena mmap:
-//   base + (total_sz - roundup(data_sz, PAGE_SIZE))
-// The caller must NOT munmap this pointer; libbpf owns the mapping.
-func (m *bpfMap) initialValue() unsafe.Pointer {
+// arenaInfo holds the intermediate values computed when locating an arena data section.
+type arenaInfo struct {
+	RawBase    unsafe.Pointer // raw return value of bpf_map__initial_value
+	DataSize   uintptr        // data section size reported by libbpf (isize)
+	PageSize   uintptr
+	TotalSize  uintptr        // max_entries * page_size
+	DataOffset uintptr        // byte offset from RawBase to the data section
+	StatePtr   unsafe.Pointer // final pointer: RawBase + DataOffset
+}
+
+// initialValueInfo returns the arena state pointer together with diagnostic fields.
+// libbpf places the data section at the END of the arena mmap when
+// FEAT_LDIMM64_FULL_RANGE_OFF is supported:
+//
+//	state = base + (total_sz - roundup(data_sz, PAGE_SIZE))
+//
+// The caller must NOT munmap the returned pointer; libbpf owns the mapping.
+func (m *bpfMap) initialValueInfo() (unsafe.Pointer, arenaInfo) {
 	var size C.size_t
 	base := unsafe.Pointer(C.bpf_map__initial_value(m.ptr, &size))
-	if base == nil || size == 0 {
-		return nil
-	}
-
 	pageSize := uintptr(C.netdata_sc_pagesize())
 	totalSz := uintptr(C.bpf_map__max_entries(m.ptr)) * pageSize
-	dataSz := uintptr(size)
-	roundedDataSz := (dataSz + pageSize - 1) &^ (pageSize - 1)
-	if roundedDataSz > totalSz {
-		return nil
+
+	info := arenaInfo{
+		RawBase:   base,
+		DataSize:  uintptr(size),
+		PageSize:  pageSize,
+		TotalSize: totalSz,
 	}
-	return unsafe.Add(base, totalSz-roundedDataSz)
+
+	if base == nil || size == 0 {
+		return nil, info
+	}
+
+	roundedDataSz := (info.DataSize + pageSize - 1) &^ (pageSize - 1)
+	if roundedDataSz > totalSz {
+		return nil, info
+	}
+
+	info.DataOffset = totalSz - roundedDataSz
+	info.StatePtr = unsafe.Add(base, info.DataOffset)
+	return info.StatePtr, info
+}
+
+// initialValue is a convenience wrapper around initialValueInfo.
+func (m *bpfMap) initialValue() unsafe.Pointer {
+	ptr, _ := m.initialValueInfo()
+	return ptr
 }
 
 func probeMapTypeSupport(mapType uint32) int {

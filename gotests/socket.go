@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"syscall"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -300,12 +302,31 @@ func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
 		rb.poll(0)
 		socketWriteCollectedEntries(w, getSocketRingbufCollector(rb.handle))
 	} else {
+		arenaPtr, ainfo := m.initialValueInfo()
+		fmt.Fprintf(os.Stderr,
+			"[socket_arena_go] iptr=%p isize=%d page_size=%d arena_size=%d\n",
+			ainfo.RawBase, ainfo.DataSize, ainfo.PageSize, ainfo.TotalSize)
+		if ainfo.DataSize > 0 && arenaPtr != nil {
+			initHead := binary.LittleEndian.Uint32(unsafe.Slice((*byte)(arenaPtr), 4))
+			fmt.Fprintf(os.Stderr,
+				"[socket_arena_go] isize>0 data_off=%d arena_state=%p head=%d\n",
+				ainfo.DataOffset, arenaPtr, initHead)
+		}
+		fmt.Fprintf(os.Stderr,
+			"[socket_arena_go] collecting for %ds — open external connections now\n",
+			collectionSeconds)
 		for sec := 0; sec < collectionSeconds; sec++ {
 			time.Sleep(time.Second)
 		}
-		if collectSocketArenaEntries(m.initialValue(), collector) == 0 {
+		headBefore := uint32(0)
+		if arenaPtr != nil {
+			headBefore = binary.LittleEndian.Uint32(unsafe.Slice((*byte)(arenaPtr), 4))
+		}
+		fmt.Fprintf(os.Stderr, "[socket_arena_go] head=%d before collect\n", headBefore)
+		if collectSocketArenaEntries(arenaPtr, collector) == 0 {
 			socketWriteCollectedEntries(w, collector)
 		}
+		fmt.Fprintf(os.Stderr, "[socket_arena_go] coll.size=%d after collect\n", len(collector.entries))
 	}
 
 	if rb != nil {
