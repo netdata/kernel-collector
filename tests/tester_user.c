@@ -215,7 +215,7 @@ static int ebpf_map_is_percpu(uint32_t type)
 
 static int ebpf_map_is_ringbuf(uint32_t type)
 {
-    return type == BPF_MAP_TYPE_RINGBUF || type == BPF_MAP_TYPE_USER_RINGBUF;
+    return type == BPF_MAP_TYPE_RINGBUF || type == BPF_MAP_TYPE_USER_RINGBUF || type == BPF_MAP_TYPE_ARENA;
 }
 
 static int ebpf_map_is_user_ringbuf(uint32_t type)
@@ -661,6 +661,8 @@ static const char *ebpf_map_type_name(int map_type)
             return "ringbuf";
         case BPF_MAP_TYPE_USER_RINGBUF:
             return "user_ringbuf";
+        case BPF_MAP_TYPE_ARENA:
+            return "arena";
         default:
             return "unknown";
     }
@@ -1812,12 +1814,9 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     }
 
     if (!errors && maps) {
-        struct bpf_map *socket_events = ebpf_find_socket_events(obj);
         struct bpf_map *socket_table = ebpf_find_socket_table(obj);
 
-        if (socket_events) {
-            ebpf_socket_ringbuf_tester(socket_events, stdlog, end_iteration);
-        } else if (socket_table) {
+        if (socket_table) {
             ebpf_socket_table_tester(socket_table, stdlog, end_iteration);
         } else {
             if (ctrl) {

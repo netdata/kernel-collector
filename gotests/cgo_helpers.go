@@ -55,6 +55,11 @@ static int netdata_libbpf_num_possible_cpus(void)
 	return libbpf_num_possible_cpus();
 }
 
+static long netdata_sc_pagesize(void)
+{
+	return sysconf(_SC_PAGESIZE);
+}
+
 static int netdata_open_capture_socket(int program_fd)
 {
 	struct sockaddr_ll bind_addr = { 0 };
@@ -274,6 +279,7 @@ const (
 	bpfMapTypePerCPUArray = uint32(C.BPF_MAP_TYPE_PERCPU_ARRAY)
 	bpfMapTypeRingBuf     = uint32(C.BPF_MAP_TYPE_RINGBUF)
 	bpfMapTypeUserRingBuf = uint32(C.BPF_MAP_TYPE_USER_RINGBUF)
+	bpfMapTypeArena       = uint32(C.BPF_MAP_TYPE_ARENA)
 )
 
 type bpfObject struct {
@@ -469,6 +475,27 @@ func (m *bpfMap) meta() mapMeta {
 
 func (m *bpfMap) name() string {
 	return C.GoString(C.bpf_map__name(m.ptr))
+}
+
+// initialValue returns a pointer to the arena data section for BPF_MAP_TYPE_ARENA maps.
+// libbpf places the data section at the END of the arena mmap:
+//   base + (total_sz - roundup(data_sz, PAGE_SIZE))
+// The caller must NOT munmap this pointer; libbpf owns the mapping.
+func (m *bpfMap) initialValue() unsafe.Pointer {
+	var size C.size_t
+	base := unsafe.Pointer(C.bpf_map__initial_value(m.ptr, &size))
+	if base == nil || size == 0 {
+		return nil
+	}
+
+	pageSize := uintptr(C.netdata_sc_pagesize())
+	totalSz := uintptr(C.bpf_map__max_entries(m.ptr)) * pageSize
+	dataSz := uintptr(size)
+	roundedDataSz := (dataSz + pageSize - 1) &^ (pageSize - 1)
+	if roundedDataSz > totalSz {
+		return nil
+	}
+	return unsafe.Add(base, totalSz-roundedDataSz)
 }
 
 func probeMapTypeSupport(mapType uint32) int {

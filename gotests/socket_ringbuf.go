@@ -43,7 +43,7 @@ const (
 	socketArenaMapPages     = 256
 	socketArenaSlotCount    = 1024
 	socketArenaSlotSize     = socketEventKeySize + socketEventValueSize
-	socketArenaStateHeader  = 4
+	socketArenaStateHeader  = 8   // 4-byte head + 4-byte pad before 8-byte-aligned events[]
 )
 
 type socketRingbufCollector struct {
@@ -123,23 +123,22 @@ func socketArenaSlotEmpty(raw []byte) bool {
 	return true
 }
 
-func collectSocketArenaEntries(mapFD int, collector *socketRingbufCollector) int {
-	pageSize := syscall.Getpagesize()
-	arenaSize := socketArenaMapPages * pageSize
-	mapped, err := syscall.Mmap(mapFD, 0, arenaSize, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
-	if err != nil {
-		if errno, ok := err.(syscall.Errno); ok {
-			return -int(errno)
-		}
+// collectSocketArenaEntries reads socket events from a BPF arena using the
+// libbpf-managed pointer returned by bpf_map__initial_value.
+func collectSocketArenaEntries(arenaPtr unsafe.Pointer, collector *socketRingbufCollector) int {
+	if arenaPtr == nil {
 		return -1
 	}
-	defer syscall.Munmap(mapped)
+
+	pageSize := syscall.Getpagesize()
+	arenaSize := socketArenaMapPages * pageSize
+	mapped := unsafe.Slice((*byte)(arenaPtr), arenaSize)
 
 	if len(mapped) < socketArenaStateHeader {
 		return -1
 	}
 
-	head := binary.LittleEndian.Uint32(mapped[:socketArenaStateHeader])
+	head := binary.LittleEndian.Uint32(mapped[:4])
 	if head == 0 {
 		return 0
 	}

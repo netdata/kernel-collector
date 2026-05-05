@@ -488,6 +488,7 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
     socket_event_collection_t coll = { };
     struct ring_buffer *rb = NULL;
     socket_arena_state_t *arena = NULL;
+    int own_arena = 0;
     size_t arena_size = (size_t)sysconf(_SC_PAGESIZE) * SOCKET_ARENA_MAP_PAGES;
     uint32_t value_size = (uint32_t)sizeof(netdata_socket_t);
 
@@ -514,9 +515,38 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
     if (type == BPF_MAP_TYPE_RINGBUF) {
         rb = ring_buffer__new(fd, socket_ringbuf_sample_cb, &coll, NULL);
     } else {
-        arena = mmap(NULL, arena_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if (arena == MAP_FAILED)
-            arena = NULL;
+#ifdef LIBBPF_MAJOR_VERSION
+        {
+            /* libbpf places the data section at the END of the arena mapping:
+             * state_ptr = base + (total_sz - roundup(data_sz, PAGE_SIZE)) */
+            size_t page_size = arena_size / SOCKET_ARENA_MAP_PAGES;
+            size_t isize = 0;
+            void *iptr = bpf_map__initial_value(map, &isize);
+            fprintf(stderr, "[socket_arena_diag] iptr=%p isize=%zu page_size=%zu arena_size=%zu\n",
+                    iptr, isize, page_size, arena_size);
+            if (iptr && isize > 0) {
+                size_t rounded = (isize + page_size - 1) & ~(page_size - 1);
+                size_t data_off = arena_size - rounded;
+                arena = (socket_arena_state_t *)((char *)iptr + data_off);
+                fprintf(stderr, "[socket_arena_diag] isize>0 data_off=%zu arena_state=%p head=%u\n",
+                        data_off, (void *)arena, arena->head);
+            } else if (iptr) {
+                /* addr_space_cast path: arena globals at offset 0 */
+                arena = (socket_arena_state_t *)iptr;
+                fprintf(stderr, "[socket_arena_diag] isize=0 arena_state=%p head@0=%u\n",
+                        (void *)arena, arena->head);
+            }
+        }
+        if (!arena) {
+#endif
+            arena = (socket_arena_state_t *)mmap(NULL, arena_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+            if (arena == MAP_FAILED)
+                arena = NULL;
+            else
+                own_arena = 1;
+#ifdef LIBBPF_MAJOR_VERSION
+        }
+#endif
     }
 
     if (rb) {
@@ -534,7 +564,9 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
         for (sec = 0; sec < collection_seconds; sec++)
             sleep(1);
 
+        fprintf(stderr, "[socket_arena_diag] arena->head=%u before collect\n", arena->head);
         socket_collect_arena_state(&coll, arena);
+        fprintf(stderr, "[socket_arena_diag] coll.size=%zu after collect\n", coll.size);
     }
 
     if (coll.size > 0) {
@@ -548,15 +580,9 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
         fprintf(out, "\n");
     }
 
-    fprintf(out,
-            "                                ]\n"
-            "                      }\n"
-            "        },\n"
-            "        \"Total tables\" : 1\n");
-
     if (rb)
         ring_buffer__free(rb);
-    if (arena)
+    if (arena && own_arena)
         munmap(arena, arena_size);
     socket_collection_free(&coll);
 }

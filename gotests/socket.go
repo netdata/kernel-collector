@@ -303,7 +303,7 @@ func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
 		for sec := 0; sec < collectionSeconds; sec++ {
 			time.Sleep(time.Second)
 		}
-		if collectSocketArenaEntries(meta.FD, collector) == 0 {
+		if collectSocketArenaEntries(m.initialValue(), collector) == 0 {
 			socketWriteCollectedEntries(w, collector)
 		}
 	}

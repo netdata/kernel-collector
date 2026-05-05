@@ -839,6 +839,8 @@ func mapTypeName(mapType uint32) string {
 		return "ringbuf"
 	case bpfMapTypeUserRingBuf:
 		return "user_ringbuf"
+	case bpfMapTypeArena:
+		return "arena"
 	default:
 		return fmt.Sprintf("type_%d", mapType)
 	}
@@ -1344,7 +1346,7 @@ func isPerCPUMapType(mapType uint32) bool {
 }
 
 func isRingBufferMapType(mapType uint32) bool {
-	return mapType == bpfMapTypeRingBuf || mapType == bpfMapTypeUserRingBuf
+	return mapType == bpfMapTypeRingBuf || mapType == bpfMapTypeUserRingBuf || mapType == bpfMapTypeArena
 }
 
 func isUserRingBufferMapType(mapType uint32) bool {
@@ -1546,13 +1548,13 @@ func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocess
 	tables := 0
 	for m := obj.firstMap(); m != nil; m = obj.nextMap(m) {
 		meta := m.meta()
+		if meta.Name == "socket_events" {
+			runSocketRingBufferTester(w, obj, iterations)
+			fmt.Fprint(w, "                                ]\n                      }\n        },\n")
+			tables++
+			continue
+		}
 		if !supportsMapKeyValueIO(meta.Type) {
-			if meta.Name == "socket_events" {
-				runSocketRingBufferTester(w, obj, iterations)
-				fmt.Fprint(w, "                                ]\n                      }\n        },\n")
-				tables++
-				continue
-			}
 			testRingBufferMap(w, meta, iterations)
 			fmt.Fprint(w, "                                ]\n                      }\n        },\n")
 			tables++

@@ -5,7 +5,7 @@
 
 #if defined(__BPF_FEATURE_ADDR_SPACE_CAST)
 #define __arena __attribute__((address_space(1)))
-#define __arena_global __attribute__((address_space(1)))
+#define __arena_global __attribute__((address_space(1))) SEC(".addr_space.1")
 #else
 #define __arena
 #define __arena_global SEC(".addr_space.1")
