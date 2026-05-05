@@ -16,6 +16,15 @@
 
 #include "tester_dns.h"
 
+#include <pthread.h>
+
+#define NETDATA_LOG_THREAD_SAFE(...) do { \
+    pthread_mutex_lock(&log_mutex); \
+    fprintf(stdlog, __VA_ARGS__); \
+    fflush(stdlog); \
+    pthread_mutex_unlock(&log_mutex); \
+} while (0)
+
 #define NETDATA_DNS_CAPTURE_INTERVAL 5
 #define NETDATA_DNS_TIMEOUT_USEC (5ULL * 1000000ULL)
 #define NETDATA_DNS_MAX_DOMAIN_LENGTH 256
@@ -671,7 +680,7 @@ static void dns_write_ports_json(FILE *stdlog, struct bpf_object *obj, const uin
             max_entries = def->max_entries;
         }
 #endif
-        fprintf(stdlog,
+        NETDATA_LOG_THREAD_SAFE(
                 "        \"%s\" : {\n"
                 "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
                 "                       \"Type\" : %u,\n"
@@ -680,10 +689,10 @@ static void dns_write_ports_json(FILE *stdlog, struct bpf_object *obj, const uin
                 name, key_size, value_size, type, fd);
 
         for (i = 0; i < port_count; i++) {
-            fprintf(stdlog, "%s%u", (i) ? ", " : "", ports[i]);
+            NETDATA_LOG_THREAD_SAFE("%s%u", (i) ? ", " : "", ports[i]);
         }
 
-        fprintf(stdlog,
+        NETDATA_LOG_THREAD_SAFE(
                 "],\n"
                 "                       \"Data\" : [\n"
                 "                                    { \"Iteration\" : 1, \"Total\" : %u, \"Filled\" : %zu, \"Zero\" : %u }\n"
@@ -699,13 +708,13 @@ static void dns_write_rcodes_json(FILE *stdlog, netdata_dns_rcode_counter_t *rco
 {
     int first = 1;
 
-    fprintf(stdlog, "{ ");
+    NETDATA_LOG_THREAD_SAFE("{ ");
     while (rcode) {
-        fprintf(stdlog, "%s\"%u\" : %u", first ? "" : ", ", rcode->code, rcode->count);
+        NETDATA_LOG_THREAD_SAFE("%s\"%u\" : %u", first ? "" : ", ", rcode->code, rcode->count);
         first = 0;
         rcode = rcode->next;
     }
-    fprintf(stdlog, " }");
+    NETDATA_LOG_THREAD_SAFE(" }");
 }
 
 static void dns_write_results_json(FILE *stdlog, const netdata_dns_collector_t *collector, int capture_seconds)
@@ -713,7 +722,7 @@ static void dns_write_results_json(FILE *stdlog, const netdata_dns_collector_t *
     netdata_dns_stats_t *stats = collector->stats;
     int first = 1;
 
-    fprintf(stdlog,
+    NETDATA_LOG_THREAD_SAFE(
             "        \"dns_results\" : {\n"
             "            \"Info\" : { \"Collection Seconds\" : %d,\n"
             "                       \"Timeout Window Usec\" : %llu,\n"
@@ -730,7 +739,7 @@ static void dns_write_results_json(FILE *stdlog, const netdata_dns_collector_t *
         dns_format_ip(server_ip, sizeof(server_ip), stats->key.family, stats->key.server_ip);
         dns_format_ip(client_ip, sizeof(client_ip), stats->key.family, stats->key.client_ip);
 
-        fprintf(stdlog,
+        NETDATA_LOG_THREAD_SAFE(
                 "%s"
                 "                                    { \"server_ip\" : \"%s\", \"client_ip\" : \"%s\", "
                 "\"client_port\" : %u, \"protocol\" : %u, \"query_type\" : %u, \"domain\" : \"%s\", "
@@ -741,16 +750,16 @@ static void dns_write_results_json(FILE *stdlog, const netdata_dns_collector_t *
                 (unsigned long long)stats->success_latency_sum,
                 (unsigned long long)stats->failure_latency_sum);
         dns_write_rcodes_json(stdlog, stats->rcodes);
-        fprintf(stdlog, " } }");
+        NETDATA_LOG_THREAD_SAFE(" } }");
 
         first = 0;
         stats = stats->next;
     }
 
     if (!first)
-        fprintf(stdlog, "\n");
+        NETDATA_LOG_THREAD_SAFE("\n");
 
-    fprintf(stdlog,
+    NETDATA_LOG_THREAD_SAFE(
             "                                ]\n"
             "                      }\n"
             "        }");
@@ -762,7 +771,7 @@ static void dns_write_failure_debug(FILE *stdlog, const uint16_t *ports, size_t 
     char error_buffer[128];
     size_t i;
 
-    fprintf(stdlog,
+    NETDATA_LOG_THREAD_SAFE(
             "        \"Debug\" : {\n"
             "            \"Info\" : { \"Stage\" : \"%s\",\n"
             "                       \"Operation\" : \"%s\",\n"
@@ -790,10 +799,10 @@ static void dns_write_failure_debug(FILE *stdlog, const uint16_t *ports, size_t 
             debug->dns_ports_value_size, debug->dns_ports_max_entries);
 
     for (i = 0; i < port_count; i++) {
-        fprintf(stdlog, "%s%u", i ? ", " : "", ports[i]);
+        NETDATA_LOG_THREAD_SAFE("%s%u", i ? ", " : "", ports[i]);
     }
 
-    fprintf(stdlog, "]\n                      }\n        }\n");
+    NETDATA_LOG_THREAD_SAFE("]\n                      }\n        }\n");
 }
 
 static int dns_configure_ports(struct bpf_object *obj, const uint16_t *ports, size_t port_count,
@@ -980,9 +989,9 @@ const char *ebpf_socket_filter_tester(struct bpf_object *obj, uint32_t maps, FIL
     if (maps) {
         dns_collect_packets(sockfd, &collector, capture_seconds);
         dns_write_ports_json(stdlog, obj, ports, port_count);
-        fprintf(stdlog, ",\n");
+        NETDATA_LOG_THREAD_SAFE(",\n");
         dns_write_results_json(stdlog, &collector, capture_seconds);
-        fprintf(stdlog, ",\n        \"Total tables\" : 2\n");
+        NETDATA_LOG_THREAD_SAFE(",\n        \"Total tables\" : 2\n");
     }
 
     dns_free_collector(&collector);
