@@ -19,6 +19,9 @@
 // Libbpf
 #include "tester_user.h"
 #include "tester_dns.h"
+#include "tester_socket.h"
+
+#include <pthread.h>
 
 static ebpf_specify_name_t dc_optional_name[] = { {.program_name = "netdata_lookup_fast",
                                                     .function_to_attach = "lookup_fast",
@@ -104,6 +107,8 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "msync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
@@ -167,6 +172,15 @@ static int dns_ports_overridden = 0;
 static size_t tests_started = 0;
 static char *ebpf_kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12" };
 
+pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+#define NETDATA_LOG_THREAD_SAFE(...) do { \
+    pthread_mutex_lock(&log_mutex); \
+    fprintf(stdlog, __VA_ARGS__); \
+    fflush(stdlog); \
+    pthread_mutex_unlock(&log_mutex); \
+} while (0)
+
 typedef struct ebpf_map_support {
     int hash;
     int array;
@@ -212,7 +226,7 @@ static int ebpf_map_is_percpu(uint32_t type)
 
 static int ebpf_map_is_ringbuf(uint32_t type)
 {
-    return type == BPF_MAP_TYPE_RINGBUF || type == BPF_MAP_TYPE_USER_RINGBUF;
+    return type == BPF_MAP_TYPE_RINGBUF || type == BPF_MAP_TYPE_USER_RINGBUF || type == BPF_MAP_TYPE_ARENA;
 }
 
 static int ebpf_map_is_user_ringbuf(uint32_t type)
@@ -266,7 +280,7 @@ static void ebpf_add_dns_port(uint16_t port)
     }
 
     if (dns_port_count >= NETDATA_DNS_MAX_PORTS) {
-        fprintf(stdlog, "\"Error\" : \"Maximum number of DNS ports (%d) reached.\",\n", NETDATA_DNS_MAX_PORTS);
+        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Maximum number of DNS ports (%d) reached.\",\n", NETDATA_DNS_MAX_PORTS);
         return;
     }
 
@@ -286,7 +300,7 @@ static void ebpf_parse_dns_port_list(const char *input)
 
     copy = strdup(input);
     if (!copy) {
-        fprintf(stdlog, "\"Error\" : \"Cannot duplicate DNS port list.\",\n");
+        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Cannot duplicate DNS port list.\",\n");
         return;
     }
 
@@ -301,7 +315,7 @@ static void ebpf_parse_dns_port_list(const char *input)
 
         port = strtoul(token, &endptr, 10);
         if (*endptr || port == 0 || port > UINT16_MAX) {
-            fprintf(stdlog, "\"Error\" : \"DNS port value (%s) is not valid.\",\n", token);
+            NETDATA_LOG_THREAD_SAFE("\"Error\" : \"DNS port value (%s) is not valid.\",\n", token);
             goto next_token;
         }
 
@@ -364,19 +378,19 @@ static void ebpf_write_program_inventory(struct bpf_object *obj)
     struct bpf_program *prog;
     int first = 1;
 
-    fprintf(stdlog, "[");
+    NETDATA_LOG_THREAD_SAFE("[");
     if (obj) {
         bpf_object__for_each_program(prog, obj) {
             const char *name = bpf_program__name(prog);
 
-            fprintf(stdlog,
+            NETDATA_LOG_THREAD_SAFE(
                     "%s{ \"Name\" : \"%s\", \"Type\" : %d }",
                     first ? "" : ", ", name ? name : "unknown", bpf_program__get_type(prog));
             first = 0;
         }
     }
 
-    fprintf(stdlog, "]");
+    NETDATA_LOG_THREAD_SAFE("]");
 }
 
 static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, int err,
@@ -385,7 +399,7 @@ static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, 
     char error_buffer[128];
     const char *error_message = ebpf_describe_error(err, error_buffer, sizeof(error_buffer));
 
-    fprintf(stdlog,
+    NETDATA_LOG_THREAD_SAFE(
             "        \"Debug\" : {\n"
             "            \"Info\" : { \"Stage\" : \"%s\",\n"
             "                       \"Error Code\" : %d,\n"
@@ -398,16 +412,16 @@ static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, 
             load ? load->success : 0, load ? load->fail : 0);
 
     if (load && load->failed_program_name) {
-        fprintf(stdlog,
+        NETDATA_LOG_THREAD_SAFE(
                 ",\n"
                 "                       \"Failed Program\" : \"%s\",\n"
                 "                       \"Failed Program Type\" : %d",
                 load->failed_program_name, load->failed_program_type);
     }
 
-    fprintf(stdlog, ",\n                       \"Programs\" : ");
+    NETDATA_LOG_THREAD_SAFE(",\n                       \"Programs\" : ");
     ebpf_write_program_inventory(obj);
-    fprintf(stdlog, "\n                      }\n        }\n");
+    NETDATA_LOG_THREAD_SAFE("\n                      }\n        }\n");
 }
 
 static char *ebpf_strdup_string(const char *src)
@@ -658,6 +672,8 @@ static const char *ebpf_map_type_name(int map_type)
             return "ringbuf";
         case BPF_MAP_TYPE_USER_RINGBUF:
             return "user_ringbuf";
+        case BPF_MAP_TYPE_ARENA:
+            return "arena";
         default:
             return "unknown";
     }
@@ -711,31 +727,31 @@ static void ebpf_write_supported_map_types_json(const ebpf_map_support_t *suppor
 {
     int first = 1;
 
-    fprintf(stdlog, "[");
+    NETDATA_LOG_THREAD_SAFE("[");
     if (support->hash) {
-        fprintf(stdlog, "\"hash\"");
+        NETDATA_LOG_THREAD_SAFE("\"hash\"");
         first = 0;
     }
     if (support->array) {
-        fprintf(stdlog, "%s\"array\"", first ? "" : ", ");
+        NETDATA_LOG_THREAD_SAFE("%s\"array\"", first ? "" : ", ");
         first = 0;
     }
     if (support->percpu_hash) {
-        fprintf(stdlog, "%s\"percpu_hash\"", first ? "" : ", ");
+        NETDATA_LOG_THREAD_SAFE("%s\"percpu_hash\"", first ? "" : ", ");
         first = 0;
     }
     if (support->percpu_array) {
-        fprintf(stdlog, "%s\"percpu_array\"", first ? "" : ", ");
+        NETDATA_LOG_THREAD_SAFE("%s\"percpu_array\"", first ? "" : ", ");
         first = 0;
     }
     if (support->ringbuf) {
-        fprintf(stdlog, "%s\"ringbuf\"", first ? "" : ", ");
+        NETDATA_LOG_THREAD_SAFE("%s\"ringbuf\"", first ? "" : ", ");
         first = 0;
     }
     if (support->user_ringbuf)
-        fprintf(stdlog, "%s\"user_ringbuf\"", first ? "" : ", ");
+        NETDATA_LOG_THREAD_SAFE("%s\"user_ringbuf\"", first ? "" : ", ");
 
-    fprintf(stdlog, "]");
+    NETDATA_LOG_THREAD_SAFE("]");
 }
 
 static void ebpf_write_object_map_types(struct bpf_object *obj)
@@ -744,7 +760,7 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
     int seen[__MAX_BPF_MAP_TYPE] = { 0 };
     int first = 1;
 
-    fprintf(stdlog, "        \"Map Types Used\" : [");
+    NETDATA_LOG_THREAD_SAFE("        \"Map Types Used\" : [");
     if (obj) {
         bpf_object__for_each_map(map, obj) {
             int type;
@@ -761,9 +777,9 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
                 continue;
 
             if (!first)
-                fprintf(stdlog, ", ");
+                NETDATA_LOG_THREAD_SAFE(", ");
 
-            fprintf(stdlog, "\"%s\"", ebpf_map_type_name(type));
+            NETDATA_LOG_THREAD_SAFE("\"%s\"", ebpf_map_type_name(type));
             first = 0;
 
             if (type >= 0 && type < __MAX_BPF_MAP_TYPE)
@@ -771,7 +787,7 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
         }
     }
 
-    fprintf(stdlog, "],\n");
+    NETDATA_LOG_THREAD_SAFE("],\n");
 }
 
 static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_map_support_t *support)
@@ -779,7 +795,7 @@ static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_
     char error_buffer[128];
     const char *error_message = ebpf_describe_error(-EOPNOTSUPP, error_buffer, sizeof(error_buffer));
 
-    fprintf(stdlog,
+    NETDATA_LOG_THREAD_SAFE(
             "        \"Debug\" : {\n"
             "            \"Info\" : { \"Stage\" : \"map_compatibility\",\n"
             "                       \"Error Code\" : %d,\n"
@@ -788,7 +804,7 @@ static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_
             "                       \"Supported Map Types\" : ",
             -EOPNOTSUPP, error_message, ebpf_map_type_name(unsupported_type));
     ebpf_write_supported_map_types_json(support);
-    fprintf(stdlog,
+    NETDATA_LOG_THREAD_SAFE(
             ",\n"
             "                       \"Programs\" : []\n"
             "                      }\n"
@@ -1047,7 +1063,7 @@ static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kv
 static void ebpf_start_external_json(char *filename)
 {
     tests_started++;
-    fprintf(stdlog, "\n\"%s\" : {\n    \"Tables\" : {\n",
+    NETDATA_LOG_THREAD_SAFE("\n\"%s\" : {\n    \"Tables\" : {\n",
             filename);
 }
 
@@ -1065,9 +1081,9 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
     tests_started++;
     if (first) {
         first = 0;
-        fprintf(stdlog, "\n");
+        NETDATA_LOG_THREAD_SAFE("\n");
     }
-    fprintf(stdlog, "\"%s\" : {\n    \"Test\" : \"%s\",\n    \"Tables\" : {\n",
+    NETDATA_LOG_THREAD_SAFE("\"%s\" : {\n    \"Test\" : \"%s\",\n    \"Tables\" : {\n",
             filename, (is_return) ? "return" : "entry");
 }
 
@@ -1471,15 +1487,15 @@ static void ebpf_write_common_json_vector(ebpf_table_data_t *values, int fd)
         ebpf_read_generic_table(values, fd);
 
         if (i)
-            fprintf(stdlog, ",\n");
+            NETDATA_LOG_THREAD_SAFE(",\n");
 
         // report
-        fprintf(stdlog,
+        NETDATA_LOG_THREAD_SAFE(
                 "                                    "
                 "{ \"Iteration\" :  %d, \"Total\" : %lu, \"Filled\" : %lu, \"Zero\" : %lu }",
-                i, values->filled + values->zero, values->filled, values->zero); 
+                i, values->filled + values->zero, values->filled, values->zero);
     }
-    fprintf(stdlog, "\n");
+    NETDATA_LOG_THREAD_SAFE("\n");
 }
 
 /**
@@ -1506,13 +1522,13 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
     for (key = 0; key < NETDATA_CONTROLLER_END; key++) {
         ebpf_check_and_update_counter(fd, key, values->value_length, &value, &zero);
     }
-    fprintf(stdlog,
+    NETDATA_LOG_THREAD_SAFE(
             "                                    "
             "{ \"Iteration\" : 1, \"Total\" : %u, \"Filled\" : %u, \"Zero\" : %u }\n",
             value + zero,  value, zero);
 }
 
-static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
+static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
 {
     char error_buffer[128];
     const char *mode = ebpf_map_is_user_ringbuf(type) ? "user_ringbuf_producer" : "ringbuf_consumer";
@@ -1523,7 +1539,12 @@ static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint3
     int setup_error = 0;
     int i;
 
-    fprintf(stdlog,
+    if (!strcmp(name, "socket_events")) {
+        ebpf_socket_ringbuf_tester(map, stdlog, end_iteration);
+        return;
+    }
+
+    NETDATA_LOG_THREAD_SAFE(
             "        \"%s\" : {\n"
             "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
             "                       \"Type\" : %u,\n"
@@ -1578,9 +1599,9 @@ static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint3
         error_message = ebpf_describe_error(op_error, error_buffer, sizeof(error_buffer));
 
         if (i)
-            fprintf(stdlog, ",\n");
+            NETDATA_LOG_THREAD_SAFE(",\n");
 
-        fprintf(stdlog,
+        NETDATA_LOG_THREAD_SAFE(
                 "                                    "
                 "{ \"Iteration\" : %d, \"Mode\" : \"%s\", \"Setup\" : %d, "
                 "\"Operation Result\" : %d, \"Samples\" : %zu, \"Bytes\" : %zu, "
@@ -1590,7 +1611,7 @@ static void ebpf_test_ringbuf_map(const char *name, int fd, uint32_t type, uint3
                 avail_data, ring_size, op_error, error_message);
     }
 
-    fprintf(stdlog, "\n");
+    NETDATA_LOG_THREAD_SAFE("\n");
 
     if (rb)
         ring_buffer__free(rb);
@@ -1630,8 +1651,8 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         value_size = def->value_size;
 #endif
         if (!ebpf_map_supports_key_value_io(type)) {
-            ebpf_test_ringbuf_map(name, fd, type, key_size, value_size);
-            fprintf(stdlog, "                                ]\n"
+            ebpf_test_ringbuf_map(map, name, fd, type, key_size, value_size);
+            NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
                     "        },\n");
             tables++;
@@ -1641,10 +1662,10 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
         values = ebpf_allocate_tables(name, type, key_size, value_size);
         if (values) {
             // Write header
-           fprintf(stdlog,
+           NETDATA_LOG_THREAD_SAFE(
                    "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
                    "                       \"Type\" : %u,\n"
-                   "                       \"FD\" : %d,\n" 
+                   "                       \"FD\" : %d,\n"
                    "                       \"Data\" : [\n",
                    name, key_size, value_size, type, fd);
 
@@ -1656,8 +1677,8 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
             }
 
             // Close JSON vector and object
-            fprintf(stdlog, "                                ]\n"
-                   "                      }\n" 
+            NETDATA_LOG_THREAD_SAFE("                                ]\n"
+                   "                      }\n"
                    "        },\n");
 
             tables++;
@@ -1668,7 +1689,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
 
     // Write total tables read
     if (tables) {
-        fprintf(stdlog, "        \"Total tables\" : %d\n", tables);
+        NETDATA_LOG_THREAD_SAFE("        \"Total tables\" : %d\n", tables);
     }
 }
 
@@ -1705,7 +1726,7 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         end = def->max_entries;
 #endif
         if (!ebpf_map_supports_key_value_io(type)) {
-            fprintf(stdlog, "\"error\" : \"Control table %s uses unsupported map type %s.\",",
+            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Control table %s uses unsupported map type %s.\",",
                     name, ebpf_map_type_name(type));
             continue;
         }
@@ -1719,12 +1740,12 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         unsigned int i;
 
         if (!value_buffer) {
-            fprintf(stdlog, "\"error\" : \"Cannot allocate control buffer for table %s.\",", name);
+            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Cannot allocate control buffer for table %s.\",", name);
             continue;
         }
 
         if (limit > NETDATA_CONTROLLER_END) {
-            fprintf(stdlog,
+            NETDATA_LOG_THREAD_SAFE(
                     "\"error\" : \"Control table %s has %u entries, limiting writes to %u.\",",
                     name, end, NETDATA_CONTROLLER_END);
             limit = NETDATA_CONTROLLER_END;
@@ -1739,7 +1760,7 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
             }
 
              if (bpf_map_update_elem(fd, &i, value_buffer, 0))
-                 fprintf(stdlog, "\"error\" : \"Add key(%u) for controller table failed.\",", i);
+                 NETDATA_LOG_THREAD_SAFE("\"error\" : \"Add key(%u) for controller table failed.\",", i);
         }
 
         free(value_buffer);
@@ -1804,11 +1825,17 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     }
 
     if (!errors && maps) {
-        if (ctrl) {
-            ebpf_fill_ctrl(obj, ctrl);
-        }
+        struct bpf_map *socket_table = ebpf_find_socket_table(obj);
 
-        ebpf_test_maps(obj, ctrl);
+        if (socket_table) {
+            ebpf_socket_table_tester(socket_table, stdlog, end_iteration);
+        } else {
+            if (ctrl) {
+                ebpf_fill_ctrl(obj, ctrl);
+            }
+
+            ebpf_test_maps(obj, ctrl);
+        }
     }
 
     if (!errors) {
@@ -1839,7 +1866,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
 static int ebpf_module_has_buffer(const char *name)
 {
     static const char *buffer_modules[] = {
-        "cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", NULL
+        "cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket", NULL
     };
     int i;
     for (i = 0; buffer_modules[i]; i++) {
@@ -1861,6 +1888,7 @@ static int ebpf_module_has_arena(const char *name)
         "swap",
         "vfs",
         "dns",
+        "socket",
         NULL
     };
     size_t i;
@@ -1935,20 +1963,20 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
                     {
                         char *result = ebpf_tester(compatible.files[j], ebpf_modules[i].update_names,
                                                    flags & NETDATA_FLAG_CONTENT, ebpf_modules[i].ctrl_table, kver);
-                        fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
+NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
                     }
                 }
             } else if (first_incompatible) {
                 ebpf_start_netdata_json(first_incompatible, is_return);
                 ebpf_write_map_compatibility_debug(unsupported_type, &map_support);
-                fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", "Fail");
+                NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", "Fail");
             } else {
                 ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, rhf_version);
                 ebpf_start_netdata_json(load, is_return);
                 {
                     char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT,
                                                ebpf_modules[i].ctrl_table, kver);
-                    fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
+NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
                 }
             }
 
@@ -2000,8 +2028,8 @@ static void ebpf_help()
                     "--content          Test content stored inside hash tables.\n"
                     "--iteration        Number of iterations when content is read, default value is 1.\n"
                     "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"
-                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n"
-                    "--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"
+                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n"
+                    "--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
                     "--btrfs            Latency for btrfs.\n"
@@ -2263,7 +2291,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                     stdlog = fopen(log_path, "w");
                     if (!stdlog) {
                         stdlog = stderr;
-                        fprintf(stdlog, "\"Error\": \"Cannot open %s\",\n", log_path);
+                        NETDATA_LOG_THREAD_SAFE("\"Error\": \"Cannot open %s\",\n", log_path);
                     }
 
                     break;
@@ -2272,7 +2300,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                 {
                     int value = (int)strtol(optarg, NULL, 10);
                     if (value < 1) {
-                        fprintf(stdlog, "\"Error\" : \"Value given (%d) is smaller than the minimum, reseting to default 1.\",\n",
+                        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Value given (%d) is smaller than the minimum, reseting to default 1.\",\n",
                                 value);
                         value = 1;
                     }
@@ -2284,7 +2312,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                 {
                     int value = (int)strtol(optarg, NULL, 10);
                     if (value < NETDATA_APPS_LEVEL_REAL_PARENT || value >= NETDATA_APPS_LEVEL_END) {
-                        fprintf(stdlog, "\"Error\" : \"Value given (%d) is not valid, reseting to default 0 (Real Parent).\",\n",
+                        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Value given (%d) is not valid, reseting to default 0 (Real Parent).\",\n",
                                 value);
                         value = NETDATA_APPS_LEVEL_REAL_PARENT;
                     }
@@ -2308,12 +2336,12 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
     }
 
     if (buffer_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_5_8) {
-        fprintf(stdlog, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n");
+        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n");
         exit(1);
     }
 
     if (arena_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_6_9) {
-        fprintf(stdlog, "\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n");
+        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n");
         exit(1);
     }
 
@@ -2365,7 +2393,7 @@ static void ebpf_clean_name_vectors()
  */
 static int ebpf_write_error_exit(char *msg, int ret)
 {
-    fprintf(stdlog, "\"Error\" : \"%s\",\n", msg);
+    NETDATA_LOG_THREAD_SAFE("\"Error\" : \"%s\",\n", msg);
     if (log_path)
         fclose(stdlog);
 
@@ -2397,7 +2425,7 @@ int main(int argc, char **argv)
     uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel, rhf_version);
 
     // Start JSON output
-    fprintf(stdlog, "{");
+    NETDATA_LOG_THREAD_SAFE("{");
 
     if (ebpf_memlock_limit()) {
         return ebpf_write_error_exit("Cannot adjust memory limit.", 2);
@@ -2414,18 +2442,18 @@ int main(int argc, char **argv)
         if (specific_ebpf) {
             ebpf_start_external_json(specific_ebpf);
             char *result = ebpf_tester(specific_ebpf, NULL, flags & NETDATA_FLAG_CONTENT, NULL, my_kernel);
-            fprintf(stdlog, "    },\n    \"Status\" :  \"%s\"\n},\n", result);
+            NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
         }
     }
 
     if (!tests_started) {
-        fprintf(stdlog,
+        NETDATA_LOG_THREAD_SAFE(
                 "\"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\",\n");
         ret = 1;
     }
 
     // END JSON output
-    fprintf(stdlog, "\"End\" : \"Good bye!!!\" }\n");
+    NETDATA_LOG_THREAD_SAFE("\"End\" : \"Good bye!!!\" }\n");
 
     if (log_path)
         fclose(stdlog);

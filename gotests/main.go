@@ -256,7 +256,7 @@ var (
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMDFlush, name: "mdflush"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMount, name: "mount"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "msync"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDNS, name: "dns"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNFS, name: "nfs", ctrlTable: "nfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNetworkViewer, name: "network_viewer", ctrlTable: "nv_ctrl"},
@@ -483,8 +483,8 @@ func helpText(exe string) string {
 		"--content          Test content stored inside hash tables.\n"+
 		"--iteration        Number of iterations when content is read, default value is 1.\n"+
 		"--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"+
-		"--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n"+
-		"--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns).\n\n"+
+		"--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n"+
+		"--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n\n"+
 		"You can also specify an unique eBPF program developed by Netdata with the following\n"+
 		"options:\n"+
 		"--btrfs            Latency for btrfs.\n"+
@@ -839,6 +839,8 @@ func mapTypeName(mapType uint32) string {
 		return "ringbuf"
 	case bpfMapTypeUserRingBuf:
 		return "user_ringbuf"
+	case bpfMapTypeArena:
+		return "arena"
 	default:
 		return fmt.Sprintf("type_%d", mapType)
 	}
@@ -1025,6 +1027,7 @@ func moduleHasBuffer(name string) bool {
 		"swap":      true,
 		"vfs":       true,
 		"dns":       true,
+		"socket":    true,
 	}
 	return bufferModules[name]
 }
@@ -1040,6 +1043,7 @@ func moduleHasArena(name string) bool {
 		"swap":      true,
 		"vfs":       true,
 		"dns":       true,
+		"socket":    true,
 	}
 	return arenaModules[name]
 }
@@ -1223,10 +1227,14 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 	}
 
 	if maps {
-		if ctrl != "" {
-			fillCtrl(obj, ctrl, opts.mapLevel, nprocesses)
+		if hasSocketTable(obj) {
+			runSocketTableTester(w, obj, opts.iterations)
+		} else {
+			if ctrl != "" {
+				fillCtrl(obj, ctrl, opts.mapLevel, nprocesses)
+			}
+			testMaps(w, obj, ctrl, opts.iterations, nprocesses)
 		}
-		testMaps(w, obj, ctrl, opts.iterations, nprocesses)
 	}
 
 	for _, link := range summary.links {
@@ -1338,7 +1346,7 @@ func isPerCPUMapType(mapType uint32) bool {
 }
 
 func isRingBufferMapType(mapType uint32) bool {
-	return mapType == bpfMapTypeRingBuf || mapType == bpfMapTypeUserRingBuf
+	return mapType == bpfMapTypeRingBuf || mapType == bpfMapTypeUserRingBuf || mapType == bpfMapTypeArena
 }
 
 func isUserRingBufferMapType(mapType uint32) bool {
@@ -1540,6 +1548,12 @@ func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocess
 	tables := 0
 	for m := obj.firstMap(); m != nil; m = obj.nextMap(m) {
 		meta := m.meta()
+		if meta.Name == "socket_events" {
+			runSocketRingBufferTester(w, obj, iterations)
+			fmt.Fprint(w, "                                ]\n                      }\n        },\n")
+			tables++
+			continue
+		}
 		if !supportsMapKeyValueIO(meta.Type) {
 			testRingBufferMap(w, meta, iterations)
 			fmt.Fprint(w, "                                ]\n                      }\n        },\n")

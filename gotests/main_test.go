@@ -569,3 +569,382 @@ func TestUnitTestEnv(t *testing.T) {
 		}
 	})
 }
+
+func TestMapDataHelpers(t *testing.T) {
+	t.Run("roundUpSize aligns to boundary", func(t *testing.T) {
+		cases := []struct{ value, align, want int }{
+			{0, 8, 0},
+			{1, 8, 8},
+			{7, 8, 8},
+			{8, 8, 8},
+			{9, 8, 16},
+			{3, 4, 4},
+			{4, 4, 4},
+			{5, 4, 8},
+		}
+		for _, tc := range cases {
+			if got := roundUpSize(tc.value, tc.align); got != tc.want {
+				t.Fatalf("roundUpSize(%d, %d) = %d, want %d", tc.value, tc.align, got, tc.want)
+			}
+		}
+	})
+
+	t.Run("mapValueStride returns raw size for non-percpu", func(t *testing.T) {
+		meta := mapMeta{Type: bpfMapTypeHash, ValueSize: 10}
+		if got := mapValueStride(meta); got != 10 {
+			t.Fatalf("unexpected stride for hash map: %d", got)
+		}
+	})
+
+	t.Run("mapValueStride rounds up for percpu", func(t *testing.T) {
+		cases := []struct {
+			mapType   uint32
+			valueSize uint32
+			want      int
+		}{
+			{bpfMapTypePerCPUHash, 10, 16},
+			{bpfMapTypePerCPUArray, 8, 8},
+			{bpfMapTypePerCPUHash, 1, 8},
+			{bpfMapTypePerCPUArray, 17, 24},
+		}
+		for _, tc := range cases {
+			meta := mapMeta{Type: tc.mapType, ValueSize: tc.valueSize}
+			if got := mapValueStride(meta); got != tc.want {
+				t.Fatalf("mapValueStride(type=%d, size=%d) = %d, want %d", tc.mapType, tc.valueSize, got, tc.want)
+			}
+		}
+	})
+
+	t.Run("mapValueLength ignores nprocesses for non-percpu", func(t *testing.T) {
+		meta := mapMeta{Type: bpfMapTypeHash, ValueSize: 10}
+		if got := mapValueLength(meta, 4); got != 10 {
+			t.Fatalf("unexpected length: %d", got)
+		}
+	})
+
+	t.Run("mapValueLength multiplies stride by nprocesses for percpu", func(t *testing.T) {
+		meta := mapMeta{Type: bpfMapTypePerCPUHash, ValueSize: 10}
+		// stride=16, nprocesses=4 → 64
+		if got := mapValueLength(meta, 4); got != 64 {
+			t.Fatalf("unexpected percpu length: %d", got)
+		}
+	})
+
+	t.Run("mapValueLength clamps nprocesses below 1 to 1", func(t *testing.T) {
+		meta := mapMeta{Type: bpfMapTypePerCPUHash, ValueSize: 10}
+		// stride=16, nprocesses clamped to 1 → 16
+		if got := mapValueLength(meta, 0); got != 16 {
+			t.Fatalf("unexpected clamped length: %d", got)
+		}
+	})
+
+	t.Run("controllerEntryLimit returns constant when MaxEntries exceeds it", func(t *testing.T) {
+		meta := mapMeta{MaxEntries: 100}
+		if got := controllerEntryLimit(meta); got != netdataControllerEnd {
+			t.Fatalf("unexpected limit: got %d want %d", got, netdataControllerEnd)
+		}
+	})
+
+	t.Run("controllerEntryLimit returns MaxEntries when smaller than constant", func(t *testing.T) {
+		meta := mapMeta{MaxEntries: 3}
+		if got := controllerEntryLimit(meta); got != 3 {
+			t.Fatalf("unexpected limit: got %d want 3", got)
+		}
+	})
+
+	t.Run("controllerEntryLimit treats zero MaxEntries as no constraint", func(t *testing.T) {
+		meta := mapMeta{MaxEntries: 0}
+		if got := controllerEntryLimit(meta); got != netdataControllerEnd {
+			t.Fatalf("unexpected limit for zero MaxEntries: got %d want %d", got, netdataControllerEnd)
+		}
+	})
+
+	t.Run("fillScalarValue writes 8-byte little-endian", func(t *testing.T) {
+		dst := make([]byte, 8)
+		fillScalarValue(dst, 8, 0x0102030405060708)
+		want := []byte{0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01}
+		if !bytes.Equal(dst, want) {
+			t.Fatalf("unexpected 8-byte encoding: got %v want %v", dst, want)
+		}
+	})
+
+	t.Run("fillScalarValue writes 4-byte little-endian when valueSize < 8", func(t *testing.T) {
+		dst := make([]byte, 4)
+		fillScalarValue(dst, 4, 0x12345678)
+		want := []byte{0x78, 0x56, 0x34, 0x12}
+		if !bytes.Equal(dst, want) {
+			t.Fatalf("unexpected 4-byte encoding: got %v want %v", dst, want)
+		}
+	})
+
+	t.Run("fillScalarValue falls through to 4-byte when buffer too short for 8", func(t *testing.T) {
+		dst := make([]byte, 4)
+		fillScalarValue(dst, 8, 0x12345678)
+		want := []byte{0x78, 0x56, 0x34, 0x12}
+		if !bytes.Equal(dst, want) {
+			t.Fatalf("unexpected fallback 4-byte encoding: got %v want %v", dst, want)
+		}
+	})
+
+	t.Run("fillScalarValue does not write when valueSize too small", func(t *testing.T) {
+		dst := make([]byte, 8)
+		fillScalarValue(dst, 2, 0xFFFF)
+		if !bytes.Equal(dst, make([]byte, 8)) {
+			t.Fatalf("expected no write for valueSize=2: %v", dst)
+		}
+	})
+
+	t.Run("allocateTableData sizes slices from mapValueLength", func(t *testing.T) {
+		meta := mapMeta{Type: bpfMapTypePerCPUHash, KeySize: 4, ValueSize: 10, MaxEntries: 8}
+		td := allocateTableData(meta, 2)
+		// stride=16, nprocesses=2 → valueLength=32
+		if len(td.key) != 4 || len(td.nextKey) != 4 {
+			t.Fatalf("unexpected key lengths: key=%d nextKey=%d", len(td.key), len(td.nextKey))
+		}
+		if len(td.value) != 32 || len(td.defValue) != 32 {
+			t.Fatalf("unexpected value lengths: value=%d defValue=%d", len(td.value), len(td.defValue))
+		}
+		if td.keyLength != 4 || td.valueLength != 32 {
+			t.Fatalf("unexpected stored lengths: keyLength=%d valueLength=%d", td.keyLength, td.valueLength)
+		}
+	})
+}
+
+func TestMapTypePredicates(t *testing.T) {
+	percpuTypes := []uint32{bpfMapTypePerCPUHash, bpfMapTypePerCPUArray}
+	nonPercpuTypes := []uint32{bpfMapTypeHash, bpfMapTypeArray, bpfMapTypeRingBuf, bpfMapTypeUserRingBuf}
+
+	for _, mt := range percpuTypes {
+		if !isPerCPUMapType(mt) {
+			t.Fatalf("expected map type %d to be percpu", mt)
+		}
+	}
+	for _, mt := range nonPercpuTypes {
+		if isPerCPUMapType(mt) {
+			t.Fatalf("expected map type %d to not be percpu", mt)
+		}
+	}
+
+	ringbufTypes := []uint32{bpfMapTypeRingBuf, bpfMapTypeUserRingBuf}
+	nonRingbufTypes := []uint32{bpfMapTypeHash, bpfMapTypeArray, bpfMapTypePerCPUHash, bpfMapTypePerCPUArray}
+
+	for _, mt := range ringbufTypes {
+		if !isRingBufferMapType(mt) {
+			t.Fatalf("expected map type %d to be ringbuf", mt)
+		}
+	}
+	for _, mt := range nonRingbufTypes {
+		if isRingBufferMapType(mt) {
+			t.Fatalf("expected map type %d to not be ringbuf", mt)
+		}
+	}
+
+	if !isUserRingBufferMapType(bpfMapTypeUserRingBuf) {
+		t.Fatal("expected user_ringbuf to be user ringbuf type")
+	}
+	if isUserRingBufferMapType(bpfMapTypeRingBuf) {
+		t.Fatal("expected ringbuf to not be user ringbuf type")
+	}
+}
+
+func TestModeSuffix(t *testing.T) {
+	if got := modeSuffix(false, false); got != "" {
+		t.Fatalf("unexpected plain mode suffix: %q", got)
+	}
+	if got := modeSuffix(true, false); got != "_buffer" {
+		t.Fatalf("unexpected buffer mode suffix: %q", got)
+	}
+	if got := modeSuffix(false, true); got != "_arena" {
+		t.Fatalf("unexpected arena mode suffix: %q", got)
+	}
+	// arena takes precedence over buffer
+	if got := modeSuffix(true, true); got != "_arena" {
+		t.Fatalf("arena must take precedence over buffer, got %q", got)
+	}
+}
+
+func TestModuleModeLookup(t *testing.T) {
+	bufferArenaModules := []string{"cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket"}
+	for _, name := range bufferArenaModules {
+		if !moduleHasBuffer(name) {
+			t.Fatalf("expected %q to have buffer support", name)
+		}
+		if !moduleHasArena(name) {
+			t.Fatalf("expected %q to have arena support", name)
+		}
+	}
+
+	plainOnlyModules := []string{"btrfs", "disk", "ext4", "hardirq", "mdflush", "mount", "nfs", "network_viewer", "softirq", "xfs", "zfs"}
+	for _, name := range plainOnlyModules {
+		if moduleHasBuffer(name) {
+			t.Fatalf("expected %q to not have buffer support", name)
+		}
+		if moduleHasArena(name) {
+			t.Fatalf("expected %q to not have arena support", name)
+		}
+	}
+}
+
+func TestFindOptionalName(t *testing.T) {
+	names := []specifyName{
+		{programName: "netdata_foo", functionToAttach: "foo_fn"},
+		{programName: "netdata_bar", functionToAttach: "bar_fn"},
+	}
+
+	got := findOptionalName(&names, "netdata_foo")
+	if got == nil || got.programName != "netdata_foo" {
+		t.Fatal("expected to find netdata_foo")
+	}
+
+	if got := findOptionalName(&names, "netdata_baz"); got != nil {
+		t.Fatal("expected nil for absent name")
+	}
+
+	if got := findOptionalName(nil, "netdata_foo"); got != nil {
+		t.Fatal("expected nil for nil slice")
+	}
+}
+
+func TestSetCommonFlag(t *testing.T) {
+	got := setCommonFlag()
+
+	included := []uint64{flagCachestat, flagDC, flagDisk, flagFD, flagSync, flagHardIRQ,
+		flagMount, flagNetworkViewer, flagOOMKill, flagProcess, flagSHM, flagSocket,
+		flagSoftIRQ, flagSwap, flagDNS}
+	for _, f := range included {
+		if got&f == 0 {
+			t.Fatalf("expected flag %#x to be included in setCommonFlag", f)
+		}
+	}
+
+	excluded := []uint64{flagBtrfs, flagExt4, flagVFS, flagNFS, flagXFS, flagZFS,
+		flagMDFlush, flagContent, flagLoadBinary}
+	for _, f := range excluded {
+		if got&f != 0 {
+			t.Fatalf("expected flag %#x to be excluded from setCommonFlag", f)
+		}
+	}
+}
+
+func TestDescribeError(t *testing.T) {
+	if got := describeError(0); got != "No error information" {
+		t.Fatalf("unexpected zero error description: %q", got)
+	}
+
+	posDesc := describeError(int(syscall.ENOENT))
+	negDesc := describeError(-int(syscall.ENOENT))
+	if posDesc != negDesc {
+		t.Fatalf("positive and negative errno must yield the same description: %q vs %q", posDesc, negDesc)
+	}
+	if !strings.Contains(strings.ToLower(posDesc), "no such") {
+		t.Fatalf("unexpected ENOENT description: %q", posDesc)
+	}
+}
+
+func TestResolveBinaryDir(t *testing.T) {
+	dir := t.TempDir()
+	if got := resolveBinaryDir(dir); got != dir {
+		t.Fatalf("unexpected resolved path: got %q want %q", got, dir)
+	}
+
+	// empty input falls back to cwd — just verify it returns something non-empty
+	if got := resolveBinaryDir(""); got == "" {
+		t.Fatal("expected non-empty path for empty input")
+	}
+}
+
+func TestWriteSupportedMapTypes(t *testing.T) {
+	supported := map[uint32]bool{
+		bpfMapTypeHash:        true,
+		bpfMapTypeArray:       false,
+		bpfMapTypePerCPUHash:  true,
+		bpfMapTypePerCPUArray: false,
+		bpfMapTypeRingBuf:     false,
+		bpfMapTypeUserRingBuf: false,
+	}
+
+	var out bytes.Buffer
+	writeSupportedMapTypes(&out, supported)
+	got := out.String()
+
+	if !strings.HasPrefix(got, "[") || !strings.HasSuffix(got, "]") {
+		t.Fatalf("expected JSON array format, got %q", got)
+	}
+	if !strings.Contains(got, `"hash"`) {
+		t.Fatalf("expected hash in output: %s", got)
+	}
+	if !strings.Contains(got, `"percpu_hash"`) {
+		t.Fatalf("expected percpu_hash in output: %s", got)
+	}
+	if strings.Contains(got, `"array"`) {
+		t.Fatalf("array must not appear (disabled): %s", got)
+	}
+	if strings.Contains(got, `"ringbuf"`) {
+		t.Fatalf("ringbuf must not appear (disabled): %s", got)
+	}
+}
+
+func TestCandidateVersionIndex(t *testing.T) {
+	cases := []struct {
+		name      string
+		filename  string
+		module    string
+		rhf       int
+		kernels   uint32
+		maxIndex  uint32
+		arenaMode bool
+		wantIndex int
+	}{
+		{
+			name: "rhf 5.14 matches at index 7",
+			filename: "pnetdata_ebpf_swap.5.14.rhf.o",
+			module: "swap", rhf: 1, kernels: netdataV514, maxIndex: 7,
+			wantIndex: 7,
+		},
+		{
+			name: "non-rhf masks out V514",
+			filename: "pnetdata_ebpf_swap.5.14.rhf.o",
+			module: "swap", rhf: -1, kernels: netdataV514, maxIndex: 10,
+			wantIndex: -1,
+		},
+		{
+			name: "non-rhf 6.8 matches at index 10",
+			filename: "pnetdata_ebpf_swap.6.8.o",
+			module: "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
+			wantIndex: 10,
+		},
+		{
+			name: "picks file version from multi-version kernel set",
+			filename: "pnetdata_ebpf_swap.5.4.o",
+			module: "swap", rhf: -1, kernels: netdataV54 | netdataV68, maxIndex: 10,
+			wantIndex: 4,
+		},
+		{
+			name: "wrong module name returns -1",
+			filename: "pnetdata_ebpf_process.6.8.o",
+			module: "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
+			wantIndex: -1,
+		},
+		{
+			name: "arena file matches with arenaMode enabled",
+			filename: "pnetdata_ebpf_swap_arena.6.12.o",
+			module: "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: true,
+			wantIndex: 11,
+		},
+		{
+			name: "arena file rejected without arenaMode",
+			filename: "pnetdata_ebpf_swap_arena.6.12.o",
+			module: "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: false,
+			wantIndex: -1,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := candidateVersionIndex(tc.filename, tc.module, false, tc.rhf, tc.kernels, tc.maxIndex, false, tc.arenaMode)
+			if got != tc.wantIndex {
+				t.Fatalf("unexpected index: got %d want %d", got, tc.wantIndex)
+			}
+		})
+	}
+}

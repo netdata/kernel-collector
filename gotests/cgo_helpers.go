@@ -25,6 +25,13 @@ struct netdata_ringbuf_stats {
 	uint64_t bytes;
 };
 
+struct netdata_socket_ringbuf_ctx {
+	struct netdata_ringbuf_stats *stats;
+	uint64_t handle;
+};
+
+extern void socketRingbufSample(uint64_t handle, void *data, size_t size);
+
 #ifdef LIBBPF_MAJOR_VERSION
 static int netdata_libbpf_probe_bpf_map_type(unsigned int map_type)
 {
@@ -46,6 +53,11 @@ static int netdata_libbpf_get_error(const void *ptr)
 static int netdata_libbpf_num_possible_cpus(void)
 {
 	return libbpf_num_possible_cpus();
+}
+
+static long netdata_sc_pagesize(void)
+{
+	return sysconf(_SC_PAGESIZE);
 }
 
 static int netdata_open_capture_socket(int program_fd)
@@ -132,37 +144,75 @@ static int netdata_ring_buffer_sample_cb(void *ctx, void *data, size_t size)
 	return 0;
 }
 
-static struct netdata_ringbuf_stats *netdata_ringbuf_stats_new(void)
+static int netdata_socket_ring_buffer_sample_cb(void *ctx, void *data, size_t size)
+{
+	struct netdata_socket_ringbuf_ctx *socket_ctx = ctx;
+
+	if (socket_ctx) {
+		if (socket_ctx->stats) {
+			socket_ctx->stats->samples++;
+			socket_ctx->stats->bytes += size;
+		}
+		socketRingbufSample(socket_ctx->handle, data, size);
+	}
+
+	return 0;
+}
+
+struct netdata_ringbuf_stats *netdata_ringbuf_stats_new(void)
 {
 	return calloc(1, sizeof(struct netdata_ringbuf_stats));
 }
 
-static void netdata_ringbuf_stats_free(struct netdata_ringbuf_stats *stats)
+void netdata_ringbuf_stats_free(struct netdata_ringbuf_stats *stats)
 {
 	free(stats);
 }
 
-static uint64_t netdata_ringbuf_stats_samples(const struct netdata_ringbuf_stats *stats)
+uint64_t netdata_ringbuf_stats_samples(const struct netdata_ringbuf_stats *stats)
 {
 	return stats ? stats->samples : 0;
 }
 
-static uint64_t netdata_ringbuf_stats_bytes(const struct netdata_ringbuf_stats *stats)
+uint64_t netdata_ringbuf_stats_bytes(const struct netdata_ringbuf_stats *stats)
 {
 	return stats ? stats->bytes : 0;
 }
 
-static struct ring_buffer *netdata_ring_buffer_new(int map_fd, struct netdata_ringbuf_stats *stats)
+struct ring_buffer *netdata_ring_buffer_new(int map_fd, struct netdata_ringbuf_stats *stats)
 {
 	return ring_buffer__new(map_fd, netdata_ring_buffer_sample_cb, stats, NULL);
 }
 
-static int netdata_ring_buffer_poll(struct ring_buffer *rb, int timeout_ms)
+struct netdata_socket_ringbuf_ctx *netdata_socket_ringbuf_ctx_new(struct netdata_ringbuf_stats *stats, uint64_t handle)
+{
+	struct netdata_socket_ringbuf_ctx *ctx = calloc(1, sizeof(*ctx));
+
+	if (!ctx)
+		return NULL;
+
+	ctx->stats = stats;
+	ctx->handle = handle;
+
+	return ctx;
+}
+
+void netdata_socket_ringbuf_ctx_free(struct netdata_socket_ringbuf_ctx *ctx)
+{
+	free(ctx);
+}
+
+struct ring_buffer *netdata_socket_ring_buffer_new(int map_fd, struct netdata_socket_ringbuf_ctx *ctx)
+{
+	return ring_buffer__new(map_fd, netdata_socket_ring_buffer_sample_cb, ctx, NULL);
+}
+
+int netdata_ring_buffer_poll(struct ring_buffer *rb, int timeout_ms)
 {
 	return ring_buffer__poll(rb, timeout_ms);
 }
 
-static uint64_t netdata_ring_buffer_avail_data(const struct ring_buffer *rb)
+uint64_t netdata_ring_buffer_avail_data(const struct ring_buffer *rb)
 {
 	struct ring *ring = ring_buffer__ring((struct ring_buffer *)rb, 0);
 
@@ -172,7 +222,7 @@ static uint64_t netdata_ring_buffer_avail_data(const struct ring_buffer *rb)
 	return (uint64_t)ring__avail_data_size(ring);
 }
 
-static uint64_t netdata_ring_buffer_size(const struct ring_buffer *rb)
+uint64_t netdata_ring_buffer_size(const struct ring_buffer *rb)
 {
 	struct ring *ring = ring_buffer__ring((struct ring_buffer *)rb, 0);
 
@@ -182,7 +232,7 @@ static uint64_t netdata_ring_buffer_size(const struct ring_buffer *rb)
 	return (uint64_t)ring__size(ring);
 }
 
-static void netdata_ring_buffer_free(struct ring_buffer *rb)
+void netdata_ring_buffer_free(struct ring_buffer *rb)
 {
 	ring_buffer__free(rb);
 }
@@ -229,6 +279,7 @@ const (
 	bpfMapTypePerCPUArray = uint32(C.BPF_MAP_TYPE_PERCPU_ARRAY)
 	bpfMapTypeRingBuf     = uint32(C.BPF_MAP_TYPE_RINGBUF)
 	bpfMapTypeUserRingBuf = uint32(C.BPF_MAP_TYPE_USER_RINGBUF)
+	bpfMapTypeArena       = uint32(C.BPF_MAP_TYPE_ARENA)
 )
 
 type bpfObject struct {
@@ -424,6 +475,56 @@ func (m *bpfMap) meta() mapMeta {
 
 func (m *bpfMap) name() string {
 	return C.GoString(C.bpf_map__name(m.ptr))
+}
+
+// arenaInfo holds the intermediate values computed when locating an arena data section.
+type arenaInfo struct {
+	RawBase    unsafe.Pointer // raw return value of bpf_map__initial_value
+	DataSize   uintptr        // data section size reported by libbpf (isize)
+	PageSize   uintptr
+	TotalSize  uintptr        // max_entries * page_size
+	DataOffset uintptr        // byte offset from RawBase to the data section
+	StatePtr   unsafe.Pointer // final pointer: RawBase + DataOffset
+}
+
+// initialValueInfo returns the arena state pointer together with diagnostic fields.
+// libbpf places the data section at the END of the arena mmap when
+// FEAT_LDIMM64_FULL_RANGE_OFF is supported:
+//
+//	state = base + (total_sz - roundup(data_sz, PAGE_SIZE))
+//
+// The caller must NOT munmap the returned pointer; libbpf owns the mapping.
+func (m *bpfMap) initialValueInfo() (unsafe.Pointer, arenaInfo) {
+	var size C.size_t
+	base := unsafe.Pointer(C.bpf_map__initial_value(m.ptr, &size))
+	pageSize := uintptr(C.netdata_sc_pagesize())
+	totalSz := uintptr(C.bpf_map__max_entries(m.ptr)) * pageSize
+
+	info := arenaInfo{
+		RawBase:   base,
+		DataSize:  uintptr(size),
+		PageSize:  pageSize,
+		TotalSize: totalSz,
+	}
+
+	if base == nil || size == 0 {
+		return nil, info
+	}
+
+	roundedDataSz := (info.DataSize + pageSize - 1) &^ (pageSize - 1)
+	if roundedDataSz > totalSz {
+		return nil, info
+	}
+
+	info.DataOffset = totalSz - roundedDataSz
+	info.StatePtr = unsafe.Add(base, info.DataOffset)
+	return info.StatePtr, info
+}
+
+// initialValue is a convenience wrapper around initialValueInfo.
+func (m *bpfMap) initialValue() unsafe.Pointer {
+	ptr, _ := m.initialValueInfo()
+	return ptr
 }
 
 func probeMapTypeSupport(mapType uint32) int {

@@ -20,3 +20,6 @@ gotests/go_tester
 gotests/gotests
 .local_libbpf/bpf
 .local_libbpf/pkgconfig
+
+.codex
+TODO*.md
