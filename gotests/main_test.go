@@ -767,6 +767,7 @@ func TestEffectiveModeFlags(t *testing.T) {
 	tests := map[string]struct {
 		module        string
 		kernelVersion int
+		isDebian      bool
 		bufferMode    bool
 		arenaMode     bool
 		wantBuffer    bool
@@ -775,6 +776,19 @@ func TestEffectiveModeFlags(t *testing.T) {
 		"cachestat-defaults-to-buffer-on-supported-kernel": {
 			module:        "cachestat",
 			kernelVersion: netdataEBPFKernel510,
+			wantBuffer:    true,
+			wantArena:     false,
+		},
+		"process-defaults-to-arena-on-6-12-nondebian": {
+			module:        "process",
+			kernelVersion: netdataEBPFKernel612,
+			wantBuffer:    false,
+			wantArena:     true,
+		},
+		"process-stays-buffer-on-debian": {
+			module:        "process",
+			kernelVersion: netdataEBPFKernel612,
+			isDebian:      true,
 			wantBuffer:    true,
 			wantArena:     false,
 		},
@@ -803,13 +817,13 @@ func TestEffectiveModeFlags(t *testing.T) {
 			module:        "swap",
 			kernelVersion: netdataEBPFKernel612,
 			wantBuffer:    false,
-			wantArena:     false,
+			wantArena:     true,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			gotBuffer, gotArena := effectiveModeFlags(tc.module, tc.kernelVersion, tc.bufferMode, tc.arenaMode)
+			gotBuffer, gotArena := effectiveModeFlags(tc.module, tc.kernelVersion, tc.isDebian, tc.bufferMode, tc.arenaMode)
 			if gotBuffer != tc.wantBuffer || gotArena != tc.wantArena {
 				t.Fatalf("effectiveModeFlags() = (%v, %v), want (%v, %v)", gotBuffer, gotArena, tc.wantBuffer, tc.wantArena)
 			}

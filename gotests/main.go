@@ -436,6 +436,25 @@ func parseOSRelease(content string) int {
 	return -1
 }
 
+func IsDebianFlavor() bool {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return false
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(line, "ID=") {
+			continue
+		}
+
+		value := strings.TrimSpace(strings.TrimPrefix(line, "ID="))
+		value = strings.Trim(value, "\"'")
+		return value == "debian"
+	}
+
+	return false
+}
+
 func parseRedHatRelease(release string) int {
 	major := 0
 	minor := -1
@@ -724,12 +743,28 @@ func modeSuffix(bufferMode bool, arenaMode bool) string {
 	return ""
 }
 
-func effectiveModeFlags(moduleName string, kernelVersion int, bufferMode bool, arenaMode bool) (bool, bool) {
-	if moduleName == "cachestat" && !bufferMode && !arenaMode && kernelVersion >= netdataEBPFKernel510 {
+func effectiveModeFlags(moduleName string, kernelVersion int, isDebian bool, bufferMode bool, arenaMode bool) (bool, bool) {
+	if bufferMode || arenaMode {
+		return bufferMode, arenaMode
+	}
+
+	if moduleName == "cachestat" {
+		if kernelVersion >= netdataEBPFKernel510 {
+			return true, false
+		}
+
+		return false, false
+	}
+
+	if moduleHasArena(moduleName) && kernelVersion >= netdataEBPFKernel612 && !isDebian {
+		return false, true
+	}
+
+	if moduleHasBuffer(moduleName) && kernelVersion >= netdataEBPFKernel510 {
 		return true, false
 	}
 
-	return bufferMode, arenaMode
+	return false, false
 }
 
 func candidateMatches(filename string, moduleName string, isReturn bool, version string, rhfVersion int, bufferMode bool, arenaMode bool) bool {
@@ -1058,9 +1093,10 @@ func moduleHasArena(name string) bool {
 
 func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bool, opts options, nprocesses int) {
 	supportedMapTypes := detectSupportedMapTypes(rhfVersion, kernelVersion)
+	isDebian := IsDebianFlavor()
 
 	for _, mod := range ebpfModules {
-		bufferMode, arenaMode := effectiveModeFlags(mod.name, kernelVersion, opts.bufferMode, opts.arenaMode)
+		bufferMode, arenaMode := effectiveModeFlags(mod.name, kernelVersion, isDebian, opts.bufferMode, opts.arenaMode)
 
 		if opts.flags&mod.flags == 0 {
 			continue

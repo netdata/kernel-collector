@@ -969,6 +969,37 @@ int ebpf_get_redhat_release()
     return ebpf_get_rh_from_os_release();
 }
 
+static int ebpf_is_debian_flavor(void)
+{
+    FILE *fp = fopen("/etc/os-release", "r");
+    if (!fp)
+        return 0;
+
+    char line[VERSION_STRING_LEN + 1];
+    int is_debian = 0;
+
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "ID=", 3) != 0)
+            continue;
+
+        char *value = line + 3;
+        if (*value == '"' || *value == '\'')
+            value++;
+
+        char *end = strpbrk(value, "\"\n");
+        if (end)
+            *end = '\0';
+
+        if (!strcmp(value, "debian")) {
+            is_debian = 1;
+            break;
+        }
+    }
+
+    fclose(fp);
+    return is_debian;
+}
+
 /**
  * Kernel Name
  *
@@ -1912,15 +1943,24 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
     ebpf_map_support_t map_support;
     char load[FILENAME_MAX];
     int i = 0;
+    int is_debian = ebpf_is_debian_flavor();
 
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
         int use_buffer_mode = buffer_mode;
         int use_arena_mode = arena_mode;
 
-        if (!use_buffer_mode && !use_arena_mode &&
-            !strcmp(ebpf_modules[i].name, "cachestat") && kver >= NETDATA_EBPF_KERNEL_5_10) {
-            use_buffer_mode = 1;
+        if (!use_buffer_mode && !use_arena_mode) {
+            if (!strcmp(ebpf_modules[i].name, "cachestat")) {
+                if (kver >= NETDATA_EBPF_KERNEL_5_10)
+                    use_buffer_mode = 1;
+            } else if (ebpf_module_has_arena(ebpf_modules[i].name) &&
+                       kver >= NETDATA_EBPF_KERNEL_6_12 && !is_debian) {
+                use_arena_mode = 1;
+            } else if (ebpf_module_has_buffer(ebpf_modules[i].name) &&
+                       kver >= NETDATA_EBPF_KERNEL_5_10) {
+                use_buffer_mode = 1;
+            }
         }
 
         if (use_arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name)) {
