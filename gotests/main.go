@@ -724,6 +724,14 @@ func modeSuffix(bufferMode bool, arenaMode bool) string {
 	return ""
 }
 
+func effectiveModeFlags(moduleName string, kernelVersion int, bufferMode bool, arenaMode bool) (bool, bool) {
+	if moduleName == "cachestat" && !bufferMode && !arenaMode && kernelVersion >= netdataEBPFKernel510 {
+		return true, false
+	}
+
+	return bufferMode, arenaMode
+}
+
 func candidateMatches(filename string, moduleName string, isReturn bool, version string, rhfVersion int, bufferMode bool, arenaMode bool) bool {
 	prefix := fmt.Sprintf("%cnetdata_ebpf_%s%s.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName, modeSuffix(bufferMode, arenaMode))
 	if !strings.HasPrefix(filename, prefix) || !strings.HasSuffix(filename, ".o") {
@@ -1052,27 +1060,29 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 	supportedMapTypes := detectSupportedMapTypes(rhfVersion, kernelVersion)
 
 	for _, mod := range ebpfModules {
+		bufferMode, arenaMode := effectiveModeFlags(mod.name, kernelVersion, opts.bufferMode, opts.arenaMode)
+
 		if opts.flags&mod.flags == 0 {
 			continue
 		}
 
-		if opts.arenaMode && !moduleHasArena(mod.name) {
+		if arenaMode && !moduleHasArena(mod.name) {
 			continue
 		}
 
-		if opts.bufferMode && !moduleHasBuffer(mod.name) {
+		if bufferMode && !moduleHasBuffer(mod.name) {
 			continue
 		}
 
 		kernels := mod.kernels
-		if opts.arenaMode && mod.arenaKernels != 0 {
+		if arenaMode && mod.arenaKernels != 0 {
 			kernels = mod.arenaKernels
-		} else if opts.bufferMode && mod.bufferKernels != 0 {
+		} else if bufferMode && mod.bufferKernels != 0 {
 			kernels = mod.bufferKernels
 		}
 		maxIndex := selectMaxIndex(rhfVersion, kernelVersion)
 		idx := selectIndex(kernels, rhfVersion, kernelVersion)
-		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, opts.bufferMode, opts.arenaMode)
+		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, bufferMode, arenaMode)
 		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
 
 		if len(compatible) == 0 {
@@ -1083,7 +1093,7 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 				continue
 			}
 
-			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath, opts.bufferMode, opts.arenaMode)}
+			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath, bufferMode, arenaMode)}
 		}
 
 		for _, filename := range compatible {
