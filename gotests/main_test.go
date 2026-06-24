@@ -135,7 +135,7 @@ VERSION_ID="12"
 			want: -1,
 		},
 		{
-			name: "empty content",
+			name:    "empty content",
 			content: ``,
 			want:    -1,
 		},
@@ -763,6 +763,74 @@ func TestModeSuffix(t *testing.T) {
 	}
 }
 
+func TestEffectiveModeFlags(t *testing.T) {
+	tests := map[string]struct {
+		module        string
+		kernelVersion int
+		isDebian      bool
+		bufferMode    bool
+		arenaMode     bool
+		wantBuffer    bool
+		wantArena     bool
+	}{
+		"cachestat-defaults-to-buffer-on-supported-kernel": {
+			module:        "cachestat",
+			kernelVersion: netdataEBPFKernel510,
+			wantBuffer:    true,
+			wantArena:     false,
+		},
+		"process-defaults-to-arena-on-6-12-nondebian": {
+			module:        "process",
+			kernelVersion: netdataEBPFKernel612,
+			wantBuffer:    false,
+			wantArena:     true,
+		},
+		"process-stays-buffer-on-debian": {
+			module:        "process",
+			kernelVersion: netdataEBPFKernel612,
+			isDebian:      true,
+			wantBuffer:    true,
+			wantArena:     false,
+		},
+		"cachestat-keeps-tracing-before-buffer-support": {
+			module:        "cachestat",
+			kernelVersion: netdataEBPFKernel414,
+			wantBuffer:    false,
+			wantArena:     false,
+		},
+		"explicit-buffer-stays-buffer": {
+			module:        "cachestat",
+			kernelVersion: netdataEBPFKernel612,
+			bufferMode:    true,
+			wantBuffer:    true,
+			wantArena:     false,
+		},
+		"explicit-arena-wins": {
+			module:        "cachestat",
+			kernelVersion: netdataEBPFKernel612,
+			bufferMode:    true,
+			arenaMode:     true,
+			wantBuffer:    true,
+			wantArena:     true,
+		},
+		"other-modules-unaffected": {
+			module:        "swap",
+			kernelVersion: netdataEBPFKernel612,
+			wantBuffer:    false,
+			wantArena:     true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotBuffer, gotArena := effectiveModeFlags(tc.module, tc.kernelVersion, tc.isDebian, tc.bufferMode, tc.arenaMode)
+			if gotBuffer != tc.wantBuffer || gotArena != tc.wantArena {
+				t.Fatalf("effectiveModeFlags() = (%v, %v), want (%v, %v)", gotBuffer, gotArena, tc.wantBuffer, tc.wantArena)
+			}
+		})
+	}
+}
+
 func TestModuleModeLookup(t *testing.T) {
 	bufferArenaModules := []string{"cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket"}
 	for _, name := range bufferArenaModules {
@@ -896,45 +964,45 @@ func TestCandidateVersionIndex(t *testing.T) {
 		wantIndex int
 	}{
 		{
-			name: "rhf 5.14 matches at index 7",
+			name:     "rhf 5.14 matches at index 7",
 			filename: "pnetdata_ebpf_swap.5.14.rhf.o",
-			module: "swap", rhf: 1, kernels: netdataV514, maxIndex: 7,
+			module:   "swap", rhf: 1, kernels: netdataV514, maxIndex: 7,
 			wantIndex: 7,
 		},
 		{
-			name: "non-rhf masks out V514",
+			name:     "non-rhf masks out V514",
 			filename: "pnetdata_ebpf_swap.5.14.rhf.o",
-			module: "swap", rhf: -1, kernels: netdataV514, maxIndex: 10,
+			module:   "swap", rhf: -1, kernels: netdataV514, maxIndex: 10,
 			wantIndex: -1,
 		},
 		{
-			name: "non-rhf 6.8 matches at index 10",
+			name:     "non-rhf 6.8 matches at index 10",
 			filename: "pnetdata_ebpf_swap.6.8.o",
-			module: "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
+			module:   "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
 			wantIndex: 10,
 		},
 		{
-			name: "picks file version from multi-version kernel set",
+			name:     "picks file version from multi-version kernel set",
 			filename: "pnetdata_ebpf_swap.5.4.o",
-			module: "swap", rhf: -1, kernels: netdataV54 | netdataV68, maxIndex: 10,
+			module:   "swap", rhf: -1, kernels: netdataV54 | netdataV68, maxIndex: 10,
 			wantIndex: 4,
 		},
 		{
-			name: "wrong module name returns -1",
+			name:     "wrong module name returns -1",
 			filename: "pnetdata_ebpf_process.6.8.o",
-			module: "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
+			module:   "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
 			wantIndex: -1,
 		},
 		{
-			name: "arena file matches with arenaMode enabled",
+			name:     "arena file matches with arenaMode enabled",
 			filename: "pnetdata_ebpf_swap_arena.6.12.o",
-			module: "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: true,
+			module:   "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: true,
 			wantIndex: 11,
 		},
 		{
-			name: "arena file rejected without arenaMode",
+			name:     "arena file rejected without arenaMode",
 			filename: "pnetdata_ebpf_swap_arena.6.12.o",
-			module: "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: false,
+			module:   "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: false,
 			wantIndex: -1,
 		},
 	}
