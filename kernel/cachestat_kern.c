@@ -23,7 +23,7 @@ static __always_inline void netdata_cachestat_update_existing(__u32 *field)
         libnetdata_update_u32(field, 1);
 }
 
-static __always_inline void netdata_cachestat_create_new_entry(__u32 *field, __u32 tgid)
+static __always_inline void netdata_cachestat_create_new_entry(__u32 *field, __u32 key, __u32 tgid)
 {
     netdata_cachestat_t data = {};
 
@@ -37,7 +37,6 @@ static __always_inline void netdata_cachestat_create_new_entry(__u32 *field, __u
     data.name[0] = '\0';
 #endif
 
-    __u32 key = 0;
     if (field)
         *field = 1;
     bpf_map_update_elem(&cstat_pid, &key, &data, BPF_ANY);
@@ -70,7 +69,7 @@ int netdata_add_to_page_cache_lru(struct pt_regs* ctx)
     }
 
     netdata_cachestat_t data = {};
-    netdata_cachestat_create_new_entry(&data.add_to_page_cache_lru, tgid);
+    netdata_cachestat_create_new_entry(&data.add_to_page_cache_lru, key, tgid);
 
     return 0;
 }
@@ -94,7 +93,7 @@ int netdata_mark_page_accessed(struct pt_regs* ctx)
     }
 
     netdata_cachestat_t data = {};
-    netdata_cachestat_create_new_entry(&data.mark_page_accessed, tgid);
+    netdata_cachestat_create_new_entry(&data.mark_page_accessed, key, tgid);
 
     return 0;
 }
@@ -132,7 +131,7 @@ int netdata_set_page_dirty(struct pt_regs* ctx)
     }
 
     netdata_cachestat_t data = {};
-    netdata_cachestat_create_new_entry(&data.account_page_dirtied, tgid);
+    netdata_cachestat_create_new_entry(&data.account_page_dirtied, key, tgid);
 
     return 0;
 }
@@ -160,7 +159,7 @@ int netdata_account_page_dirtied(struct pt_regs* ctx)
     }
 
     netdata_cachestat_t data = {};
-    netdata_cachestat_create_new_entry(&data.account_page_dirtied, tgid);
+    netdata_cachestat_create_new_entry(&data.account_page_dirtied, key, tgid);
 
     return 0;
 }
@@ -185,10 +184,9 @@ int netdata_mark_buffer_dirty(struct pt_regs* ctx)
     }
 
     netdata_cachestat_t data = {};
-    netdata_cachestat_create_new_entry(&data.mark_buffer_dirty, tgid);
+    netdata_cachestat_create_new_entry(&data.mark_buffer_dirty, key, tgid);
 
     return 0;
 }
 
 char _license[] SEC("license") = "GPL";
-

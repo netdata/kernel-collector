@@ -54,6 +54,11 @@ typedef struct netdata_disk_key {
     sector_t sector;
 } netdata_disk_key_t;
 
+typedef struct netdata_disk_inflight {
+    __u64 timestamp;
+    netdata_disk_key_t key;
+} netdata_disk_inflight_t;
+
 typedef struct block_key {
     __u32 bin;
     u32 dev;

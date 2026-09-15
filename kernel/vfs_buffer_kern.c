@@ -70,10 +70,11 @@ SEC("kprobe/vfs_write")
 #endif
 int netdata_sys_write_buffer(struct pt_regs *ctx)
 {
-    ssize_t bytes = (ssize_t)PT_REGS_PARM3(ctx);
 #if NETDATASEL < 2
-    __u8 err = ((ssize_t)PT_REGS_RC(ctx) < 0) ? 1 : 0;
+    ssize_t bytes = (ssize_t)PT_REGS_RC(ctx);
+    __u8 err = (bytes < 0) ? 1 : 0;
 #else
+    ssize_t bytes = (ssize_t)PT_REGS_PARM3(ctx);
     __u8 err = 0;
 #endif
 
@@ -107,10 +108,11 @@ SEC("kprobe/vfs_writev")
 #endif
 int netdata_sys_writev_buffer(struct pt_regs *ctx)
 {
-    ssize_t bytes = (ssize_t)PT_REGS_PARM3(ctx);
 #if NETDATASEL < 2
-    __u8 err = ((ssize_t)PT_REGS_RC(ctx) < 0) ? 1 : 0;
+    ssize_t bytes = (ssize_t)PT_REGS_RC(ctx);
+    __u8 err = (bytes < 0) ? 1 : 0;
 #else
+    ssize_t bytes = (ssize_t)PT_REGS_PARM3(ctx);
     __u8 err = 0;
 #endif
 
@@ -144,10 +146,11 @@ SEC("kprobe/vfs_read")
 #endif
 int netdata_sys_read_buffer(struct pt_regs *ctx)
 {
-    ssize_t bytes = (ssize_t)PT_REGS_PARM3(ctx);
 #if NETDATASEL < 2
-    __u8 err = ((ssize_t)PT_REGS_RC(ctx) < 0) ? 1 : 0;
+    ssize_t bytes = (ssize_t)PT_REGS_RC(ctx);
+    __u8 err = (bytes < 0) ? 1 : 0;
 #else
+    ssize_t bytes = (ssize_t)PT_REGS_PARM3(ctx);
     __u8 err = 0;
 #endif
 
@@ -181,10 +184,11 @@ SEC("kprobe/vfs_readv")
 #endif
 int netdata_sys_readv_buffer(struct pt_regs *ctx)
 {
-    ssize_t bytes = (ssize_t)PT_REGS_PARM3(ctx);
 #if NETDATASEL < 2
-    __u8 err = ((ssize_t)PT_REGS_RC(ctx) < 0) ? 1 : 0;
+    ssize_t bytes = (ssize_t)PT_REGS_RC(ctx);
+    __u8 err = (bytes < 0) ? 1 : 0;
 #else
+    ssize_t bytes = (ssize_t)PT_REGS_PARM3(ctx);
     __u8 err = 0;
 #endif
 
