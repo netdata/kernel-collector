@@ -120,28 +120,24 @@ int netdata_tracepoint_sched_process_exec_buffer(struct netdata_sched_process_ex
     return 0;
 }
 
-SEC("tracepoint/sched/sched_process_fork")
-int netdata_tracepoint_sched_process_fork_buffer(void *ctx)
+SEC("kprobe/wake_up_new_task")
+int netdata_wake_up_new_task_buffer(struct pt_regs *ctx)
 {
+    struct task_struct *child = (struct task_struct *)PT_REGS_PARM1(ctx);
+    __u32 child_pid = 0;
+    __u32 child_tgid = 0;
+
+    if (!child)
+        return 0;
+
+    /* pid == tgid identifies a process; a thread has a distinct task ID. */
+    if (bpf_probe_read(&child_pid, sizeof(child_pid), &child->pid) ||
+        bpf_probe_read(&child_tgid, sizeof(child_tgid), &child->tgid))
+        return 0;
+
     libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_PROCESS, 1);
 
-    /*
-     * Read parent_pid and child_pid via byte offsets to avoid direct typed-context
-     * dereference, which can interfere with user-ring metadata consumers on newer kernels.
-     * Offsets come from /sys/kernel/tracing/events/sched/sched_process_fork/format.
-     */
-    int parent_pid = 0, child_pid = 0;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,16,0))
-    /* fork_v2: u64 pad(0) + char[4](8) + int parent_pid(12) + char[4](16) + int child_pid(20) */
-    bpf_probe_read(&parent_pid, sizeof(parent_pid), (char *)ctx + 12);
-    bpf_probe_read(&child_pid,  sizeof(child_pid),  (char *)ctx + 20);
-#else
-    /* fork_v1: u64 pad(0) + char[16](8) + int parent_pid(24) + char[16](28) + int child_pid(44) */
-    bpf_probe_read(&parent_pid, sizeof(parent_pid), (char *)ctx + 24);
-    bpf_probe_read(&child_pid,  sizeof(child_pid),  (char *)ctx + 44);
-#endif
-
-    __u8 is_thread = (parent_pid != child_pid && parent_pid != 1) ? 1 : 0;
+    __u8 is_thread = (child_pid != child_tgid) ? 1 : 0;
     if (is_thread)
         libnetdata_update_global(&tbl_total_stats, NETDATA_KEY_CALLS_THREAD, 1);
 
