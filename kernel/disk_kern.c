@@ -41,17 +41,22 @@ static __always_inline netdata_disk_key_t netdata_disk_key(void *ptr)
 
 static __always_inline int netdata_disk_request_key(struct request *rq, netdata_disk_key_t *key)
 {
-    struct request_queue *queue = NULL;
     struct gendisk *disk = NULL;
     struct block_device *part = NULL;
 
     if (!rq)
         return 0;
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0))
+    /* request_queue::disk is not present on 5.4; requests carry rq_disk. */
+    bpf_probe_read(&disk, sizeof(disk), &rq->rq_disk);
+#else
+    struct request_queue *queue = NULL;
     bpf_probe_read(&queue, sizeof(queue), &rq->q);
     if (!queue)
         return 0;
     bpf_probe_read(&disk, sizeof(disk), &queue->disk);
+#endif
     if (!disk)
         return 0;
     bpf_probe_read(&part, sizeof(part), &disk->part0);
