@@ -24,10 +24,6 @@
 #define NETDATA_ARENA_MAP_PAGES 256
 #define NETDATA_ARENA_EVENT_SLOTS 1024
 
-struct netdata_arena_lock_t {
-    struct bpf_spin_lock lock;
-};
-
 #define NETDATA_BPF_ARENA_DEF(NAME, MAX_ENTRIES) \
     struct { \
         __uint(type, BPF_MAP_TYPE_ARENA); \
@@ -37,25 +33,13 @@ struct netdata_arena_lock_t {
     } NAME SEC(".maps")
 
 #define NETDATA_ARENA_QUEUE_DECL(PREFIX, EVENT_TYPE, SLOT_COUNT) \
-    struct { \
-        __uint(type, BPF_MAP_TYPE_ARRAY); \
-        __type(key, __u32); \
-        __type(value, struct netdata_arena_lock_t); \
-        __uint(max_entries, 1); \
-    } netdata_##PREFIX##_arena_lock SEC(".maps"); \
     struct netdata_##PREFIX##_arena_state_t { \
         __u32 head; \
         EVENT_TYPE events[SLOT_COUNT]; \
     }; \
     extern __arena struct netdata_##PREFIX##_arena_state_t PREFIX##_arena_state; \
     static __always_inline __arena EVENT_TYPE *netdata_##PREFIX##_arena_reserve(void) { \
-        __u32 key = 0; \
-        struct netdata_arena_lock_t *lock = bpf_map_lookup_elem(&netdata_##PREFIX##_arena_lock, &key); \
-        if (!lock) \
-            return NULL; \
-        bpf_spin_lock(&lock->lock); \
         __u32 idx = PREFIX##_arena_state.head++; \
-        bpf_spin_unlock(&lock->lock); \
         return &PREFIX##_arena_state.events[idx % SLOT_COUNT]; \
     } \
     static __always_inline void netdata_##PREFIX##_arena_submit(__arena EVENT_TYPE *ev) { \

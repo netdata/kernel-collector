@@ -133,12 +133,14 @@ static __always_inline int netdata_block_rq_complete_impl(struct pt_regs *ctx)
     return 0;
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0))
 /* Legacy request queues complete through this non-exported block-layer path. */
 SEC("kprobe/blk_complete_request")
 int netdata_blk_complete_request(struct pt_regs *ctx)
 {
     return netdata_block_rq_complete_impl(ctx);
 }
+#endif
 
 SEC("kprobe/blk_mq_end_request")
 int netdata_block_rq_complete(struct pt_regs *ctx)
