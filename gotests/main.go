@@ -31,6 +31,7 @@ const (
 	netdataEBPFKernel417        = 266496
 	netdataEBPFKernel54         = 328704
 	netdataEBPFKernel58         = 329728
+	netdataEBPFKernel60         = 393216
 	netdataEBPFKernel510        = 330240
 	netdataEBPFKernel511        = 330496
 	netdataEBPFKernel514        = 331264
@@ -1313,6 +1314,11 @@ func attachPrograms(obj *bpfObject, names *[]specifyName, kernelVersion int) att
 	var summary attachSummary
 
 	for prog := obj.firstProgram(); prog != nil; prog = obj.nextProgram(prog) {
+		if skipProgramForKernel(prog.sectionName(), kernelVersion) {
+			summary.skipped++
+			continue
+		}
+
 		var (
 			link *bpfLink
 			err  int
@@ -1350,6 +1356,10 @@ func attachPrograms(obj *bpfObject, names *[]specifyName, kernelVersion int) att
 	}
 
 	return summary
+}
+
+func skipProgramForKernel(section string, kernelVersion int) bool {
+	return kernelVersion >= netdataEBPFKernel60 && section == "kprobe/blk_complete_request"
 }
 
 func syscallAttachTarget(section string, kernelVersion int) (bool, string, bool) {

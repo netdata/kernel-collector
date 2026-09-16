@@ -907,6 +907,27 @@ func TestSyscallAttachTarget(t *testing.T) {
 	}
 }
 
+func TestSkipProgramForKernel(t *testing.T) {
+	tests := []struct {
+		name    string
+		section string
+		version int
+		want    bool
+	}{
+		{name: "legacy disk completion on 5.4", section: "kprobe/blk_complete_request", version: netdataEBPFKernel54, want: false},
+		{name: "legacy disk completion on 6.0", section: "kprobe/blk_complete_request", version: netdataEBPFKernel60, want: true},
+		{name: "modern disk completion", section: "kprobe/blk_mq_end_request", version: netdataEBPFKernel612, want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := skipProgramForKernel(tc.section, tc.version); got != tc.want {
+				t.Fatalf("skipProgramForKernel() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestSetCommonFlag(t *testing.T) {
 	got := setCommonFlag()
 
