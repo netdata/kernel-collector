@@ -102,8 +102,7 @@ int netdata_block_rq_issue(struct pt_regs *ctx)
     return 0;
 }
 
-SEC("kprobe/blk_mq_end_request")
-int netdata_block_rq_complete(struct pt_regs *ctx)
+static __always_inline int netdata_block_rq_complete_impl(struct pt_regs *ctx)
 {
     struct request *rq = (struct request *)PT_REGS_PARM1(ctx);
     __u64 request_key = (__u64)rq;
@@ -138,7 +137,13 @@ int netdata_block_rq_complete(struct pt_regs *ctx)
 SEC("kprobe/blk_complete_request")
 int netdata_blk_complete_request(struct pt_regs *ctx)
 {
-    return netdata_block_rq_complete(ctx);
+    return netdata_block_rq_complete_impl(ctx);
+}
+
+SEC("kprobe/blk_mq_end_request")
+int netdata_block_rq_complete(struct pt_regs *ctx)
+{
+    return netdata_block_rq_complete_impl(ctx);
 }
 
 char _license[] SEC("license") = "GPL";
