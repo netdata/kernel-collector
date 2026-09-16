@@ -873,6 +873,40 @@ func TestFindOptionalName(t *testing.T) {
 	}
 }
 
+func TestSyscallAttachTarget(t *testing.T) {
+	tests := []struct {
+		name       string
+		section    string
+		version    int
+		retprobe   bool
+		targetPart string
+		want       bool
+	}{
+		{name: "legacy syscall section", section: "kprobe/sys_fsync", version: netdataEBPFKernel415, targetPart: "fsync", want: true},
+		{name: "modern syscall section", section: "ksyscall/fsync", version: netdataEBPFKernel417, targetPart: "fsync", want: true},
+		{name: "legacy return syscall section", section: "kretprobe/sys_mount", version: netdataEBPFKernel415, retprobe: true, targetPart: "mount", want: true},
+		{name: "ordinary kprobe", section: "kprobe/lookup_fast", version: netdataEBPFKernel612, want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			retprobe, target, ok := syscallAttachTarget(tc.section, tc.version)
+			if ok != tc.want {
+				t.Fatalf("syscallAttachTarget() recognized=%v, want %v", ok, tc.want)
+			}
+			if !ok {
+				return
+			}
+			if retprobe != tc.retprobe {
+				t.Fatalf("retprobe=%v, want %v", retprobe, tc.retprobe)
+			}
+			if !strings.HasSuffix(target, tc.targetPart) {
+				t.Fatalf("target=%q, want suffix %q", target, tc.targetPart)
+			}
+		})
+	}
+}
+
 func TestSetCommonFlag(t *testing.T) {
 	got := setCommonFlag()
 
