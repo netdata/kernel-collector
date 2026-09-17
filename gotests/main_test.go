@@ -984,6 +984,7 @@ func TestWriteSupportedMapTypes(t *testing.T) {
 		bpfMapTypePerCPUArray: false,
 		bpfMapTypeRingBuf:     false,
 		bpfMapTypeUserRingBuf: false,
+		bpfMapTypeArena:       true,
 	}
 
 	var out bytes.Buffer
@@ -1004,6 +1005,9 @@ func TestWriteSupportedMapTypes(t *testing.T) {
 	}
 	if strings.Contains(got, `"ringbuf"`) {
 		t.Fatalf("ringbuf must not appear (disabled): %s", got)
+	}
+	if !strings.Contains(got, `"arena"`) {
+		t.Fatalf("arena must appear (enabled): %s", got)
 	}
 }
 

@@ -3,17 +3,9 @@
 #ifndef _NETDATA_ARENA_COMMON_
 #define _NETDATA_ARENA_COMMON_ 1
 
-/* Force the explicit form because the compiler form does not reliably cast
- * pointers loaded from global arena data before tracing-program accesses. */
-#define NETDATA_ARENA_FORCE_ASM 1
-
-#if defined(__BPF_FEATURE_ADDR_SPACE_CAST) && !defined(NETDATA_ARENA_FORCE_ASM)
-#define __arena __attribute__((address_space(1)))
-#define __arena_global __attribute__((address_space(1)))
-#else
+/* The native-target LLVM IR build uses an explicit BPF cast at reservation. */
 #define __arena
 #define __arena_global SEC(".addr_space.1")
-#endif
 
 #ifndef __arg_arena
 #define __arg_arena __attribute__((btf_decl_tag("arg:arena")))
@@ -28,8 +20,7 @@
 #define NETDATA_ARENA_MAP_PAGES 256
 #define NETDATA_ARENA_EVENT_SLOTS 1024
 
-/* LLVM does not consistently emit the BPF arena address-space cast when a
- * global arena object is dereferenced from a tracing program. */
+/* Mark the relocated userspace address as PTR_TO_ARENA before dereferencing. */
 #ifndef netdata_bpf_addr_space_cast
 #define netdata_bpf_addr_space_cast(var, dst_as, src_as) \
     asm volatile(\

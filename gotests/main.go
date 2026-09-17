@@ -866,6 +866,7 @@ func detectSupportedMapTypes(rhfVersion int, kernelVersion int) map[uint32]bool 
 		bpfMapTypePerCPUArray: fallbackPerCPUMapSupport(rhfVersion, kernelVersion),
 		bpfMapTypeRingBuf:     false,
 		bpfMapTypeUserRingBuf: false,
+		bpfMapTypeArena:       false,
 	}
 
 	for _, mapType := range []uint32{
@@ -875,6 +876,7 @@ func detectSupportedMapTypes(rhfVersion int, kernelVersion int) map[uint32]bool 
 		bpfMapTypePerCPUArray,
 		bpfMapTypeRingBuf,
 		bpfMapTypeUserRingBuf,
+		bpfMapTypeArena,
 	} {
 		if probe := probeMapTypeSupport(mapType); probe >= 0 {
 			supported[mapType] = probe > 0
@@ -914,6 +916,7 @@ func writeSupportedMapTypes(w io.Writer, supported map[uint32]bool) {
 		bpfMapTypePerCPUArray,
 		bpfMapTypeRingBuf,
 		bpfMapTypeUserRingBuf,
+		bpfMapTypeArena,
 	} {
 		if supported[mapType] {
 			names = append(names, fmt.Sprintf("\"%s\"", mapTypeName(mapType)))
