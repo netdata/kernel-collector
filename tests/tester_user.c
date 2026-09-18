@@ -490,7 +490,7 @@ static void ebpf_free_candidate_list(ebpf_candidate_list_t *list)
     memset(list, 0, sizeof(*list));
 }
 
-static const char *ebpf_mode_suffix(void)
+static const char *ebpf_mode_suffix(int buffer_mode, int arena_mode)
 {
     if (arena_mode)
         return "_arena";
@@ -500,7 +500,7 @@ static const char *ebpf_mode_suffix(void)
 }
 
 static int ebpf_candidate_matches(const char *filename, const char *name, int is_return,
-                                  const char *version, int rhf_version)
+                                  const char *version, int rhf_version, int buffer_mode, int arena_mode)
 {
     char prefix[128];
     size_t prefix_len;
@@ -509,7 +509,8 @@ static int ebpf_candidate_matches(const char *filename, const char *name, int is
     const char *rest;
     int has_rhf;
 
-    snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s%s.", (is_return) ? 'r' : 'p', name, ebpf_mode_suffix());
+    snprintf(prefix, sizeof(prefix), "%cnetdata_ebpf_%s%s.", (is_return) ? 'r' : 'p', name,
+             ebpf_mode_suffix(buffer_mode, arena_mode));
     prefix_len = strlen(prefix);
     if (filename_len <= prefix_len + 2)
         return 0;
@@ -532,7 +533,8 @@ static int ebpf_candidate_matches(const char *filename, const char *name, int is
 }
 
 static int ebpf_candidate_version_index(const char *filename, const char *name, int is_return,
-                                        int rhf_version, uint32_t kernels, uint32_t max_index)
+                                        int rhf_version, uint32_t kernels, uint32_t max_index,
+                                        int buffer_mode, int arena_mode)
 {
     int idx;
 
@@ -543,7 +545,8 @@ static int ebpf_candidate_version_index(const char *filename, const char *name, 
         if (!(kernels & (1U << idx)))
             continue;
 
-        if (ebpf_candidate_matches(filename, name, is_return, ebpf_kernel_names[idx], rhf_version))
+        if (ebpf_candidate_matches(filename, name, is_return, ebpf_kernel_names[idx], rhf_version,
+                                   buffer_mode, arena_mode))
             return idx;
     }
 
@@ -551,7 +554,8 @@ static int ebpf_candidate_version_index(const char *filename, const char *name, 
 }
 
 static void ebpf_discover_candidates(ebpf_candidate_list_t *list, const char *name, int is_return,
-                                     uint32_t kernels, uint32_t max_index, int rhf_version)
+                                     uint32_t kernels, uint32_t max_index, int rhf_version,
+                                     int buffer_mode, int arena_mode)
 {
     char *path = ebpf_resolve_binary_directory();
     DIR *dir;
@@ -576,7 +580,8 @@ static void ebpf_discover_candidates(ebpf_candidate_list_t *list, const char *na
             continue;
 
         candidate_index = ebpf_candidate_version_index(entry->d_name, name, is_return,
-                                                       rhf_version, kernels, max_index);
+                                                       rhf_version, kernels, max_index,
+                                                       buffer_mode, arena_mode);
         if (candidate_index < 0)
             continue;
 
@@ -964,6 +969,37 @@ int ebpf_get_redhat_release()
     return ebpf_get_rh_from_os_release();
 }
 
+static int ebpf_is_debian_flavor(void)
+{
+    FILE *fp = fopen("/etc/os-release", "r");
+    if (!fp)
+        return 0;
+
+    char line[VERSION_STRING_LEN + 1];
+    int is_debian = 0;
+
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "ID=", 3) != 0)
+            continue;
+
+        char *value = line + 3;
+        if (*value == '"' || *value == '\'')
+            value++;
+
+        char *end = strpbrk(value, "\"\n");
+        if (end)
+            *end = '\0';
+
+        if (!strcmp(value, "debian")) {
+            is_debian = 1;
+            break;
+        }
+    }
+
+    fclose(fp);
+    return is_debian;
+}
+
 /**
  * Kernel Name
  *
@@ -1109,7 +1145,8 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
  *  @param is_return      is return or entry ?
  *  @param rhf_version    Red Hat version.
  */
-static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, int is_return, int rhf_version)
+static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, int is_return, int rhf_version,
+                            int buffer_mode, int arena_mode)
 {
     char *version = ebpf_select_kernel_name(kver);
     char *path = ebpf_resolve_binary_directory();
@@ -1120,7 +1157,7 @@ static void ebpf_mount_name(char *out, size_t len, uint32_t kver, char *name, in
             path,
             (is_return) ? 'r' : 'p',
             name,
-            ebpf_mode_suffix(),
+            ebpf_mode_suffix(buffer_mode, arena_mode),
             version,
             (rhf_version != -1) ? ".rhf" : "");
     free(path);
@@ -1906,15 +1943,32 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
     ebpf_map_support_t map_support;
     char load[FILENAME_MAX];
     int i = 0;
+    int is_debian = ebpf_is_debian_flavor();
 
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
-        if (arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name)) {
+        int use_buffer_mode = buffer_mode;
+        int use_arena_mode = arena_mode;
+
+        if (!use_buffer_mode && !use_arena_mode) {
+            if (!strcmp(ebpf_modules[i].name, "cachestat")) {
+                if (kver >= NETDATA_EBPF_KERNEL_5_10)
+                    use_buffer_mode = 1;
+            } else if (ebpf_module_has_arena(ebpf_modules[i].name) &&
+                       kver >= NETDATA_EBPF_KERNEL_6_12 && !is_debian) {
+                use_arena_mode = 1;
+            } else if (ebpf_module_has_buffer(ebpf_modules[i].name) &&
+                       kver >= NETDATA_EBPF_KERNEL_5_10) {
+                use_buffer_mode = 1;
+            }
+        }
+
+        if (use_arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name)) {
             i++;
             continue;
         }
 
-        if (buffer_mode && !ebpf_module_has_buffer(ebpf_modules[i].name)) {
+        if (use_buffer_mode && !ebpf_module_has_buffer(ebpf_modules[i].name)) {
             i++;
             continue;
         }
@@ -1925,15 +1979,15 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
             char *first_incompatible = NULL;
             int unsupported_type = 0;
             size_t j;
-            uint32_t kernels_to_use = (arena_mode && ebpf_modules[i].arena_kernels) ?
+            uint32_t kernels_to_use = (use_arena_mode && ebpf_modules[i].arena_kernels) ?
                                       ebpf_modules[i].arena_kernels :
-                                      ((buffer_mode && ebpf_modules[i].buffer_kernels) ?
+                                      ((use_buffer_mode && ebpf_modules[i].buffer_kernels) ?
                                        ebpf_modules[i].buffer_kernels : ebpf_modules[i].kernels);
             uint32_t max_idx = ebpf_select_max_index(rhf_version, kver);
             uint32_t idx = ebpf_select_index(kernels_to_use, rhf_version, kver);
 
             ebpf_discover_candidates(&candidates, ebpf_modules[i].name, is_return,
-                                     kernels_to_use, max_idx, rhf_version);
+                                     kernels_to_use, max_idx, rhf_version, use_buffer_mode, use_arena_mode);
             for (j = 0; j < candidates.size; j++) {
                 struct bpf_object *obj = bpf_object__open_file(candidates.files[j], NULL);
                 if (libbpf_get_error(obj)) {
@@ -1971,7 +2025,8 @@ NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
                 ebpf_write_map_compatibility_debug(unsupported_type, &map_support);
                 NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", "Fail");
             } else {
-                ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, rhf_version);
+                ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, rhf_version,
+                                use_buffer_mode, use_arena_mode);
                 ebpf_start_netdata_json(load, is_return);
                 {
                     char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT,

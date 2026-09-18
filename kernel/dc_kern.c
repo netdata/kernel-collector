@@ -25,7 +25,7 @@ static __always_inline void netdata_dc_update_existing(__u32 *field)
         libnetdata_update_u32(field, 1);
 }
 
-static __always_inline void netdata_dc_create_new_entry(__u32 *field, __u32 tgid)
+static __always_inline void netdata_dc_create_new_entry(__u32 *field, __u32 key, __u32 tgid)
 {
     netdata_dc_stat_t data = {};
 
@@ -39,7 +39,6 @@ static __always_inline void netdata_dc_create_new_entry(__u32 *field, __u32 tgid
     data.name[0] = '\0';
 #endif
 
-    __u32 key = 0;
     if (field)
         *field = 1;
     bpf_map_update_elem(&dcstat_pid, &key, &data, BPF_ANY);
@@ -72,7 +71,7 @@ int netdata_lookup_fast(struct pt_regs* ctx)
     }
 
     netdata_dc_stat_t data = {};
-    netdata_dc_create_new_entry(&data.references, tgid);
+    netdata_dc_create_new_entry(&data.references, key, tgid);
 
     return 0;
 }
@@ -96,7 +95,7 @@ int netdata_d_lookup(struct pt_regs* ctx)
         netdata_dc_update_existing(&fill->slow);
     } else {
         netdata_dc_stat_t data = {};
-        netdata_dc_create_new_entry(&data.slow, tgid);
+        netdata_dc_create_new_entry(&data.slow, key, tgid);
     }
 
     if (ret == 0) {
@@ -110,4 +109,3 @@ int netdata_d_lookup(struct pt_regs* ctx)
 }
 
 char _license[] SEC("license") = "GPL";
-

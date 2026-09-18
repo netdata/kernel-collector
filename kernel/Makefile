@@ -29,6 +29,10 @@ CLANG_MAJOR_VERSION := $(shell echo $(CLANG_VERSION) | cut -d. -f1 )
 LLVM_INCLUDES = $(shell [ -d /usr/lib/clang ] && echo "-I/usr/lib/clang/$(CLANG_VERSION)/include" || echo "-I/usr/lib64/clang/$(CLANG_VERSION)/include")
 LLVM_INCLUDES += -I/opt/rh/llvm-toolset-7.0/root/usr/lib64/clang/$(CLANG_VERSION)/include
 
+# Kernel sources include shared collector headers directly. Keep generated
+# objects in sync when one of those headers changes.
+NETDATA_KERNEL_HEADERS := $(wildcard ../includes/*.h)
+
 #KERNEL_VERSION="$(shell basename $(realpath $(KERNELSOURCE)) | cut -f 2 -d '-')"
 KERNEL_VERSION="$(shell cat $(KERNELSOURCE)/include/config/kernel.release)"
 
@@ -141,11 +145,6 @@ else
 NETDATA_ARENA_APPS=
 endif
 
-# Arena objects need address-space-cast support so the verifier sees PTR_TO_ARENA
-ifneq ($(NETDATA_ARENA_APPS),)
-$(addsuffix _kern.o,$(NETDATA_ARENA_APPS)): EXTRA_CFLAGS += -D__BPF_FEATURE_ADDR_SPACE_CAST -Wno-address-space-conversion
-endif
-
 all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
 
 dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS} ${NETDATA_ARENA_APPS}
@@ -154,7 +153,7 @@ libbpf:
 	# -fPIE added to be compatible with olders clang/gcc
 	cd $(LIBBPF)/src && /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR) && $(MAKE) CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
 
-%_kern.o: %_kern.c libbpf
+%_kern.o: %_kern.c $(NETDATA_KERNEL_HEADERS) libbpf
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
 	    	-Wno-compare-distinct-pointer-types \

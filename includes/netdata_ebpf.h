@@ -13,6 +13,7 @@ This header has the common definitions for all `.c` files.
 #include <linux/version.h>
 #include <linux/types.h>
 
+#include "libbpf_version.h"
 #include "netdata_common.h"
 #include "netdata_cache.h"
 #include "netdata_dc.h"
@@ -32,4 +33,3 @@ This header has the common definitions for all `.c` files.
 #include "netdata_vfs.h"
 
 #endif /* _NETDATA_EBPF_ */
-

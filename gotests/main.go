@@ -29,8 +29,10 @@ const (
 	netdataEBPFKernel414        = 265728
 	netdataEBPFKernel415        = 265984
 	netdataEBPFKernel417        = 266496
+	netdataEBPFKernel418        = 266752
 	netdataEBPFKernel54         = 328704
 	netdataEBPFKernel58         = 329728
+	netdataEBPFKernel60         = 393216
 	netdataEBPFKernel510        = 330240
 	netdataEBPFKernel511        = 330496
 	netdataEBPFKernel514        = 331264
@@ -149,6 +151,21 @@ type tableData struct {
 
 var (
 	testsStarted = 0
+
+	netdataSyscalls = map[string]struct{}{
+		"fdatasync":       {},
+		"fsync":           {},
+		"mount":           {},
+		"msync":           {},
+		"shmat":           {},
+		"shmctl":          {},
+		"shmdt":           {},
+		"shmget":          {},
+		"sync":            {},
+		"sync_file_range": {},
+		"syncfs":          {},
+		"umount":          {},
+	}
 
 	dcOptionalNames = []specifyName{
 		{
@@ -318,7 +335,7 @@ func run() int {
 		runNetdataTests(writer, rhfVersion, kernelVersion, false, opts, nprocesses)
 	} else if opts.specificEBPF != "" {
 		startExternalJSON(writer, opts.specificEBPF)
-		result := ebpfTester(writer, opts.specificEBPF, nil, opts.flags&flagContent != 0, "", opts, nprocesses)
+		result := ebpfTester(writer, opts.specificEBPF, nil, opts.flags&flagContent != 0, "", opts, nprocesses, kernelVersion)
 		fmt.Fprintf(writer, "    },\n    \"Status\" :  \"%s\"\n},\n", result)
 	}
 
@@ -434,6 +451,25 @@ func parseOSRelease(content string) int {
 		return major*256 + minor
 	}
 	return -1
+}
+
+func IsDebianFlavor() bool {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return false
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(line, "ID=") {
+			continue
+		}
+
+		value := strings.TrimSpace(strings.TrimPrefix(line, "ID="))
+		value = strings.Trim(value, "\"'")
+		return value == "debian"
+	}
+
+	return false
 }
 
 func parseRedHatRelease(release string) int {
@@ -724,6 +760,30 @@ func modeSuffix(bufferMode bool, arenaMode bool) string {
 	return ""
 }
 
+func effectiveModeFlags(moduleName string, kernelVersion int, isDebian bool, bufferMode bool, arenaMode bool) (bool, bool) {
+	if bufferMode || arenaMode {
+		return bufferMode, arenaMode
+	}
+
+	if moduleName == "cachestat" {
+		if kernelVersion >= netdataEBPFKernel510 {
+			return true, false
+		}
+
+		return false, false
+	}
+
+	if moduleHasArena(moduleName) && kernelVersion >= netdataEBPFKernel612 && !isDebian {
+		return false, true
+	}
+
+	if moduleHasBuffer(moduleName) && kernelVersion >= netdataEBPFKernel510 {
+		return true, false
+	}
+
+	return false, false
+}
+
 func candidateMatches(filename string, moduleName string, isReturn bool, version string, rhfVersion int, bufferMode bool, arenaMode bool) bool {
 	prefix := fmt.Sprintf("%cnetdata_ebpf_%s%s.", map[bool]rune{true: 'r', false: 'p'}[isReturn], moduleName, modeSuffix(bufferMode, arenaMode))
 	if !strings.HasPrefix(filename, prefix) || !strings.HasSuffix(filename, ".o") {
@@ -807,6 +867,7 @@ func detectSupportedMapTypes(rhfVersion int, kernelVersion int) map[uint32]bool 
 		bpfMapTypePerCPUArray: fallbackPerCPUMapSupport(rhfVersion, kernelVersion),
 		bpfMapTypeRingBuf:     false,
 		bpfMapTypeUserRingBuf: false,
+		bpfMapTypeArena:       false,
 	}
 
 	for _, mapType := range []uint32{
@@ -816,6 +877,7 @@ func detectSupportedMapTypes(rhfVersion int, kernelVersion int) map[uint32]bool 
 		bpfMapTypePerCPUArray,
 		bpfMapTypeRingBuf,
 		bpfMapTypeUserRingBuf,
+		bpfMapTypeArena,
 	} {
 		if probe := probeMapTypeSupport(mapType); probe >= 0 {
 			supported[mapType] = probe > 0
@@ -855,6 +917,7 @@ func writeSupportedMapTypes(w io.Writer, supported map[uint32]bool) {
 		bpfMapTypePerCPUArray,
 		bpfMapTypeRingBuf,
 		bpfMapTypeUserRingBuf,
+		bpfMapTypeArena,
 	} {
 		if supported[mapType] {
 			names = append(names, fmt.Sprintf("\"%s\"", mapTypeName(mapType)))
@@ -1050,29 +1113,32 @@ func moduleHasArena(name string) bool {
 
 func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bool, opts options, nprocesses int) {
 	supportedMapTypes := detectSupportedMapTypes(rhfVersion, kernelVersion)
+	isDebian := IsDebianFlavor()
 
 	for _, mod := range ebpfModules {
+		bufferMode, arenaMode := effectiveModeFlags(mod.name, kernelVersion, isDebian, opts.bufferMode, opts.arenaMode)
+
 		if opts.flags&mod.flags == 0 {
 			continue
 		}
 
-		if opts.arenaMode && !moduleHasArena(mod.name) {
+		if arenaMode && !moduleHasArena(mod.name) {
 			continue
 		}
 
-		if opts.bufferMode && !moduleHasBuffer(mod.name) {
+		if bufferMode && !moduleHasBuffer(mod.name) {
 			continue
 		}
 
 		kernels := mod.kernels
-		if opts.arenaMode && mod.arenaKernels != 0 {
+		if arenaMode && mod.arenaKernels != 0 {
 			kernels = mod.arenaKernels
-		} else if opts.bufferMode && mod.bufferKernels != 0 {
+		} else if bufferMode && mod.bufferKernels != 0 {
 			kernels = mod.bufferKernels
 		}
 		maxIndex := selectMaxIndex(rhfVersion, kernelVersion)
 		idx := selectIndex(kernels, rhfVersion, kernelVersion)
-		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, opts.bufferMode, opts.arenaMode)
+		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, bufferMode, arenaMode)
 		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
 
 		if len(compatible) == 0 {
@@ -1083,12 +1149,12 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 				continue
 			}
 
-			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath, opts.bufferMode, opts.arenaMode)}
+			compatible = []string{mountName(idx, mod.name, isReturn, rhfVersion, opts.netdataPath, bufferMode, arenaMode)}
 		}
 
 		for _, filename := range compatible {
 			startNetdataJSON(w, filename, isReturn)
-			result := ebpfTester(w, filename, mod.updateNames, opts.flags&flagContent != 0, mod.ctrlTable, opts, nprocesses)
+			result := ebpfTester(w, filename, mod.updateNames, opts.flags&flagContent != 0, mod.ctrlTable, opts, nprocesses, kernelVersion)
 			fmt.Fprintf(w, "    },\n    \"Status\" :  \"%s\"\n},\n", result)
 		}
 	}
@@ -1194,7 +1260,7 @@ func startNetdataJSON(w io.Writer, filename string, isReturn bool) {
 	fmt.Fprintf(w, "\"%s\" : {\n    \"Test\" : \"%s\",\n    \"Tables\" : {\n", filename, testType)
 }
 
-func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, ctrl string, opts options, nprocesses int) string {
+func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, ctrl string, opts options, nprocesses int, kernelVersion int) string {
 	const (
 		success = "Success"
 		failure = "Fail"
@@ -1221,7 +1287,7 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 		return failure
 	}
 
-	summary := attachPrograms(obj, names)
+	summary := attachPrograms(obj, names, kernelVersion)
 	if summary.fail > 0 {
 		writeFailureDebug(w, obj, "attach_programs", summary.lastError, socketFilterDetected, total, summary)
 	}
@@ -1248,28 +1314,37 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 	return failure
 }
 
-func attachPrograms(obj *bpfObject, names *[]specifyName) attachSummary {
+func attachPrograms(obj *bpfObject, names *[]specifyName, kernelVersion int) attachSummary {
 	var summary attachSummary
 
 	for prog := obj.firstProgram(); prog != nil; prog = obj.nextProgram(prog) {
+		if skipProgramForKernel(prog.sectionName(), kernelVersion) {
+			summary.skipped++
+			continue
+		}
+
 		var (
 			link *bpfLink
 			err  int
 		)
 
-		override := findOptionalName(names, prog.name())
-		if override != nil && prog.progType() == bpfProgTypeKprobe {
-			target := override.optional
-			if target == "" && override.required {
-				target = override.functionToAttach
-			}
-			if target == "" {
-				summary.skipped++
-				continue
-			}
-			link, err = prog.attachKprobe(override.retprobe, target)
+		if retprobe, target, ok := syscallAttachTarget(prog.sectionName(), kernelVersion); ok {
+			link, err = prog.attachKprobe(retprobe, target)
 		} else {
-			link, err = prog.attach()
+			override := findOptionalName(names, prog.name())
+			if override != nil && prog.progType() == bpfProgTypeKprobe {
+				target := override.optional
+				if target == "" && override.required {
+					target = override.functionToAttach
+				}
+				if target == "" {
+					summary.skipped++
+					continue
+				}
+				link, err = prog.attachKprobe(override.retprobe, target)
+			} else {
+				link, err = prog.attach()
+			}
 		}
 
 		if err != 0 {
@@ -1285,6 +1360,72 @@ func attachPrograms(obj *bpfObject, names *[]specifyName) attachSummary {
 	}
 
 	return summary
+}
+
+func skipProgramForKernel(section string, kernelVersion int) bool {
+	if section != "kprobe/blk_complete_request" {
+		return false
+	}
+
+	// blk_complete_request is not available in the older kernels covered by
+	// the 4.x artifacts, and was removed from newer kernels in favor of the
+	// blk_mq completion path.
+	return kernelVersion < netdataEBPFKernel54 || kernelVersion >= netdataEBPFKernel60
+}
+
+func syscallAttachTarget(section string, kernelVersion int) (bool, string, bool) {
+	retprobe := false
+	target := ""
+
+	switch {
+	case strings.HasPrefix(section, "ksyscall/"):
+		target = strings.TrimPrefix(section, "ksyscall/")
+	case strings.HasPrefix(section, "kretsyscall/"):
+		retprobe = true
+		target = strings.TrimPrefix(section, "kretsyscall/")
+	case strings.HasPrefix(section, "kprobe/"):
+		target = strings.TrimPrefix(section, "kprobe/")
+	case strings.HasPrefix(section, "kretprobe/"):
+		retprobe = true
+		target = strings.TrimPrefix(section, "kretprobe/")
+	default:
+		return false, "", false
+	}
+
+	syscallName := ""
+	for _, prefix := range []string{"__x64_sys_", "__arm64_sys_", "__s390x_", "sys_"} {
+		if strings.HasPrefix(target, prefix) {
+			syscallName = strings.TrimPrefix(target, prefix)
+			break
+		}
+	}
+	if syscallName == "" {
+		// kprobe sections for ordinary kernel functions must use libbpf's
+		// normal auto-attach path.
+		if strings.HasPrefix(section, "ksyscall/") || strings.HasPrefix(section, "kretsyscall/") {
+			syscallName = target
+		} else {
+			return false, "", false
+		}
+	}
+	if _, ok := netdataSyscalls[syscallName]; !ok &&
+		!strings.HasPrefix(section, "ksyscall/") && !strings.HasPrefix(section, "kretsyscall/") {
+		return false, "", false
+	}
+
+	prefix := "sys_"
+	if kernelVersion >= netdataEBPFKernel417 {
+		switch runtime.GOARCH {
+		case "amd64":
+			prefix = "__x64_sys_"
+		case "arm64":
+			prefix = "__arm64_sys_"
+		case "s390x":
+			prefix = "__s390x_"
+		}
+	}
+
+	return retprobe, prefix + syscallName, true
 }
 
 func findOptionalName(names *[]specifyName, programName string) *specifyName {

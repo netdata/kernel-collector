@@ -464,9 +464,7 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
     NETDATA_SOCKET_DIRECTION direction = NETDATA_SOCKET_DIRECTION_NONE;
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
-        direction = NETDATA_SOCKET_DIRECTION_OUTBOUND;
         set_common_udp_nv_data(val, sk, family, direction);
-        val->closed = 1;
 
         return 0;
     }
@@ -498,9 +496,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     NETDATA_SOCKET_DIRECTION direction = NETDATA_SOCKET_DIRECTION_NONE;
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
-        direction = NETDATA_SOCKET_DIRECTION_INBOUND;
         set_common_udp_nv_data(val, sk, family, direction);
-        val->closed = 1;
         return 0;
     }
 
@@ -519,4 +515,3 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
 }
 
 char _license[] SEC("license") = "GPL";
-

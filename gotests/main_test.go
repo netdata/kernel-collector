@@ -135,7 +135,7 @@ VERSION_ID="12"
 			want: -1,
 		},
 		{
-			name: "empty content",
+			name:    "empty content",
 			content: ``,
 			want:    -1,
 		},
@@ -763,6 +763,74 @@ func TestModeSuffix(t *testing.T) {
 	}
 }
 
+func TestEffectiveModeFlags(t *testing.T) {
+	tests := map[string]struct {
+		module        string
+		kernelVersion int
+		isDebian      bool
+		bufferMode    bool
+		arenaMode     bool
+		wantBuffer    bool
+		wantArena     bool
+	}{
+		"cachestat-defaults-to-buffer-on-supported-kernel": {
+			module:        "cachestat",
+			kernelVersion: netdataEBPFKernel510,
+			wantBuffer:    true,
+			wantArena:     false,
+		},
+		"process-defaults-to-arena-on-6-12-nondebian": {
+			module:        "process",
+			kernelVersion: netdataEBPFKernel612,
+			wantBuffer:    false,
+			wantArena:     true,
+		},
+		"process-stays-buffer-on-debian": {
+			module:        "process",
+			kernelVersion: netdataEBPFKernel612,
+			isDebian:      true,
+			wantBuffer:    true,
+			wantArena:     false,
+		},
+		"cachestat-keeps-tracing-before-buffer-support": {
+			module:        "cachestat",
+			kernelVersion: netdataEBPFKernel414,
+			wantBuffer:    false,
+			wantArena:     false,
+		},
+		"explicit-buffer-stays-buffer": {
+			module:        "cachestat",
+			kernelVersion: netdataEBPFKernel612,
+			bufferMode:    true,
+			wantBuffer:    true,
+			wantArena:     false,
+		},
+		"explicit-arena-wins": {
+			module:        "cachestat",
+			kernelVersion: netdataEBPFKernel612,
+			bufferMode:    true,
+			arenaMode:     true,
+			wantBuffer:    true,
+			wantArena:     true,
+		},
+		"other-modules-unaffected": {
+			module:        "swap",
+			kernelVersion: netdataEBPFKernel612,
+			wantBuffer:    false,
+			wantArena:     true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotBuffer, gotArena := effectiveModeFlags(tc.module, tc.kernelVersion, tc.isDebian, tc.bufferMode, tc.arenaMode)
+			if gotBuffer != tc.wantBuffer || gotArena != tc.wantArena {
+				t.Fatalf("effectiveModeFlags() = (%v, %v), want (%v, %v)", gotBuffer, gotArena, tc.wantBuffer, tc.wantArena)
+			}
+		})
+	}
+}
+
 func TestModuleModeLookup(t *testing.T) {
 	bufferArenaModules := []string{"cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket"}
 	for _, name := range bufferArenaModules {
@@ -802,6 +870,62 @@ func TestFindOptionalName(t *testing.T) {
 
 	if got := findOptionalName(nil, "netdata_foo"); got != nil {
 		t.Fatal("expected nil for nil slice")
+	}
+}
+
+func TestSyscallAttachTarget(t *testing.T) {
+	tests := []struct {
+		name       string
+		section    string
+		version    int
+		retprobe   bool
+		targetPart string
+		want       bool
+	}{
+		{name: "legacy syscall section", section: "kprobe/sys_fsync", version: netdataEBPFKernel415, targetPart: "fsync", want: true},
+		{name: "modern syscall section", section: "ksyscall/fsync", version: netdataEBPFKernel417, targetPart: "fsync", want: true},
+		{name: "legacy return syscall section", section: "kretprobe/sys_mount", version: netdataEBPFKernel415, retprobe: true, targetPart: "mount", want: true},
+		{name: "ordinary kprobe", section: "kprobe/lookup_fast", version: netdataEBPFKernel612, want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			retprobe, target, ok := syscallAttachTarget(tc.section, tc.version)
+			if ok != tc.want {
+				t.Fatalf("syscallAttachTarget() recognized=%v, want %v", ok, tc.want)
+			}
+			if !ok {
+				return
+			}
+			if retprobe != tc.retprobe {
+				t.Fatalf("retprobe=%v, want %v", retprobe, tc.retprobe)
+			}
+			if !strings.HasSuffix(target, tc.targetPart) {
+				t.Fatalf("target=%q, want suffix %q", target, tc.targetPart)
+			}
+		})
+	}
+}
+
+func TestSkipProgramForKernel(t *testing.T) {
+	tests := []struct {
+		name    string
+		section string
+		version int
+		want    bool
+	}{
+		{name: "legacy disk completion on 5.4", section: "kprobe/blk_complete_request", version: netdataEBPFKernel54, want: false},
+		{name: "legacy disk completion on 4.18", section: "kprobe/blk_complete_request", version: netdataEBPFKernel418, want: true},
+		{name: "legacy disk completion on 6.0", section: "kprobe/blk_complete_request", version: netdataEBPFKernel60, want: true},
+		{name: "modern disk completion", section: "kprobe/blk_mq_end_request", version: netdataEBPFKernel612, want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := skipProgramForKernel(tc.section, tc.version); got != tc.want {
+				t.Fatalf("skipProgramForKernel() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -861,6 +985,7 @@ func TestWriteSupportedMapTypes(t *testing.T) {
 		bpfMapTypePerCPUArray: false,
 		bpfMapTypeRingBuf:     false,
 		bpfMapTypeUserRingBuf: false,
+		bpfMapTypeArena:       true,
 	}
 
 	var out bytes.Buffer
@@ -882,6 +1007,9 @@ func TestWriteSupportedMapTypes(t *testing.T) {
 	if strings.Contains(got, `"ringbuf"`) {
 		t.Fatalf("ringbuf must not appear (disabled): %s", got)
 	}
+	if !strings.Contains(got, `"arena"`) {
+		t.Fatalf("arena must appear (enabled): %s", got)
+	}
 }
 
 func TestCandidateVersionIndex(t *testing.T) {
@@ -896,45 +1024,45 @@ func TestCandidateVersionIndex(t *testing.T) {
 		wantIndex int
 	}{
 		{
-			name: "rhf 5.14 matches at index 7",
+			name:     "rhf 5.14 matches at index 7",
 			filename: "pnetdata_ebpf_swap.5.14.rhf.o",
-			module: "swap", rhf: 1, kernels: netdataV514, maxIndex: 7,
+			module:   "swap", rhf: 1, kernels: netdataV514, maxIndex: 7,
 			wantIndex: 7,
 		},
 		{
-			name: "non-rhf masks out V514",
+			name:     "non-rhf masks out V514",
 			filename: "pnetdata_ebpf_swap.5.14.rhf.o",
-			module: "swap", rhf: -1, kernels: netdataV514, maxIndex: 10,
+			module:   "swap", rhf: -1, kernels: netdataV514, maxIndex: 10,
 			wantIndex: -1,
 		},
 		{
-			name: "non-rhf 6.8 matches at index 10",
+			name:     "non-rhf 6.8 matches at index 10",
 			filename: "pnetdata_ebpf_swap.6.8.o",
-			module: "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
+			module:   "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
 			wantIndex: 10,
 		},
 		{
-			name: "picks file version from multi-version kernel set",
+			name:     "picks file version from multi-version kernel set",
 			filename: "pnetdata_ebpf_swap.5.4.o",
-			module: "swap", rhf: -1, kernels: netdataV54 | netdataV68, maxIndex: 10,
+			module:   "swap", rhf: -1, kernels: netdataV54 | netdataV68, maxIndex: 10,
 			wantIndex: 4,
 		},
 		{
-			name: "wrong module name returns -1",
+			name:     "wrong module name returns -1",
 			filename: "pnetdata_ebpf_process.6.8.o",
-			module: "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
+			module:   "swap", rhf: -1, kernels: netdataV68, maxIndex: 10,
 			wantIndex: -1,
 		},
 		{
-			name: "arena file matches with arenaMode enabled",
+			name:     "arena file matches with arenaMode enabled",
 			filename: "pnetdata_ebpf_swap_arena.6.12.o",
-			module: "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: true,
+			module:   "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: true,
 			wantIndex: 11,
 		},
 		{
-			name: "arena file rejected without arenaMode",
+			name:     "arena file rejected without arenaMode",
 			filename: "pnetdata_ebpf_swap_arena.6.12.o",
-			module: "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: false,
+			module:   "swap", rhf: -1, kernels: netdataV612, maxIndex: 11, arenaMode: false,
 			wantIndex: -1,
 		},
 	}

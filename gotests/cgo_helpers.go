@@ -427,6 +427,10 @@ func (p *bpfProgram) name() string {
 	return C.GoString(C.bpf_program__name(p.ptr))
 }
 
+func (p *bpfProgram) sectionName() string {
+	return C.GoString(C.bpf_program__section_name(p.ptr))
+}
+
 func (p *bpfProgram) progType() uint32 {
 	return uint32(C.bpf_program__type(p.ptr))
 }

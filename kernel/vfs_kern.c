@@ -87,7 +87,9 @@ int netdata_sys_write(struct pt_regs* ctx)
     if (ret < 0)
         libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITE, 1);
 #endif
+#if NETDATASEL >= 2
     ret = (ssize_t)PT_REGS_PARM3(ctx);
+#endif
     tot = libnetdata_log2l(ret);
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_BYTES_VFS_WRITE, tot);
 
@@ -129,7 +131,9 @@ int netdata_sys_writev(struct pt_regs* ctx)
     if (ret < 0)
         libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_WRITEV, 1);
 #endif
+#if NETDATASEL >= 2
     ret = (ssize_t)PT_REGS_PARM3(ctx);
+#endif
     tot = libnetdata_log2l(ret);
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_BYTES_VFS_WRITEV, tot);
 
@@ -171,7 +175,9 @@ int netdata_sys_read(struct pt_regs* ctx)
     if (ret < 0)
         libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READ, 1);
 #endif
+#if NETDATASEL >= 2
     ret = (ssize_t)PT_REGS_PARM3(ctx);
+#endif
     tot = libnetdata_log2l(ret);
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_BYTES_VFS_READ, tot);
 
@@ -213,7 +219,9 @@ int netdata_sys_readv(struct pt_regs* ctx)
     if (ret < 0)
         libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_ERROR_VFS_READV, 1);
 #endif
+#if NETDATASEL >= 2
     ret = (ssize_t)PT_REGS_PARM3(ctx);
+#endif
     tot = libnetdata_log2l(ret);
     libnetdata_update_global(&tbl_vfs_stats, NETDATA_KEY_BYTES_VFS_READV, tot);
 
