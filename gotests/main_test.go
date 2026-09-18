@@ -915,6 +915,7 @@ func TestSkipProgramForKernel(t *testing.T) {
 		want    bool
 	}{
 		{name: "legacy disk completion on 5.4", section: "kprobe/blk_complete_request", version: netdataEBPFKernel54, want: false},
+		{name: "legacy disk completion on 4.18", section: "kprobe/blk_complete_request", version: netdataEBPFKernel418, want: true},
 		{name: "legacy disk completion on 6.0", section: "kprobe/blk_complete_request", version: netdataEBPFKernel60, want: true},
 		{name: "modern disk completion", section: "kprobe/blk_mq_end_request", version: netdataEBPFKernel612, want: false},
 	}

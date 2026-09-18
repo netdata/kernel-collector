@@ -29,6 +29,7 @@ const (
 	netdataEBPFKernel414        = 265728
 	netdataEBPFKernel415        = 265984
 	netdataEBPFKernel417        = 266496
+	netdataEBPFKernel418        = 266752
 	netdataEBPFKernel54         = 328704
 	netdataEBPFKernel58         = 329728
 	netdataEBPFKernel60         = 393216
@@ -1362,7 +1363,14 @@ func attachPrograms(obj *bpfObject, names *[]specifyName, kernelVersion int) att
 }
 
 func skipProgramForKernel(section string, kernelVersion int) bool {
-	return kernelVersion >= netdataEBPFKernel60 && section == "kprobe/blk_complete_request"
+	if section != "kprobe/blk_complete_request" {
+		return false
+	}
+
+	// blk_complete_request is not available in the older kernels covered by
+	// the 4.x artifacts, and was removed from newer kernels in favor of the
+	// blk_mq completion path.
+	return kernelVersion < netdataEBPFKernel54 || kernelVersion >= netdataEBPFKernel60
 }
 
 func syscallAttachTarget(section string, kernelVersion int) (bool, string, bool) {
