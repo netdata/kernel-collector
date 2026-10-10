@@ -1700,6 +1700,93 @@ cleanup:
     free(key);
 }
 
+#define NETDATA_FS_HISTOGRAM_OPERATIONS 4
+
+static int ebpf_is_filesystem_histogram_map(const char *name)
+{
+    return !strcmp(name, "tbl_btrfs") || !strcmp(name, "tbl_ext4") || !strcmp(name, "tbl_nfs") ||
+           !strcmp(name, "tbl_xfs") || !strcmp(name, "tbl_zfs");
+}
+
+static int ebpf_has_latency_histogram_map(struct bpf_object *obj)
+{
+    return bpf_object__find_map_by_name(obj, "tbl_disk_iocall") ||
+           bpf_object__find_map_by_name(obj, "tbl_btrfs") ||
+           bpf_object__find_map_by_name(obj, "tbl_ext4") ||
+           bpf_object__find_map_by_name(obj, "tbl_nfs") ||
+           bpf_object__find_map_by_name(obj, "tbl_xfs") ||
+           bpf_object__find_map_by_name(obj, "tbl_zfs");
+}
+
+static void ebpf_write_filesystem_histogram(const char *name, int fd, uint32_t key_size,
+                                           uint32_t value_size, uint32_t max_entries)
+{
+    static const char *operations[NETDATA_FS_HISTOGRAM_OPERATIONS] = { "read", "write", "open", "sync" };
+    static const char *nfs_operations[NETDATA_FS_HISTOGRAM_OPERATIONS] = { "read", "write", "open", "getattr" };
+    const char **operation_names = !strcmp(name, "tbl_nfs") ? nfs_operations : operations;
+    int cpus = ebpf_possible_cpu_count();
+    size_t stride = ebpf_map_value_stride(BPF_MAP_TYPE_PERCPU_ARRAY, value_size);
+    size_t value_length = stride * (size_t)cpus;
+    uint8_t *key = NULL;
+    uint8_t *value = NULL;
+    uint64_t histogram[NETDATA_FS_HISTOGRAM_OPERATIONS][NETDATA_DISK_HISTOGRAM_BINS] = { { 0 } };
+
+    if (key_size < sizeof(uint32_t) || value_size < sizeof(uint64_t) ||
+        max_entries < NETDATA_FS_HISTOGRAM_OPERATIONS * NETDATA_DISK_HISTOGRAM_BINS || cpus < 1) {
+        NETDATA_LOG_THREAD_SAFE("\n");
+        return;
+    }
+
+    key = calloc(key_size, 1);
+    value = calloc(value_length, 1);
+    if (!key || !value)
+        goto cleanup;
+
+    for (uint32_t index = 0; index < NETDATA_FS_HISTOGRAM_OPERATIONS * NETDATA_DISK_HISTOGRAM_BINS; index++) {
+        memcpy(key, &index, sizeof(index));
+        memset(value, 0, value_length);
+        if (bpf_map_lookup_elem(fd, key, value))
+            continue;
+
+        uint32_t operation = index / NETDATA_DISK_HISTOGRAM_BINS;
+        uint32_t bin = index % NETDATA_DISK_HISTOGRAM_BINS;
+        for (int cpu = 0; cpu < cpus; cpu++) {
+            uint64_t count;
+            memcpy(&count, value + (size_t)cpu * stride, sizeof(count));
+            histogram[operation][bin] += count;
+        }
+    }
+
+    NETDATA_LOG_THREAD_SAFE("                                    ");
+    for (uint32_t operation = 0; operation < NETDATA_FS_HISTOGRAM_OPERATIONS; operation++) {
+        if (operation)
+            NETDATA_LOG_THREAD_SAFE(",\n                                    ");
+        NETDATA_LOG_THREAD_SAFE("{ \"Operation\" : \"%s\", \"Histogram\" : [\n", operation_names[operation]);
+        for (uint32_t bin = 0; bin < NETDATA_DISK_HISTOGRAM_BINS; bin++) {
+            uint64_t min_us = bin ? (uint64_t)1 << bin : 0;
+            uint64_t max_us = ((uint64_t)1 << (bin + 1)) - 1;
+            if (bin)
+                NETDATA_LOG_THREAD_SAFE(",\n");
+            if (bin == NETDATA_DISK_HISTOGRAM_BINS - 1) {
+                NETDATA_LOG_THREAD_SAFE(
+                        "                                        { \"Bin\" : %u, \"Latency_us\" : \">=%llu\", \"Count\" : %llu }",
+                        bin, (unsigned long long)min_us, (unsigned long long)histogram[operation][bin]);
+            } else {
+                NETDATA_LOG_THREAD_SAFE(
+                        "                                        { \"Bin\" : %u, \"Latency_us\" : \"%llu-%llu\", \"Count\" : %llu }",
+                        bin, (unsigned long long)min_us, (unsigned long long)max_us,
+                        (unsigned long long)histogram[operation][bin]);
+            }
+        }
+        NETDATA_LOG_THREAD_SAFE("\n                                    ] }");
+    }
+    NETDATA_LOG_THREAD_SAFE("\n");
+
+cleanup:
+    free(value);
+    free(key);
+}
+
 static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
 {
     char error_buffer[128];
@@ -1839,6 +1926,21 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
                     "                       \"Data\" : [\n",
                     name, key_size, value_size, type, fd);
             ebpf_write_disk_histogram(fd, map, key_size, value_size);
+            NETDATA_LOG_THREAD_SAFE("                                ]\n"
+                    "                      }\n"
+                    "        },\n");
+            tables++;
+            continue;
+        }
+
+        if (ebpf_is_filesystem_histogram_map(name)) {
+            NETDATA_LOG_THREAD_SAFE(
+                    "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
+                    "                       \"Type\" : %u,\n"
+                    "                       \"FD\" : %d,\n"
+                    "                       \"Data\" : [\n",
+                    name, key_size, value_size, type, fd);
+            ebpf_write_filesystem_histogram(name, fd, key_size, value_size, bpf_map__max_entries(map));
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
                     "        },\n");
@@ -2011,10 +2113,10 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
                                  load.last_error, socket_filter_detected, total, &load);
     }
 
-    if (!errors && !load.fail && bpf_object__find_map_by_name(obj, "tbl_disk_iocall")) {
+    if (!errors && !load.fail && ebpf_has_latency_histogram_map(obj)) {
         unsigned int remaining = 5;
 
-        // Keep disk probes attached long enough to observe live host I/O.
+        // Keep latency probes attached long enough to observe live host I/O.
         while ((remaining = sleep(remaining)) > 0) {
         }
         maps = 1;

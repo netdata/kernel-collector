@@ -21,7 +21,7 @@ import (
 
 const (
 	versionStringLen            = 256
-	diskCaptureDuration         = 5 * time.Second
+	latencyHistogramCaptureTime = 5 * time.Second
 	netdataDefaultProcessNumber = 4096
 	netdataDNSMaxPorts          = 32
 	netdataDNSDefaultPort       = 53
@@ -1293,10 +1293,9 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 	if summary.fail > 0 {
 		writeFailureDebug(w, obj, "attach_programs", summary.lastError, socketFilterDetected, total, summary)
 	}
-	diskCapture := obj.findMapByName("tbl_disk_iocall") != nil
-	if diskCapture && summary.fail == 0 {
-		// Keep disk probes attached long enough to observe live host I/O.
-		time.Sleep(diskCaptureDuration)
+	if hasLatencyHistogramMap(obj) && summary.fail == 0 {
+		// Keep filesystem probes attached long enough to observe live host I/O.
+		time.Sleep(latencyHistogramCaptureTime)
 		maps = true
 	}
 
@@ -1625,6 +1624,31 @@ type diskHistogram struct {
 	bins [diskHistogramBins]uint64
 }
 
+var filesystemHistogramMaps = map[string]struct{}{
+	"tbl_btrfs": {},
+	"tbl_ext4":  {},
+	"tbl_nfs":   {},
+	"tbl_xfs":   {},
+	"tbl_zfs":   {},
+}
+
+func isFilesystemHistogramMap(name string) bool {
+	_, ok := filesystemHistogramMaps[name]
+	return ok
+}
+
+func hasLatencyHistogramMap(obj *bpfObject) bool {
+	if obj.findMapByName("tbl_disk_iocall") != nil {
+		return true
+	}
+	for m := obj.firstMap(); m != nil; m = obj.nextMap(m) {
+		if isFilesystemHistogramMap(m.name()) {
+			return true
+		}
+	}
+	return false
+}
+
 func writeDiskHistogram(w io.Writer, meta mapMeta, ncpus int) {
 	rows := make(map[uint32]*diskHistogram)
 	key := make([]byte, meta.KeySize)
@@ -1680,6 +1704,60 @@ func writeDiskHistogram(w io.Writer, meta mapMeta, ncpus int) {
 		}
 		fmt.Fprintf(w, "{ \"Device\" : \"%d:%d\", \"Histogram\" : [\n", diskDeviceMajor(dev), diskDeviceMinor(dev))
 		for bin, count := range rows[dev].bins {
+			if bin > 0 {
+				fmt.Fprint(w, ",\n")
+			}
+			minUS := uint64(1) << bin
+			maxUS := (uint64(1) << (bin + 1)) - 1
+			if bin == 0 {
+				minUS = 0
+			}
+			if bin == diskHistogramBins-1 {
+				fmt.Fprintf(w, "                                        { \"Bin\" : %d, \"Latency_us\" : \">=%d\", \"Count\" : %d }", bin, minUS, count)
+			} else {
+				fmt.Fprintf(w, "                                        { \"Bin\" : %d, \"Latency_us\" : \"%d-%d\", \"Count\" : %d }", bin, minUS, maxUS, count)
+			}
+		}
+		fmt.Fprint(w, "\n                                    ] }")
+	}
+	fmt.Fprint(w, "\n")
+}
+
+func writeFilesystemHistogram(w io.Writer, meta mapMeta, ncpus int) {
+	const operations = 4
+	operationNames := [...]string{"read", "write", "open", "sync"}
+	if meta.Name == "tbl_nfs" {
+		operationNames[3] = "getattr"
+	}
+	if meta.KeySize < 4 || meta.ValueSize < 8 || meta.MaxEntries < operations*diskHistogramBins || ncpus < 1 {
+		fmt.Fprint(w, "\n")
+		return
+	}
+
+	stride := mapValueStride(meta)
+	value := make([]byte, mapValueLength(meta, ncpus))
+	var histogram [operations][diskHistogramBins]uint64
+	key := make([]byte, meta.KeySize)
+	for index := 0; index < operations*diskHistogramBins; index++ {
+		clear(key)
+		binary.NativeEndian.PutUint32(key[:4], uint32(index))
+		clear(value)
+		if bpfMapLookupElem(meta.FD, key, value) != 0 {
+			continue
+		}
+		operation, bin := index/diskHistogramBins, index%diskHistogramBins
+		for cpu := 0; cpu < ncpus; cpu++ {
+			start := cpu * stride
+			histogram[operation][bin] += binary.NativeEndian.Uint64(value[start : start+8])
+		}
+	}
+
+	for operation, name := range operationNames {
+		if operation > 0 {
+			fmt.Fprint(w, ",\n                                    ")
+		}
+		fmt.Fprintf(w, "{ \"Operation\" : \"%s\", \"Histogram\" : [\n", name)
+		for bin, count := range histogram[operation] {
 			if bin > 0 {
 				fmt.Fprint(w, ",\n")
 			}
@@ -1826,6 +1904,8 @@ func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocess
 
 		if meta.Name == "tbl_disk_iocall" {
 			writeDiskHistogram(w, meta, nprocesses)
+		} else if isFilesystemHistogramMap(meta.Name) {
+			writeFilesystemHistogram(w, meta, nprocesses)
 		} else if ctrl == "" || ctrl != meta.Name {
 			writeCommonJSONVector(w, values, meta.FD, iterations)
 		} else {
