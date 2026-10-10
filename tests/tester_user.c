@@ -1582,6 +1582,16 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
 
 #define NETDATA_DISK_HISTOGRAM_BINS 24
 
+static uint32_t ebpf_map_max_entries_compat(struct bpf_map *map)
+{
+#ifdef LIBBPF_MAJOR_VERSION
+    return bpf_map__max_entries(map);
+#else
+    const struct bpf_map_def *def = bpf_map__def(map);
+    return def ? def->max_entries : 0;
+#endif
+}
+
 typedef struct ebpf_disk_histogram {
     uint32_t dev;
     uint64_t bins[NETDATA_DISK_HISTOGRAM_BINS];
@@ -1614,7 +1624,7 @@ static int ebpf_disk_histogram_compare(const void *left, const void *right)
 
 static void ebpf_write_disk_histogram(int fd, struct bpf_map *map, uint32_t key_size, uint32_t value_size)
 {
-    uint32_t capacity = bpf_map__max_entries(map);
+    uint32_t capacity = ebpf_map_max_entries_compat(map);
     int cpus = ebpf_possible_cpu_count();
     size_t stride = ebpf_map_value_stride(BPF_MAP_TYPE_PERCPU_HASH, value_size);
     size_t value_length = stride * (size_t)cpus;
@@ -1940,7 +1950,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
                     "                       \"FD\" : %d,\n"
                     "                       \"Data\" : [\n",
                     name, key_size, value_size, type, fd);
-            ebpf_write_filesystem_histogram(name, fd, key_size, value_size, bpf_map__max_entries(map));
+            ebpf_write_filesystem_histogram(name, fd, key_size, value_size, ebpf_map_max_entries_compat(map));
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
                     "        },\n");
