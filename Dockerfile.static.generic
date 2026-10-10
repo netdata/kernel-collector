@@ -13,7 +13,7 @@ ENV _LIBC=static
 # hadolint ignore=DL3018
 RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
                           bc elfutils-dev openssl-dev clang clang-dev llvm \
-                          rsync bison flex tar xz bash linux-headers
+                          rsync bison flex tar xz bash git linux-headers
 
 # hadolint ignore=DL3003,SC3009
 RUN mkdir -p /usr/src && \
