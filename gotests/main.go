@@ -1357,6 +1357,25 @@ func attachPrograms(obj *bpfObject, names *[]specifyName, kernelVersion int) att
 
 		summary.links = append(summary.links, link)
 		summary.success++
+
+		switch prog.name() {
+		case "netdata_block_rq_issue":
+			if link, err := prog.attachKprobe(false, "blk_start_request"); err == 0 {
+				summary.links = append(summary.links, link)
+			} else {
+				summary.skipped++
+			}
+		case "netdata_block_rq_complete":
+			link, err := prog.attachKprobe(false, "__blk_mq_end_request")
+			if err != 0 {
+				link, err = prog.attachKprobe(false, "blk_mq_free_request")
+			}
+			if err == 0 {
+				summary.links = append(summary.links, link)
+			} else {
+				summary.skipped++
+			}
+		}
 	}
 
 	return summary

@@ -1228,17 +1228,17 @@ static ebpf_specify_name_t *ebpf_find_names(ebpf_specify_name_t *names, const ch
 static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, size_t total, ebpf_specify_name_t *names)
 {
     memset(load, 0, sizeof(*load));
-    load->links = calloc(total , sizeof(struct bpf_link *));
+    load->links = calloc(total + 2, sizeof(struct bpf_link *));
     if (!load->links) {
         load->last_error = -ENOMEM;
         return -1;
     }
 
     struct bpf_link **links = load->links;
-    size_t i = 0;
     struct bpf_program *prog;
     bpf_object__for_each_program(prog, obj)
     {
+        size_t slot = load->link_count;
         ebpf_specify_name_t *w;
         if (names) {
             const char *name = bpf_program__name(prog);
@@ -1250,22 +1250,37 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
             enum bpf_prog_type type = bpf_program__get_type(prog);
             const char *target = w->optional ? w->optional : w->function_to_attach;
             if (type == BPF_PROG_TYPE_KPROBE)
-                links[i] = bpf_program__attach_kprobe(prog, w->retprobe, target);
+                links[slot] = bpf_program__attach_kprobe(prog, w->retprobe, target);
         } else
-            links[i] = bpf_program__attach(prog);
+            links[slot] = bpf_program__attach(prog);
 
-        if (libbpf_get_error(links[i])) {
-            load->last_error = (int)libbpf_get_error(links[i]);
+        if (libbpf_get_error(links[slot])) {
+            load->last_error = (int)libbpf_get_error(links[slot]);
             load->failed_program_name = bpf_program__name(prog);
             load->failed_program_type = bpf_program__get_type(prog);
-            links[i] = NULL;
-        } else
-            i++;
+            links[slot] = NULL;
+            continue;
+        }
+
+        load->link_count++;
+        load->success++;
+
+        const char *program_name = bpf_program__name(prog);
+        if (!strcmp(program_name, "netdata_block_rq_issue")) {
+            struct bpf_link *extra = bpf_program__attach_kprobe(prog, false, "blk_start_request");
+            if (!libbpf_get_error(extra))
+                links[load->link_count++] = extra;
+        } else if (!strcmp(program_name, "netdata_block_rq_complete")) {
+            struct bpf_link *extra = bpf_program__attach_kprobe(prog, false, "__blk_mq_end_request");
+            if (libbpf_get_error(extra))
+                extra = bpf_program__attach_kprobe(prog, false, "blk_mq_free_request");
+            if (!libbpf_get_error(extra))
+                links[load->link_count++] = extra;
+        }
 
     }
 
-    load->success  = i;
-    load->fail = total - i;
+    load->fail = total - load->success;
 
     return 0;
 }
@@ -1876,13 +1891,10 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     }
 
     if (!errors) {
-        struct bpf_link **links = load.links;
-        struct bpf_program *prog;
-        size_t i = 0 ;
-        bpf_object__for_each_program(prog, obj) {
-            bpf_link__destroy(links[i]);
-            i++;
-        }
+        size_t i;
+        for (i = 0; i < load.link_count; i++)
+            bpf_link__destroy(load.links[i]);
+        free(load.links);
     }
 
     bpf_object__close(obj);

@@ -189,6 +189,7 @@ typedef struct ebpf_module {
 
 typedef struct ebpf_attach {
     struct bpf_link **links;
+    size_t link_count;
     size_t success;
     size_t fail;
     int last_error;
