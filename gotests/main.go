@@ -21,10 +21,12 @@ import (
 
 const (
 	versionStringLen            = 256
+	diskCaptureDuration         = 5 * time.Second
 	netdataDefaultProcessNumber = 4096
 	netdataDNSMaxPorts          = 32
 	netdataDNSDefaultPort       = 53
 	netdataControllerEnd        = 6
+	diskHistogramBins           = 24
 	netdataMinimumEBPFKernel    = 264960
 	netdataEBPFKernel414        = 265728
 	netdataEBPFKernel415        = 265984
@@ -1291,6 +1293,12 @@ func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, c
 	if summary.fail > 0 {
 		writeFailureDebug(w, obj, "attach_programs", summary.lastError, socketFilterDetected, total, summary)
 	}
+	diskCapture := obj.findMapByName("tbl_disk_iocall") != nil
+	if diskCapture && summary.fail == 0 {
+		// Keep disk probes attached long enough to observe live host I/O.
+		time.Sleep(diskCaptureDuration)
+		maps = true
+	}
 
 	if maps {
 		if hasSocketTable(obj) {
@@ -1612,6 +1620,93 @@ func writeCommonJSONVector(w io.Writer, values *tableData, fd int, iterations in
 	fmt.Fprint(w, "\n")
 }
 
+type diskHistogram struct {
+	dev  uint32
+	bins [diskHistogramBins]uint64
+}
+
+func writeDiskHistogram(w io.Writer, meta mapMeta, ncpus int) {
+	rows := make(map[uint32]*diskHistogram)
+	key := make([]byte, meta.KeySize)
+	nextKey := make([]byte, meta.KeySize)
+	stride := mapValueStride(meta)
+	value := make([]byte, mapValueLength(meta, ncpus))
+
+	if meta.KeySize < 8 || meta.ValueSize < 8 || stride*ncpus > len(value) {
+		fmt.Fprint(w, "\n")
+		return
+	}
+	if bpfMapGetNextKey(meta.FD, nil, nextKey) == 0 {
+		for {
+			clear(value)
+			if bpfMapLookupElem(meta.FD, nextKey, value) == 0 {
+				bin := int(binary.NativeEndian.Uint32(nextKey[:4]))
+				dev := binary.NativeEndian.Uint32(nextKey[4:8])
+				if bin < diskHistogramBins {
+					row := rows[dev]
+					if row == nil {
+						row = &diskHistogram{dev: dev}
+						rows[dev] = row
+					}
+					for cpu := 0; cpu < ncpus; cpu++ {
+						start := cpu * stride
+						row.bins[bin] += binary.NativeEndian.Uint64(value[start : start+8])
+					}
+				}
+			}
+			copy(key, nextKey)
+			if bpfMapGetNextKey(meta.FD, key, nextKey) != 0 {
+				break
+			}
+		}
+	}
+
+	devices := make([]uint32, 0, len(rows))
+	for dev := range rows {
+		devices = append(devices, dev)
+	}
+	sort.Slice(devices, func(i, j int) bool {
+		majorI, majorJ := diskDeviceMajor(devices[i]), diskDeviceMajor(devices[j])
+		if majorI != majorJ {
+			return majorI < majorJ
+		}
+		return diskDeviceMinor(devices[i]) < diskDeviceMinor(devices[j])
+	})
+
+	fmt.Fprint(w, "                                    ")
+	for deviceIndex, dev := range devices {
+		if deviceIndex > 0 {
+			fmt.Fprint(w, ",\n                                    ")
+		}
+		fmt.Fprintf(w, "{ \"Device\" : \"%d:%d\", \"Histogram\" : [\n", diskDeviceMajor(dev), diskDeviceMinor(dev))
+		for bin, count := range rows[dev].bins {
+			if bin > 0 {
+				fmt.Fprint(w, ",\n")
+			}
+			minUS := uint64(1) << bin
+			maxUS := (uint64(1) << (bin + 1)) - 1
+			if bin == 0 {
+				minUS = 0
+			}
+			if bin == diskHistogramBins-1 {
+				fmt.Fprintf(w, "                                        { \"Bin\" : %d, \"Latency_us\" : \">=%d\", \"Count\" : %d }", bin, minUS, count)
+			} else {
+				fmt.Fprintf(w, "                                        { \"Bin\" : %d, \"Latency_us\" : \"%d-%d\", \"Count\" : %d }", bin, minUS, maxUS, count)
+			}
+		}
+		fmt.Fprint(w, "\n                                    ] }")
+	}
+	fmt.Fprint(w, "\n")
+}
+
+func diskDeviceMajor(dev uint32) uint32 {
+	return (dev >> 8) & 0xfff
+}
+
+func diskDeviceMinor(dev uint32) uint32 {
+	return (dev & 0xff) | ((dev >> 12) & 0xffffff00)
+}
+
 func controllerJSON(w io.Writer, fd int, meta mapMeta, nprocesses int) {
 	var filled, zero uint32
 	key := make([]byte, meta.KeySize)
@@ -1729,7 +1824,9 @@ func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocess
 				"                       \"Data\" : [\n",
 			meta.Name, meta.KeySize, meta.ValueSize, meta.Type, meta.FD)
 
-		if ctrl == "" || ctrl != meta.Name {
+		if meta.Name == "tbl_disk_iocall" {
+			writeDiskHistogram(w, meta, nprocesses)
+		} else if ctrl == "" || ctrl != meta.Name {
 			writeCommonJSONVector(w, values, meta.FD, iterations)
 		} else {
 			controllerJSON(w, meta.FD, meta, nprocesses)

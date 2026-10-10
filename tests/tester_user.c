@@ -1580,6 +1580,126 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
             value + zero,  value, zero);
 }
 
+#define NETDATA_DISK_HISTOGRAM_BINS 24
+
+typedef struct ebpf_disk_histogram {
+    uint32_t dev;
+    uint64_t bins[NETDATA_DISK_HISTOGRAM_BINS];
+} ebpf_disk_histogram_t;
+
+static uint32_t ebpf_disk_major(uint32_t dev)
+{
+    return (dev >> 8) & 0xfff;
+}
+
+static uint32_t ebpf_disk_minor(uint32_t dev)
+{
+    return (dev & 0xff) | ((dev >> 12) & 0xffffff00);
+}
+
+static int ebpf_disk_histogram_compare(const void *left, const void *right)
+{
+    const ebpf_disk_histogram_t *a = left;
+    const ebpf_disk_histogram_t *b = right;
+    uint32_t major_a = ebpf_disk_major(a->dev);
+    uint32_t major_b = ebpf_disk_major(b->dev);
+
+    if (major_a != major_b)
+        return major_a < major_b ? -1 : 1;
+
+    uint32_t minor_a = ebpf_disk_minor(a->dev);
+    uint32_t minor_b = ebpf_disk_minor(b->dev);
+    return (minor_a > minor_b) - (minor_a < minor_b);
+}
+
+static void ebpf_write_disk_histogram(int fd, struct bpf_map *map, uint32_t key_size, uint32_t value_size)
+{
+    uint32_t capacity = bpf_map__max_entries(map);
+    int cpus = ebpf_possible_cpu_count();
+    size_t stride = ebpf_map_value_stride(BPF_MAP_TYPE_PERCPU_HASH, value_size);
+    size_t value_length = stride * (size_t)cpus;
+    uint8_t *key = NULL;
+    uint8_t *next_key = NULL;
+    uint8_t *value = NULL;
+    ebpf_disk_histogram_t *rows = NULL;
+    size_t row_count = 0;
+
+    if (key_size < 8 || value_size < sizeof(uint64_t) || !capacity || cpus < 1) {
+        NETDATA_LOG_THREAD_SAFE("\n");
+        return;
+    }
+
+    key = calloc(key_size, 1);
+    next_key = calloc(key_size, 1);
+    value = calloc(value_length, 1);
+    rows = calloc(capacity, sizeof(*rows));
+    if (!key || !next_key || !value || !rows)
+        goto cleanup;
+
+    if (!bpf_map_get_next_key(fd, NULL, next_key)) {
+        do {
+            uint32_t bin, dev;
+            if (!bpf_map_lookup_elem(fd, next_key, value)) {
+                memcpy(&bin, next_key, sizeof(bin));
+                memcpy(&dev, next_key + sizeof(bin), sizeof(dev));
+                if (bin < NETDATA_DISK_HISTOGRAM_BINS) {
+                    size_t row;
+                    for (row = 0; row < row_count && rows[row].dev != dev; row++)
+                        ;
+                    if (row == row_count && row_count < capacity) {
+                        rows[row].dev = dev;
+                        row_count++;
+                    }
+                    if (row < row_count) {
+                        int cpu;
+                        for (cpu = 0; cpu < cpus; cpu++) {
+                            uint64_t count;
+                            memcpy(&count, value + (size_t)cpu * stride, sizeof(count));
+                            rows[row].bins[bin] += count;
+                        }
+                    }
+                }
+            }
+
+            memcpy(key, next_key, key_size);
+            memset(value, 0, value_length);
+        } while (!bpf_map_get_next_key(fd, key, next_key));
+    }
+
+    qsort(rows, row_count, sizeof(*rows), ebpf_disk_histogram_compare);
+    NETDATA_LOG_THREAD_SAFE("                                    ");
+    for (size_t row = 0; row < row_count; row++) {
+        if (row)
+            NETDATA_LOG_THREAD_SAFE(",\n                                    ");
+        NETDATA_LOG_THREAD_SAFE("{ \"Device\" : \"%u:%u\", \"Histogram\" : [\n",
+                                ebpf_disk_major(rows[row].dev), ebpf_disk_minor(rows[row].dev));
+        for (uint32_t bin = 0; bin < NETDATA_DISK_HISTOGRAM_BINS; bin++) {
+            uint64_t min_us = bin ? (uint64_t)1 << bin : 0;
+            uint64_t max_us = ((uint64_t)1 << (bin + 1)) - 1;
+            if (bin)
+                NETDATA_LOG_THREAD_SAFE(",\n");
+            if (bin == NETDATA_DISK_HISTOGRAM_BINS - 1) {
+                NETDATA_LOG_THREAD_SAFE(
+                        "                                        { \"Bin\" : %u, \"Latency_us\" : \">=%llu\", \"Count\" : %llu }",
+                        bin, (unsigned long long)min_us, (unsigned long long)rows[row].bins[bin]);
+            } else {
+                NETDATA_LOG_THREAD_SAFE(
+                        "                                        { \"Bin\" : %u, \"Latency_us\" : \"%llu-%llu\", \"Count\" : %llu }",
+                        bin, (unsigned long long)min_us, (unsigned long long)max_us,
+                        (unsigned long long)rows[row].bins[bin]);
+            }
+        }
+        NETDATA_LOG_THREAD_SAFE("\n                                    ] }");
+    }
+    NETDATA_LOG_THREAD_SAFE("\n");
+
+cleanup:
+    free(rows);
+    free(value);
+    free(next_key);
+    free(key);
+}
+
 static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
 {
     char error_buffer[128];
@@ -1704,6 +1824,21 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
 #endif
         if (!ebpf_map_supports_key_value_io(type)) {
             ebpf_test_ringbuf_map(map, name, fd, type, key_size, value_size);
+            NETDATA_LOG_THREAD_SAFE("                                ]\n"
+                    "                      }\n"
+                    "        },\n");
+            tables++;
+            continue;
+        }
+
+        if (!strcmp(name, "tbl_disk_iocall")) {
+            NETDATA_LOG_THREAD_SAFE(
+                    "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
+                    "                       \"Type\" : %u,\n"
+                    "                       \"FD\" : %d,\n"
+                    "                       \"Data\" : [\n",
+                    name, key_size, value_size, type, fd);
+            ebpf_write_disk_histogram(fd, map, key_size, value_size);
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
                     "        },\n");
@@ -1874,6 +2009,15 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     if (errors || load.fail) {
         ebpf_write_failure_debug(obj, errors ? "attach_setup" : "attach_programs",
                                  load.last_error, socket_filter_detected, total, &load);
+    }
+
+    if (!errors && !load.fail && bpf_object__find_map_by_name(obj, "tbl_disk_iocall")) {
+        unsigned int remaining = 5;
+
+        // Keep disk probes attached long enough to observe live host I/O.
+        while ((remaining = sleep(remaining)) > 0) {
+        }
+        maps = 1;
     }
 
     if (!errors && maps) {
