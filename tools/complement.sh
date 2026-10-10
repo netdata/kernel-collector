@@ -1,11 +1,13 @@
 #!/bin/bash
 
 parse_kernel_version() {
-  r="${1}"
+  local release="${1}"
 
-  read -r -a p <<< "$(echo "${r}" | tr '.' ' ')"
+  if [[ ! "${release}" =~ ^([0-9]+)\.([0-9]+)(\.([0-9]+))? ]]; then
+    return 1
+  fi
 
-  printf "%03d%03d%03d" "${p[0]}" "${p[1]}" "${p[2]}"
+  printf "%03d%03d%03d" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[4]:-0}"
 }
 
 first_kernel() {
@@ -13,6 +15,7 @@ first_kernel() {
 
     ver5_10_0="005010000"
     ver5_11_0="005011000"
+    ver7_0_0="007000000"
     ver4_18_0="004018000"
     ver4_17_0="004017000"
     ver4_15_0="004015000"
@@ -23,6 +26,8 @@ first_kernel() {
         kpkg="3.10";
     elif [ "${kver}" -eq "${ver4_18_0}" ]; then
         kpkg="4.18";
+    elif [ "${kver}" -ge "${ver7_0_0}" ]; then
+        kpkg="7.0";
     elif [ "${kver}" -ge "${ver5_11_0}" ]; then
         kpkg="5.11";
     elif [ "${kver}" -ge "${ver5_10_0}" ]; then

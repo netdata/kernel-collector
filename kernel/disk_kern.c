@@ -49,15 +49,15 @@ static __always_inline int netdata_disk_request_key(struct request *rq, netdata_
     if (!rq)
         return 0;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0))
-    /* Older requests carry the disk directly; newer kernels use the queue. */
-    bpf_probe_read(&disk, sizeof(disk), &rq->rq_disk);
-#else
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0))
+    /* rq_disk was removed in 5.17; newer requests reach the disk through q. */
     struct request_queue *queue = NULL;
     bpf_probe_read(&queue, sizeof(queue), &rq->q);
     if (!queue)
         return 0;
     bpf_probe_read(&disk, sizeof(disk), &queue->disk);
+#else
+    bpf_probe_read(&disk, sizeof(disk), &rq->rq_disk);
 #endif
     if (!disk)
         return 0;

@@ -34,11 +34,16 @@ fi
 
 git clean -d -f -x
 
+docker_build_args=()
+if [ "${OS}" = "generic" ]; then
+  docker_build_args+=(--build-arg "KERNEL_VERSION=${KERNEL_VERSION}")
+  docker_build_args+=(--build-arg "KERNEL_LOCALVERSION=${KERNEL_LOCALVERSION:-}")
+fi
+
 docker build \
   -f Dockerfile."${LIBC}"."${OS}" \
   -t "${TAG}" \
-  --build-arg KERNEL_VERSION="${KERNEL_VERSION}" \
-  --build-arg KERNEL_LOCALVERSION="${KERNEL_LOCALVERSION:-}" \
+  "${docker_build_args[@]}" \
   ./ | tee prepare.log
 
 if [ -t 1 ]; then
