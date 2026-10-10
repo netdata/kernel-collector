@@ -38,6 +38,7 @@ docker build \
   -f Dockerfile."${LIBC}"."${OS}" \
   -t "${TAG}" \
   --build-arg KERNEL_VERSION="${KERNEL_VERSION}" \
+  --build-arg KERNEL_LOCALVERSION="${KERNEL_LOCALVERSION:-}" \
   ./ | tee prepare.log
 
 if [ -t 1 ]; then

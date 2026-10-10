@@ -5,8 +5,9 @@ LIBBPF = ../libbpf
 LIBBPF_HEADERS = ../.local_libbpf
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
-EXTRA_CFLAGS += -fno-stack-protector
-EXTRA_CFLAGS += -DCONFIG_CC_HAS_ASM_INLINE=0
+override EXTRA_CFLAGS += -fno-stack-protector
+override EXTRA_CFLAGS += -DCONFIG_CC_HAS_ASM_INLINE=0
+override EXTRA_CFLAGS += -Wno-microsoft-anon-tag
 
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated/uapi
@@ -34,22 +35,32 @@ LLVM_INCLUDES += -I/opt/rh/llvm-toolset-7.0/root/usr/lib64/clang/$(CLANG_VERSION
 NETDATA_KERNEL_HEADERS := $(wildcard ../includes/*.h)
 
 #KERNEL_VERSION="$(shell basename $(realpath $(KERNELSOURCE)) | cut -f 2 -d '-')"
-KERNEL_VERSION="$(shell cat $(KERNELSOURCE)/include/config/kernel.release)"
+KERNEL_VERSION := $(shell cat $(KERNELSOURCE)/include/config/kernel.release)
 
-VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
-VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
-VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
+CURRENT_KERNEL := $(shell printf '%s\n' '$(KERNEL_VERSION)' | awk -F'[.-]' '{ if ($$1 !~ /^[0-9]+$$/ || $$2 !~ /^[0-9]+$$/) exit 1; patch = ($$3 ~ /^[0-9]+$$/) ? $$3 : 0; printf "%d\n", $$1 * 65536 + $$2 * 256 + patch }')
 
-CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
+VER_MAJOR := $(shell printf '%s\n' '$(KERNEL_VERSION)' | cut -d. -f1)
+VER_MINOR := $(shell printf '%s\n' '$(KERNEL_VERSION)' | cut -d. -f2)
 
-# Linux 7.0 introduced Microsoft-compatible anonymous struct members in shared headers.
-ifeq ($(shell test $(CURRENT_KERNEL) -ge 458752 ; echo $$?),0)
-EXTRA_CFLAGS += -fms-extensions
+ifneq ($(shell printf '%s\n' '$(KERNEL_VERSION)' | awk -F'[.-]' '{ if (($$1 == 3 && $$2 == 10) || $$1 > 4 || ($$1 == 4 && $$2 >= 12)) exit 0; exit 1 }'; echo $$?),0)
+$(error Unsupported kernel $(KERNEL_VERSION): supported versions are 3.10 and 4.12 or newer)
+endif
+
+KERNEL_AUTO_CONF := $(KERNELSOURCE)/include/config/auto.conf
+CONFIG_CC_MS_EXTENSIONS := $(shell sed -n 's/^CONFIG_CC_MS_EXTENSIONS=//p' $(KERNEL_AUTO_CONF) 2>/dev/null)
+ifneq ($(strip $(CONFIG_CC_MS_EXTENSIONS)),)
+ifeq ($(shell $(CLANG) $(CONFIG_CC_MS_EXTENSIONS) -fsyntax-only -x c /dev/null >/dev/null 2>&1; echo $$?),0)
+override EXTRA_CFLAGS += $(CONFIG_CC_MS_EXTENSIONS)
+else ifeq ($(shell $(CLANG) -fms-extensions -fsyntax-only -x c /dev/null >/dev/null 2>&1; echo $$?),0)
+override EXTRA_CFLAGS += -fms-extensions
+else
+$(error Kernel requests $(CONFIG_CC_MS_EXTENSIONS), but $(CLANG) supports neither it nor -fms-extensions)
+endif
 endif
 
 # This build bypasses Kbuild's compiler-capability define required by ftrace.h.
-ifeq ($(shell grep -q '^CONFIG_FUNCTION_TRACER=y' $(KERNELSOURCE)/include/config/auto.conf && grep -q '^CONFIG_HAVE_FENTRY=y' $(KERNELSOURCE)/include/config/auto.conf && $(CLANG) -mfentry -fsyntax-only -x c /dev/null >/dev/null 2>&1; echo $$?),0)
-EXTRA_CFLAGS += -DCC_USING_FENTRY
+ifeq ($(shell grep -q '^CONFIG_FUNCTION_TRACER=y' $(KERNEL_AUTO_CONF) 2>/dev/null && grep -q '^CONFIG_HAVE_FENTRY=y' $(KERNEL_AUTO_CONF) 2>/dev/null && $(CLANG) -mfentry -fsyntax-only -x c /dev/null >/dev/null 2>&1; echo $$?),0)
+override EXTRA_CFLAGS += -DCC_USING_FENTRY
 endif
 
 NETDATA_ALL_APPS= btrfs \
@@ -161,7 +172,14 @@ dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS} ${NETDATA_ARENA_APPS}
 
 libbpf:
 	# -fPIE added to be compatible with olders clang/gcc
-	cd $(LIBBPF)/src && /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR) && $(MAKE) CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
+	@set -e; \
+	libbpf_dir=$$(cd "$(LIBBPF)" && pwd -P); \
+	libbpf_git() { GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$$libbpf_dir" git -C "$$libbpf_dir" "$$@"; }; \
+	libbpf_ref=$$(libbpf_git symbolic-ref --quiet --short HEAD || libbpf_git rev-parse HEAD); \
+	trap 'libbpf_git checkout --quiet "$$libbpf_ref"' EXIT; \
+	cd "$$libbpf_dir/src"; \
+	GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$$libbpf_dir" /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR); \
+	$(MAKE) CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install
 
 %_kern.o: %_kern.c $(NETDATA_KERNEL_HEADERS) libbpf
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \

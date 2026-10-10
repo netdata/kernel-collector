@@ -1548,6 +1548,16 @@ func mapValueLength(meta mapMeta, nprocesses int) int {
 	return mapValueStride(meta) * nprocesses
 }
 
+func mapValueCPUCount(meta mapMeta, nprocesses int) int {
+	if !isPerCPUMapType(meta.Type) {
+		return 1
+	}
+	if nprocesses < 1 {
+		return 1
+	}
+	return nprocesses
+}
+
 func controllerEntryLimit(meta mapMeta) int {
 	limit := netdataControllerEnd
 
@@ -1656,7 +1666,7 @@ func writeDiskHistogram(w io.Writer, meta mapMeta, ncpus int) {
 	stride := mapValueStride(meta)
 	value := make([]byte, mapValueLength(meta, ncpus))
 
-	if meta.KeySize < 8 || meta.ValueSize < 8 || stride*ncpus > len(value) {
+	if meta.KeySize < 8 || meta.ValueSize < 8 || stride*mapValueCPUCount(meta, ncpus) > len(value) {
 		fmt.Fprint(w, "\n")
 		return
 	}
@@ -1672,7 +1682,7 @@ func writeDiskHistogram(w io.Writer, meta mapMeta, ncpus int) {
 						row = &diskHistogram{dev: dev}
 						rows[dev] = row
 					}
-					for cpu := 0; cpu < ncpus; cpu++ {
+					for cpu := 0; cpu < mapValueCPUCount(meta, ncpus); cpu++ {
 						start := cpu * stride
 						row.bins[bin] += binary.NativeEndian.Uint64(value[start : start+8])
 					}
@@ -1746,12 +1756,13 @@ func writeFilesystemHistogram(w io.Writer, meta mapMeta, ncpus int) {
 			continue
 		}
 		operation, bin := index/diskHistogramBins, index%diskHistogramBins
-		for cpu := 0; cpu < ncpus; cpu++ {
+		for cpu := 0; cpu < mapValueCPUCount(meta, ncpus); cpu++ {
 			start := cpu * stride
 			histogram[operation][bin] += binary.NativeEndian.Uint64(value[start : start+8])
 		}
 	}
 
+	fmt.Fprint(w, "                                    ")
 	for operation, name := range operationNames {
 		if operation > 0 {
 			fmt.Fprint(w, ",\n                                    ")

@@ -42,13 +42,15 @@ static __always_inline netdata_disk_key_t netdata_disk_key(void *ptr)
 static __always_inline int netdata_disk_request_key(struct request *rq, netdata_disk_key_t *key)
 {
     struct gendisk *disk = NULL;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0))
     struct block_device *part = NULL;
+#endif
 
     if (!rq)
         return 0;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0))
-    /* request_queue::disk is not present on 5.4; requests carry rq_disk. */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0))
+    /* Older requests carry the disk directly; newer kernels use the queue. */
     bpf_probe_read(&disk, sizeof(disk), &rq->rq_disk);
 #else
     struct request_queue *queue = NULL;
@@ -59,14 +61,17 @@ static __always_inline int netdata_disk_request_key(struct request *rq, netdata_
 #endif
     if (!disk)
         return 0;
-    bpf_probe_read(&part, sizeof(part), &disk->part0);
-    if (!part)
-        return 0;
-
     key->dev = 0;
     key->pad = 0;
     key->sector = 0;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0))
+    bpf_probe_read(&key->dev, sizeof(key->dev), &disk->part0.__dev.devt);
+#else
+    bpf_probe_read(&part, sizeof(part), &disk->part0);
+    if (!part)
+        return 0;
     bpf_probe_read(&key->dev, sizeof(key->dev), &part->bd_dev);
+#endif
     bpf_probe_read(&key->sector, sizeof(key->sector), &rq->__sector);
     if (!key->dev)
         return 0;

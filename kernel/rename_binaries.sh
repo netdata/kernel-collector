@@ -17,6 +17,7 @@ select_kernel_version() {
     KVER=$(parse_kernel_version "${1}" "${2}")
 
     VER6_12_0="006012"
+    VER7_0_0="007000"
     VER6_8_0="006008"
     VER5_16_0="005016"
     VER5_15_0="005015"
@@ -26,12 +27,14 @@ select_kernel_version() {
     VER4_18_0="004018"
     VER4_17_0="004017"
     VER4_15_0="004015"
-    VER4_11_0="004011"
+    VER4_12_0="004012"
     VER3_10_0="003010"
     ISRH=""
 
     if [ "${KVER}" -eq "${VER3_10_0}" ]; then
         KSELECTED="3.10";
+    elif [ "${KVER}" -ge "${VER7_0_0}" ]; then
+        KSELECTED="7.0";
     elif [ "${KVER}" -eq "${VER4_18_0}" ]; then
         KSELECTED="4.18";
     elif [ "${KVER}" -ge "${VER6_12_0}" ]; then
@@ -52,8 +55,13 @@ select_kernel_version() {
         KSELECTED="5.4";
     elif [ "${KVER}" -ge "${VER4_15_0}" ]; then
         KSELECTED="4.16";
-    elif [ "${KVER}" -ge "${VER4_11_0}" ]; then
+    elif [ "${KVER}" -ge "${VER4_12_0}" ]; then
         KSELECTED="4.14";
+    fi
+
+    if [ -z "${KSELECTED}" ]; then
+        echo "Unsupported kernel version ${1}.${2}: only 3.10 and 4.12 or newer are supported." >&2
+        exit 1
     fi
 
     if [ -f /etc/redhat-release ]; then

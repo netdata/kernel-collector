@@ -224,6 +224,11 @@ static int ebpf_map_is_percpu(uint32_t type)
     return type == BPF_MAP_TYPE_PERCPU_ARRAY || type == BPF_MAP_TYPE_PERCPU_HASH;
 }
 
+static int ebpf_map_value_cpu_count(uint32_t type)
+{
+    return ebpf_map_is_percpu(type) ? ebpf_possible_cpu_count() : 1;
+}
+
 static int ebpf_map_is_ringbuf(uint32_t type)
 {
     return type == BPF_MAP_TYPE_RINGBUF || type == BPF_MAP_TYPE_USER_RINGBUF || type == BPF_MAP_TYPE_ARENA;
@@ -1246,11 +1251,9 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
         } else
             w = NULL;
 
-        if (w) {
-            enum bpf_prog_type type = bpf_program__get_type(prog);
+        if (w && bpf_program__get_type(prog) == BPF_PROG_TYPE_KPROBE) {
             const char *target = w->optional ? w->optional : w->function_to_attach;
-            if (type == BPF_PROG_TYPE_KPROBE)
-                links[slot] = bpf_program__attach_kprobe(prog, w->retprobe, target);
+            links[slot] = bpf_program__attach_kprobe(prog, w->retprobe, target);
         } else
             links[slot] = bpf_program__attach(prog);
 
@@ -1622,11 +1625,12 @@ static int ebpf_disk_histogram_compare(const void *left, const void *right)
     return (minor_a > minor_b) - (minor_a < minor_b);
 }
 
-static void ebpf_write_disk_histogram(int fd, struct bpf_map *map, uint32_t key_size, uint32_t value_size)
+static void ebpf_write_disk_histogram(int fd, struct bpf_map *map, uint32_t type,
+                                      uint32_t key_size, uint32_t value_size)
 {
     uint32_t capacity = ebpf_map_max_entries_compat(map);
-    int cpus = ebpf_possible_cpu_count();
-    size_t stride = ebpf_map_value_stride(BPF_MAP_TYPE_PERCPU_HASH, value_size);
+    int cpus = ebpf_map_value_cpu_count(type);
+    size_t stride = ebpf_map_value_stride(type, value_size);
     size_t value_length = stride * (size_t)cpus;
     uint8_t *key = NULL;
     uint8_t *next_key = NULL;
@@ -1728,14 +1732,14 @@ static int ebpf_has_latency_histogram_map(struct bpf_object *obj)
            bpf_object__find_map_by_name(obj, "tbl_zfs");
 }
 
-static void ebpf_write_filesystem_histogram(const char *name, int fd, uint32_t key_size,
+static void ebpf_write_filesystem_histogram(const char *name, int fd, uint32_t type, uint32_t key_size,
                                            uint32_t value_size, uint32_t max_entries)
 {
     static const char *operations[NETDATA_FS_HISTOGRAM_OPERATIONS] = { "read", "write", "open", "sync" };
     static const char *nfs_operations[NETDATA_FS_HISTOGRAM_OPERATIONS] = { "read", "write", "open", "getattr" };
     const char **operation_names = !strcmp(name, "tbl_nfs") ? nfs_operations : operations;
-    int cpus = ebpf_possible_cpu_count();
-    size_t stride = ebpf_map_value_stride(BPF_MAP_TYPE_PERCPU_ARRAY, value_size);
+    int cpus = ebpf_map_value_cpu_count(type);
+    size_t stride = ebpf_map_value_stride(type, value_size);
     size_t value_length = stride * (size_t)cpus;
     uint8_t *key = NULL;
     uint8_t *value = NULL;
@@ -1935,7 +1939,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
                     "                       \"FD\" : %d,\n"
                     "                       \"Data\" : [\n",
                     name, key_size, value_size, type, fd);
-            ebpf_write_disk_histogram(fd, map, key_size, value_size);
+            ebpf_write_disk_histogram(fd, map, type, key_size, value_size);
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
                     "        },\n");
@@ -1950,7 +1954,8 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
                     "                       \"FD\" : %d,\n"
                     "                       \"Data\" : [\n",
                     name, key_size, value_size, type, fd);
-            ebpf_write_filesystem_histogram(name, fd, key_size, value_size, ebpf_map_max_entries_compat(map));
+            ebpf_write_filesystem_histogram(name, fd, type, key_size, value_size,
+                                            ebpf_map_max_entries_compat(map));
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
                     "        },\n");
