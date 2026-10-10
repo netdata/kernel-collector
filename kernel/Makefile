@@ -42,6 +42,16 @@ VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
 
 CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
 
+# Linux 7.0 introduced Microsoft-compatible anonymous struct members in shared headers.
+ifeq ($(shell test $(CURRENT_KERNEL) -ge 458752 ; echo $$?),0)
+EXTRA_CFLAGS += -fms-extensions
+endif
+
+# This build bypasses Kbuild's compiler-capability define required by ftrace.h.
+ifeq ($(shell grep -q '^CONFIG_FUNCTION_TRACER=y' $(KERNELSOURCE)/include/config/auto.conf && grep -q '^CONFIG_HAVE_FENTRY=y' $(KERNELSOURCE)/include/config/auto.conf && $(CLANG) -mfentry -fsyntax-only -x c /dev/null >/dev/null 2>&1; echo $$?),0)
+EXTRA_CFLAGS += -DCC_USING_FENTRY
+endif
+
 NETDATA_ALL_APPS= btrfs \
     		  cachestat \
     		  dc \
