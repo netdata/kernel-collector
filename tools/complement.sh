@@ -3,7 +3,7 @@
 parse_kernel_version() {
   local release="${1}"
 
-  if [[ ! "${release}" =~ ^([0-9]+)\.([0-9]+)(\.([0-9]+))? ]]; then
+  if [[ ! "${release}" =~ ^([0-9]+)\.([0-9]+)(\.([0-9]+))?([-.+_].*)?$ ]]; then
     return 1
   fi
 
@@ -11,7 +11,14 @@ parse_kernel_version() {
 }
 
 first_kernel() {
-    kver=$(parse_kernel_version "${1}")
+    local release="${1:-}"
+    local kver
+    local kpkg
+
+    if ! kver=$(parse_kernel_version "${release}"); then
+        echo "Invalid kernel version: ${release}" >&2
+        return 1
+    fi
 
     ver5_10_0="005010000"
     ver5_11_0="005011000"
@@ -40,7 +47,12 @@ first_kernel() {
         kpkg="4.11";
     fi
 
+    if [ -z "${kpkg}" ]; then
+        echo "Unsupported kernel version: ${release}" >&2
+        return 1
+    fi
+
     echo "${kpkg}"
 }
 
-first_kernel "${1}"
+first_kernel "${1:-}"

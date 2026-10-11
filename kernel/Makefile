@@ -107,10 +107,16 @@ NETDATA_APPS= 	swap \
 # Kernel newer than 6.8.0 ( 395264 = 6 * 65536 + 8 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 395264 ; echo $$?),0)
 NETDATA_APPS= swap \
+	      disk \
 	      #
-# Kernel newer than 5.15.256 ( 331776 = 5 * 65536 + 16 * 256)
+# The 5.17 disk object is built against the request_queue layout transition.
+else ifeq ($(VER_MAJOR).$(VER_MINOR),5.17)
+NETDATA_APPS= disk \
+	      #
+# Kernel newer than 5.16.0 ( 331776 = 5 * 65536 + 16 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 331776 ; echo $$?),0)
 NETDATA_APPS= cachestat \
+	      disk \
 	      #
 # Kernel newer than 5.14.256 ( 331520 = 5 * 65536 + 14 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 331520 ; echo $$?),0)
@@ -122,6 +128,7 @@ NETDATA_APPS= ${NETDATA_ALL_APPS}
 # Kernel newer than 5.10.256 ( 330496 = 5 * 65536 + 11 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330496 ; echo $$?),0)
 NETDATA_APPS= fd \
+	      disk \
 	      #
 # Kernel newer than 5.9.256  ( 330240 = 5 * 65536 + 10 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330240 ; echo $$?),0)
@@ -139,7 +146,9 @@ CC_LIBBPF = gcc
 endif
 
 # BPF_MAP_TYPE_RINGBUF requires kernel >= 5.8 (329728 = 5 * 65536 + 8 * 256)
-ifeq ($(shell test $(CURRENT_KERNEL) -ge 329728 ; echo $$?),0)
+ifeq ($(VER_MAJOR).$(VER_MINOR),5.17)
+NETDATA_RINGBUF_APPS=
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 329728 ; echo $$?),0)
 NETDATA_RINGBUF_APPS= cachestat_buffer \
                       dc_buffer \
                       dns_buffer \
@@ -176,16 +185,20 @@ endif
 
 ifeq ($(VER_MAJOR).$(VER_MINOR),3.10)
 ifneq ($(LEGACY_LIBBPF_ACTIVE),1)
-LEGACY_LIBBPF_TARGETS := all dev tester libbpf $(NETDATA_ALL_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
-.PHONY: $(LEGACY_LIBBPF_TARGETS)
+LEGACY_LIBBPF_COMMIT := 673424c56127bb556e64095f41fd60c26f9083ec
+LEGACY_LIBBPF_APPS := $(NETDATA_ALL_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
+LEGACY_LIBBPF_TARGETS := all dev tester libbpf $(LEGACY_LIBBPF_APPS)
+LEGACY_LIBBPF_OBJECTS := $(addsuffix _kern.o,$(LEGACY_LIBBPF_APPS))
+.PHONY: $(LEGACY_LIBBPF_TARGETS) $(LEGACY_LIBBPF_OBJECTS)
 
-$(LEGACY_LIBBPF_TARGETS):
+$(LEGACY_LIBBPF_TARGETS) $(LEGACY_LIBBPF_OBJECTS):
 	@set -e; \
 	libbpf_dir=$$(cd "$(LIBBPF)" && pwd -P); \
 	libbpf_git() { GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$$libbpf_dir" git -C "$$libbpf_dir" "$$@"; }; \
 	libbpf_ref=$$(libbpf_git symbolic-ref --quiet --short HEAD || libbpf_git rev-parse HEAD); \
 	trap 'libbpf_git checkout --quiet "$$libbpf_ref"' EXIT; \
-	libbpf_git checkout --quiet netdata-patch; \
+	if ! libbpf_git cat-file -e "$(LEGACY_LIBBPF_COMMIT)^{commit}" 2>/dev/null; then libbpf_git fetch --quiet --no-tags origin netdata-patch; fi; \
+	libbpf_git checkout --quiet --detach "$(LEGACY_LIBBPF_COMMIT)"; \
 	$(MAKE) LEGACY_LIBBPF_ACTIVE=1 "$@"
 else
 all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
