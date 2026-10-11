@@ -14,8 +14,6 @@ parse_kernel_version() {
 }
 
 select_kernel_version() {
-    KVER=$(parse_kernel_version "${1}" "${2}")
-
     VER6_12_0="006012"
     VER7_0_0="007000"
     VER6_8_0="006008"
@@ -76,6 +74,7 @@ select_kernel_version() {
 
 OBJECTNAME="$3"
 NAME=${OBJECTNAME%_*}
+KVER=$(parse_kernel_version "$1" "$2")
 
 KNAME=$(select_kernel_version "${1}" "${2}")
 
