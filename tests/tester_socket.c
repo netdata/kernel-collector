@@ -407,7 +407,9 @@ void ebpf_socket_table_tester(struct bpf_map *map, FILE *out, int iterations)
     uint8_t *next_key    = NULL;
     uint8_t *percpu_buf  = NULL;
     int first            = 1;
-    int collection_seconds = iterations * SOCKET_SLEEP_SEC;
+    int collection_seconds = SOCKET_SLEEP_SEC;
+
+    (void)iterations;
 
     fd         = bpf_map__fd(map);
 #ifdef LIBBPF_MAJOR_VERSION
@@ -436,6 +438,7 @@ void ebpf_socket_table_tester(struct bpf_map *map, FILE *out, int iterations)
     if (!key_buf || !next_key || !percpu_buf)
         goto cleanup;
 
+    ebpf_json_member_prefix();
     fprintf(out,
             "        \"socket_connections\" : {\n"
             "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
@@ -445,8 +448,6 @@ void ebpf_socket_table_tester(struct bpf_map *map, FILE *out, int iterations)
             "                       \"Collection Seconds\" : %d,\n"
             "                       \"Data\" : [\n",
             key_size, value_size, map_type, fd, ncpus, collection_seconds);
-
-    sleep((unsigned int)collection_seconds);
 
     if (bpf_map_get_next_key(fd, NULL, next_key))
         goto write_footer;
@@ -474,6 +475,10 @@ write_footer:
     if (!first)
         fprintf(out, "\n");
 
+    fprintf(out, "            ]\n        }\n");
+    ebpf_json_member_prefix();
+    fprintf(out, "        \"Total tables\" : 1");
+
     cleanup:
     free(key_buf);
     free(next_key);
@@ -484,13 +489,15 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
 {
     int fd;
     uint32_t type;
-    int collection_seconds = iterations * SOCKET_SLEEP_SEC;
+    int collection_seconds = SOCKET_SLEEP_SEC;
     socket_event_collection_t coll = { };
     struct ring_buffer *rb = NULL;
     socket_arena_state_t *arena = NULL;
     int own_arena = 0;
     size_t arena_size = (size_t)sysconf(_SC_PAGESIZE) * SOCKET_ARENA_MAP_PAGES;
     uint32_t value_size = (uint32_t)sizeof(netdata_socket_t);
+
+    (void)iterations;
 
     fd = bpf_map__fd(map);
 #ifdef LIBBPF_MAJOR_VERSION
@@ -502,6 +509,7 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
     }
 #endif
 
+    ebpf_json_member_prefix();
     fprintf(out,
             "        \"socket_connections\" : {\n"
             "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
@@ -550,22 +558,10 @@ void ebpf_socket_ringbuf_tester(struct bpf_map *map, FILE *out, int iterations)
     }
 
     if (rb) {
-        int sec;
-
-        for (sec = 0; sec < collection_seconds; sec++) {
-            sleep(1);
-            ring_buffer__poll(rb, 0);
-        }
-
         ring_buffer__poll(rb, 0);
     } else if (arena) {
-        int sec;
-
-        fprintf(stderr, "[socket_arena_diag] collecting for %ds — open external connections now\n",
+        fprintf(stderr, "[socket_arena_diag] reading events collected during the previous %ds\n",
                 collection_seconds);
-        for (sec = 0; sec < collection_seconds; sec++)
-            sleep(1);
-
         fprintf(stderr, "[socket_arena_diag] arena->head=%u before collect\n", arena->head);
         socket_collect_arena_state(&coll, arena);
         fprintf(stderr, "[socket_arena_diag] coll.size=%zu after collect\n", coll.size);

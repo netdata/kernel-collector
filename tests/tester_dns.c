@@ -680,6 +680,7 @@ static void dns_write_ports_json(FILE *stdlog, struct bpf_object *obj, const uin
             max_entries = def->max_entries;
         }
 #endif
+        ebpf_json_member_prefix();
         NETDATA_LOG_THREAD_SAFE(
                 "        \"%s\" : {\n"
                 "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
@@ -722,6 +723,7 @@ static void dns_write_results_json(FILE *stdlog, const netdata_dns_collector_t *
     netdata_dns_stats_t *stats = collector->stats;
     int first = 1;
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE(
             "        \"dns_results\" : {\n"
             "            \"Info\" : { \"Collection Seconds\" : %d,\n"
@@ -771,6 +773,7 @@ static void dns_write_failure_debug(FILE *stdlog, const uint16_t *ports, size_t 
     char error_buffer[128];
     size_t i;
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE(
             "        \"Debug\" : {\n"
             "            \"Info\" : { \"Stage\" : \"%s\",\n"
@@ -946,7 +949,7 @@ const char *ebpf_socket_filter_tester(struct bpf_object *obj, uint32_t maps, FIL
     static const char *result[] = { "Success", "Fail" };
     struct bpf_program *prog;
     int sockfd;
-    int capture_seconds = iterations * NETDATA_DNS_CAPTURE_INTERVAL;
+    int capture_seconds = NETDATA_DNS_CAPTURE_INTERVAL;
     netdata_dns_collector_t collector = { };
     netdata_dns_debug_t debug = { .stage = "initializing",
                                   .operation = "initialize",
@@ -989,9 +992,9 @@ const char *ebpf_socket_filter_tester(struct bpf_object *obj, uint32_t maps, FIL
     if (maps) {
         dns_collect_packets(sockfd, &collector, capture_seconds);
         dns_write_ports_json(stdlog, obj, ports, port_count);
-        NETDATA_LOG_THREAD_SAFE(",\n");
         dns_write_results_json(stdlog, &collector, capture_seconds);
-        NETDATA_LOG_THREAD_SAFE(",\n        \"Total tables\" : 2\n");
+        ebpf_json_member_prefix();
+        NETDATA_LOG_THREAD_SAFE("        \"Total tables\" : 2\n");
     }
 
     dns_free_collector(&collector);

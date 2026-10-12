@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -9,6 +10,25 @@ import (
 	"syscall"
 	"testing"
 )
+
+func TestJSONMemberFramingWithFailureAfterMapTypes(t *testing.T) {
+	var output bytes.Buffer
+	previousTestsStarted := testsStarted
+	testsStarted = 0
+	defer func() { testsStarted = previousTestsStarted }()
+
+	output.WriteString(`{"Run Info":{}`)
+	members := startNetdataJSON(&output, `path/with"quote\\slash`, false, "disk", 12, "buffer", "production default buffer")
+	writeObjectMapTypes(&output, nil, members)
+	writeFailureDebug(&output, nil, "attach_programs", -1, false, 0, attachSummary{}, members)
+	members.prefix(&output)
+	output.WriteString(`"table_dump":{"Data":[]}`)
+	output.WriteString(`},"Status":"Fail"},"End":"Good bye!!!"}`)
+
+	if !json.Valid(output.Bytes()) {
+		t.Fatalf("invalid JSON after map types and failure debug: %s", output.String())
+	}
+}
 
 func TestParseDNSPortList(t *testing.T) {
 	t.Run("returns default when no valid ports exist", func(t *testing.T) {
@@ -21,8 +41,8 @@ func TestParseDNSPortList(t *testing.T) {
 
 		log := out.String()
 		for _, want := range []string{
-			`DNS port value (0) is not valid`,
-			`DNS port value (abc) is not valid`,
+			`Invalid DNS port value "0"`,
+			`Invalid DNS port value "abc"`,
 		} {
 			if !strings.Contains(log, want) {
 				t.Fatalf("missing %q in output: %s", want, log)
@@ -785,11 +805,11 @@ func TestEffectiveModeFlags(t *testing.T) {
 			wantBuffer:    true,
 			wantArena:     false,
 		},
-		"process-defaults-to-arena-on-6-12-nondebian": {
+		"process-defaults-to-buffer-on-6-12": {
 			module:        "process",
 			kernelVersion: netdataEBPFKernel612,
-			wantBuffer:    false,
-			wantArena:     true,
+			wantBuffer:    true,
+			wantArena:     false,
 		},
 		"process-stays-buffer-on-debian": {
 			module:        "process",
@@ -819,11 +839,11 @@ func TestEffectiveModeFlags(t *testing.T) {
 			wantBuffer:    true,
 			wantArena:     true,
 		},
-		"other-modules-unaffected": {
+		"other-modules-default-to-buffer": {
 			module:        "swap",
 			kernelVersion: netdataEBPFKernel612,
-			wantBuffer:    false,
-			wantArena:     true,
+			wantBuffer:    true,
+			wantArena:     false,
 		},
 	}
 

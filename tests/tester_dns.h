@@ -9,6 +9,7 @@
 struct bpf_object;
 
 extern pthread_mutex_t log_mutex;
+void ebpf_json_member_prefix(void);
 
 int ebpf_object_has_socket_filter(struct bpf_object *obj);
 const char *ebpf_socket_filter_tester(struct bpf_object *obj, uint32_t maps, FILE *stdlog, int iterations,

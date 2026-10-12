@@ -171,6 +171,7 @@ static uint16_t dns_ports[NETDATA_DNS_MAX_PORTS] = { NETDATA_DNS_DEFAULT_PORT };
 static size_t dns_port_count = 1;
 static int dns_ports_overridden = 0;
 static size_t tests_started = 0;
+static int json_first_member;
 static char *ebpf_kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "5.17", "6.8", "6.12", "7.0" };
 
 pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -181,6 +182,55 @@ pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
     fflush(stdlog); \
     pthread_mutex_unlock(&log_mutex); \
 } while (0)
+
+void ebpf_json_member_prefix(void)
+{
+    if (json_first_member) {
+        json_first_member = 0;
+        return;
+    }
+
+    NETDATA_LOG_THREAD_SAFE(",\n");
+}
+
+static void ebpf_write_json_string(const char *value)
+{
+    const unsigned char *current = (const unsigned char *)value;
+
+    NETDATA_LOG_THREAD_SAFE("\"");
+    while (*current) {
+        switch (*current) {
+            case '"':
+                NETDATA_LOG_THREAD_SAFE("\\\"");
+                break;
+            case '\\':
+                NETDATA_LOG_THREAD_SAFE("\\\\");
+                break;
+            case '\b':
+                NETDATA_LOG_THREAD_SAFE("\\b");
+                break;
+            case '\f':
+                NETDATA_LOG_THREAD_SAFE("\\f");
+                break;
+            case '\n':
+                NETDATA_LOG_THREAD_SAFE("\\n");
+                break;
+            case '\r':
+                NETDATA_LOG_THREAD_SAFE("\\r");
+                break;
+            case '\t':
+                NETDATA_LOG_THREAD_SAFE("\\t");
+                break;
+            default:
+                if (*current < 0x20)
+                    NETDATA_LOG_THREAD_SAFE("\\u%04x", *current);
+                else
+                    NETDATA_LOG_THREAD_SAFE("%c", *current);
+        }
+        current++;
+    }
+    NETDATA_LOG_THREAD_SAFE("\"");
+}
 
 typedef struct ebpf_map_support {
     int hash;
@@ -286,7 +336,7 @@ static void ebpf_add_dns_port(uint16_t port)
     }
 
     if (dns_port_count >= NETDATA_DNS_MAX_PORTS) {
-        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Maximum number of DNS ports (%d) reached.\",\n", NETDATA_DNS_MAX_PORTS);
+        fprintf(stderr, "Maximum number of DNS ports (%d) reached; ignoring remaining ports.\n", NETDATA_DNS_MAX_PORTS);
         return;
     }
 
@@ -306,7 +356,7 @@ static void ebpf_parse_dns_port_list(const char *input)
 
     copy = strdup(input);
     if (!copy) {
-        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Cannot duplicate DNS port list.\",\n");
+        fprintf(stderr, "Cannot duplicate DNS port list.\n");
         return;
     }
 
@@ -321,7 +371,7 @@ static void ebpf_parse_dns_port_list(const char *input)
 
         port = strtoul(token, &endptr, 10);
         if (*endptr || port == 0 || port > UINT16_MAX) {
-            NETDATA_LOG_THREAD_SAFE("\"Error\" : \"DNS port value (%s) is not valid.\",\n", token);
+            fprintf(stderr, "Invalid DNS port value '%s'; ignoring it.\n", token);
             goto next_token;
         }
 
@@ -405,6 +455,7 @@ static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, 
     char error_buffer[128];
     const char *error_message = ebpf_describe_error(err, error_buffer, sizeof(error_buffer));
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE(
             "        \"Debug\" : {\n"
             "            \"Info\" : { \"Stage\" : \"%s\",\n"
@@ -427,7 +478,7 @@ static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, 
 
     NETDATA_LOG_THREAD_SAFE(",\n                       \"Programs\" : ");
     ebpf_write_program_inventory(obj);
-    NETDATA_LOG_THREAD_SAFE("\n                      }\n        }\n");
+    NETDATA_LOG_THREAD_SAFE("\n                      }\n        }");
 }
 
 static char *ebpf_strdup_string(const char *src)
@@ -543,6 +594,10 @@ static int ebpf_candidate_version_index(const char *filename, const char *name, 
                                         int buffer_mode, int arena_mode)
 {
     int idx;
+    const char *basename = strrchr(filename, '/');
+
+    if (basename)
+        filename = basename + 1;
 
     if (rhf_version == -1)
         kernels &= ~NETDATA_V5_14;
@@ -554,6 +609,27 @@ static int ebpf_candidate_version_index(const char *filename, const char *name, 
         if (ebpf_candidate_matches(filename, name, is_return, ebpf_kernel_names[idx], rhf_version,
                                    buffer_mode, arena_mode))
             return idx;
+    }
+
+    return -1;
+}
+
+static int ebpf_json_kernel_index(int index)
+{
+    static const char *json_kernel_names[] = {
+        "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16",
+        "6.8", "6.12", "7.0", "5.17"
+    };
+    const char *version;
+    size_t i;
+
+    if (index < 0 || (size_t)index >= sizeof(ebpf_kernel_names) / sizeof(ebpf_kernel_names[0]))
+        return -1;
+
+    version = ebpf_kernel_names[index];
+    for (i = 0; i < sizeof(json_kernel_names) / sizeof(json_kernel_names[0]); i++) {
+        if (!strcmp(version, json_kernel_names[i]))
+            return (int)i;
     }
 
     return -1;
@@ -771,6 +847,7 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
     int seen[__MAX_BPF_MAP_TYPE] = { 0 };
     int first = 1;
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE("        \"Map Types Used\" : [");
     if (obj) {
         bpf_object__for_each_map(map, obj) {
@@ -798,7 +875,7 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
         }
     }
 
-    NETDATA_LOG_THREAD_SAFE("],\n");
+    NETDATA_LOG_THREAD_SAFE("]");
 }
 
 static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_map_support_t *support)
@@ -806,6 +883,7 @@ static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_
     char error_buffer[128];
     const char *error_message = ebpf_describe_error(-EOPNOTSUPP, error_buffer, sizeof(error_buffer));
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE(
             "        \"Debug\" : {\n"
             "            \"Info\" : { \"Stage\" : \"map_compatibility\",\n"
@@ -819,7 +897,7 @@ static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_
             ",\n"
             "                       \"Programs\" : []\n"
             "                      }\n"
-            "        }\n");
+            "        }");
 }
 
 /****************************************************************************************************
@@ -1034,37 +1112,6 @@ static int ebpf_parse_redhat_release_version(const char *release)
     return (int)(major * 256 + minor);
 }
 
-static int ebpf_is_debian_flavor(void)
-{
-    FILE *fp = fopen("/etc/os-release", "r");
-    if (!fp)
-        return 0;
-
-    char line[VERSION_STRING_LEN + 1];
-    int is_debian = 0;
-
-    while (fgets(line, sizeof(line), fp)) {
-        if (strncmp(line, "ID=", 3) != 0)
-            continue;
-
-        char *value = line + 3;
-        if (*value == '"' || *value == '\'')
-            value++;
-
-        char *end = strpbrk(value, "\"\n");
-        if (end)
-            *end = '\0';
-
-        if (!strcmp(value, "debian")) {
-            is_debian = 1;
-            break;
-        }
-    }
-
-    fclose(fp);
-    return is_debian;
-}
-
 /**
  * Kernel Name
  *
@@ -1168,8 +1215,10 @@ static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kv
 static void ebpf_start_external_json(char *filename)
 {
     tests_started++;
-    NETDATA_LOG_THREAD_SAFE("\n\"%s\" : {\n    \"Tables\" : {\n",
-            filename);
+    json_first_member = 1;
+    NETDATA_LOG_THREAD_SAFE(",\n  ");
+    ebpf_write_json_string(filename);
+    NETDATA_LOG_THREAD_SAFE(" : {\n    \"Tables\" : {\n");
 }
 
 /*
@@ -1180,7 +1229,8 @@ static void ebpf_start_external_json(char *filename)
  * @param filename  the file to be tested.
  * @param is_return the file type.
  */
-static void ebpf_start_netdata_json(char *filename, int is_return)
+static void ebpf_start_netdata_json(char *filename, int is_return, const char *module,
+                                    int index, int use_buffer, int use_arena, const char *reason)
 {
     static int first = 1;
     tests_started++;
@@ -1188,8 +1238,16 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
         first = 0;
         NETDATA_LOG_THREAD_SAFE("\n");
     }
-    NETDATA_LOG_THREAD_SAFE("\"%s\" : {\n    \"Test\" : \"%s\",\n    \"Tables\" : {\n",
-            filename, (is_return) ? "return" : "entry");
+    json_first_member = 1;
+    NETDATA_LOG_THREAD_SAFE(",\n  ");
+    ebpf_write_json_string(filename);
+    NETDATA_LOG_THREAD_SAFE(" : {\n    \"Test\" : \"%s\",\n"
+                           "    \"Selected\" : {\"Module\" : \"%s\", \"Index\" : %d, \"Kernel\" : \"%s\", "
+                           "\"Flavor\" : \"%s\", \"Reason\" : \"%s\"},\n"
+                           "    \"Tables\" : {\n",
+            (is_return) ? "return" : "entry", module, ebpf_json_kernel_index(index),
+            index >= 0 && (size_t)index < sizeof(ebpf_kernel_names) / sizeof(ebpf_kernel_names[0]) ? ebpf_kernel_names[index] : "unknown",
+            use_arena ? "arena" : (use_buffer ? "buffer" : "base"), reason);
 }
 
 /**
@@ -1597,11 +1655,7 @@ static void ebpf_read_generic_table(ebpf_table_data_t *values, int fd)
 static void ebpf_write_common_json_vector(ebpf_table_data_t *values, int fd)
 {
     int i;
-    // Read values from 
     for (i = 0; i < end_iteration; i++) {
-       // Wait 5 seconds to fill table.
-        sleep(5);
-
         // Get data from table
         ebpf_read_generic_table(values, fd);
 
@@ -1786,14 +1840,33 @@ static int ebpf_is_filesystem_histogram_map(const char *name)
            !strcmp(name, "tbl_xfs") || !strcmp(name, "tbl_zfs");
 }
 
-static int ebpf_has_latency_histogram_map(struct bpf_object *obj)
+static unsigned int ebpf_map_capture_seconds(struct bpf_object *obj)
 {
-    return bpf_object__find_map_by_name(obj, "tbl_disk_iocall") ||
-           bpf_object__find_map_by_name(obj, "tbl_btrfs") ||
-           bpf_object__find_map_by_name(obj, "tbl_ext4") ||
-           bpf_object__find_map_by_name(obj, "tbl_nfs") ||
-           bpf_object__find_map_by_name(obj, "tbl_xfs") ||
-           bpf_object__find_map_by_name(obj, "tbl_zfs");
+    struct bpf_map *map;
+    unsigned int capture_seconds = 0;
+
+    bpf_object__for_each_map(map, obj) {
+        const char *name = bpf_map__name(map);
+        uint32_t type;
+#ifdef LIBBPF_MAJOR_VERSION
+        type = bpf_map__type(map);
+#else
+        type = bpf_map__def(map)->type;
+#endif
+        if (!strcmp(name, "socket_events")) {
+            if (capture_seconds < 5)
+                capture_seconds = 5;
+            continue;
+        }
+
+        if (!ebpf_map_supports_key_value_io(type))
+            return 10;
+
+        if (capture_seconds < 5)
+            capture_seconds = 5;
+    }
+
+    return capture_seconds;
 }
 
 static void ebpf_write_filesystem_histogram(const char *name, int fd, uint32_t type, uint32_t key_size,
@@ -1881,6 +1954,7 @@ static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd,
         return;
     }
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE(
             "        \"%s\" : {\n"
             "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
@@ -1909,8 +1983,6 @@ static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd,
         size_t ring_size = 0;
         size_t avail_data = 0;
         const char *error_message;
-
-        sleep(10);
 
         if (type == BPF_MAP_TYPE_RINGBUF && rb) {
             struct ring *ring = ring_buffer__ring(rb, 0);
@@ -1991,12 +2063,13 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
             ebpf_test_ringbuf_map(map, name, fd, type, key_size, value_size);
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
-                    "        },\n");
+                    "        }");
             tables++;
             continue;
         }
 
         if (!strcmp(name, "tbl_disk_iocall")) {
+            ebpf_json_member_prefix();
             NETDATA_LOG_THREAD_SAFE(
                     "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
                     "                       \"Type\" : %u,\n"
@@ -2006,12 +2079,13 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
             ebpf_write_disk_histogram(fd, map, type, key_size, value_size);
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
-                    "        },\n");
+                    "        }");
             tables++;
             continue;
         }
 
         if (ebpf_is_filesystem_histogram_map(name)) {
+            ebpf_json_member_prefix();
             NETDATA_LOG_THREAD_SAFE(
                     "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
                     "                       \"Type\" : %u,\n"
@@ -2022,13 +2096,14 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
                                             ebpf_map_max_entries_compat(map));
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
-                    "        },\n");
+                    "        }");
             tables++;
             continue;
         }
 
         values = ebpf_allocate_tables(name, type, key_size, value_size);
         if (values) {
+            ebpf_json_member_prefix();
             // Write header
            NETDATA_LOG_THREAD_SAFE(
                    "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
@@ -2047,7 +2122,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
             // Close JSON vector and object
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                    "                      }\n"
-                   "        },\n");
+                   "        }");
 
             tables++;
 
@@ -2056,9 +2131,8 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
     }
 
     // Write total tables read
-    if (tables) {
-        NETDATA_LOG_THREAD_SAFE("        \"Total tables\" : %d\n", tables);
-    }
+    ebpf_json_member_prefix();
+    NETDATA_LOG_THREAD_SAFE("        \"Total tables\" : %d\n", tables);
 }
 
 /**
@@ -2094,7 +2168,8 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         end = def->max_entries;
 #endif
         if (!ebpf_map_supports_key_value_io(type)) {
-            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Control table %s uses unsupported map type %s.\",",
+            ebpf_json_member_prefix();
+            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Control table %s uses unsupported map type %s.\"",
                     name, ebpf_map_type_name(type));
             continue;
         }
@@ -2108,13 +2183,15 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         unsigned int i;
 
         if (!value_buffer) {
-            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Cannot allocate control buffer for table %s.\",", name);
+            ebpf_json_member_prefix();
+            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Cannot allocate control buffer for table %s.\"", name);
             continue;
         }
 
         if (limit > NETDATA_CONTROLLER_END) {
+            ebpf_json_member_prefix();
             NETDATA_LOG_THREAD_SAFE(
-                    "\"error\" : \"Control table %s has %u entries, limiting writes to %u.\",",
+                    "\"error\" : \"Control table %s has %u entries, limiting writes to %u.\"",
                     name, end, NETDATA_CONTROLLER_END);
             limit = NETDATA_CONTROLLER_END;
         }
@@ -2127,8 +2204,10 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
                 ebpf_store_scalar_value(value_buffer + (cpu * value_stride), value_size, values[i]);
             }
 
-             if (bpf_map_update_elem(fd, &i, value_buffer, 0))
-                 NETDATA_LOG_THREAD_SAFE("\"error\" : \"Add key(%u) for controller table failed.\",", i);
+             if (bpf_map_update_elem(fd, &i, value_buffer, 0)) {
+                 ebpf_json_member_prefix();
+                 NETDATA_LOG_THREAD_SAFE("\"error\" : \"Add key(%u) for controller table failed.\"", i);
+             }
         }
 
         free(value_buffer);
@@ -2157,8 +2236,11 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
 static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl, uint32_t my_kernel)
 {
     static char *result[] = { "Success", "Fail" };
+    int maps_requested = maps;
     int socket_filter_detected;
     size_t total;
+
+    (void)my_kernel;
 
     struct bpf_object *obj =  bpf_object__open_file(filename, NULL);
     if (libbpf_get_error(obj)) {
@@ -2171,6 +2253,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     ebpf_write_object_map_types(obj);
     socket_filter_detected = ebpf_object_has_socket_filter(obj);
     if (socket_filter_detected) {
+        maps = 1;
         char *ret = (char *)ebpf_socket_filter_tester(obj, maps, stdlog, end_iteration, dns_ports, dns_port_count);
         bpf_object__close(obj);
         return ret;
@@ -2192,12 +2275,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
                                  load.last_error, socket_filter_detected, total, &load);
     }
 
-    if (!errors && !load.fail && ebpf_has_latency_histogram_map(obj)) {
-        unsigned int remaining = 5;
-
-        // Keep latency probes attached long enough to observe live host I/O.
-        while ((remaining = sleep(remaining)) > 0) {
-        }
+    if (!errors && !load.fail) {
         maps = 1;
     }
 
@@ -2205,12 +2283,18 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
         struct bpf_map *socket_table = ebpf_find_socket_table(obj);
 
         if (socket_table) {
+            unsigned int remaining = ebpf_map_capture_seconds(obj);
+            while ((remaining = sleep(remaining)) > 0) {
+            }
             ebpf_socket_table_tester(socket_table, stdlog, end_iteration);
         } else {
-            if (ctrl) {
+            if (ctrl && maps_requested) {
                 ebpf_fill_ctrl(obj, ctrl);
             }
 
+            unsigned int remaining = ebpf_map_capture_seconds(obj);
+            while ((remaining = sleep(remaining)) > 0) {
+            }
             ebpf_test_maps(obj, ctrl);
         }
     }
@@ -2280,7 +2364,6 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
     ebpf_map_support_t map_support;
     char load[FILENAME_MAX];
     int i = 0;
-    int is_debian = ebpf_is_debian_flavor();
 
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
@@ -2293,18 +2376,20 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
         int use_buffer_mode = buffer_mode;
         int use_arena_mode = arena_mode;
 
+        const char *selection_reason = "base flavor";
         if (!use_buffer_mode && !use_arena_mode) {
             if (!strcmp(ebpf_modules[i].name, "cachestat")) {
                 if (kver >= NETDATA_EBPF_KERNEL_5_10)
                     use_buffer_mode = 1;
-            } else if (ebpf_module_has_arena(ebpf_modules[i].name) &&
-                       kver >= NETDATA_EBPF_KERNEL_6_12 && !is_debian) {
-                use_arena_mode = 1;
             } else if (ebpf_module_has_buffer(ebpf_modules[i].name) &&
                        kver >= NETDATA_EBPF_KERNEL_5_10) {
                 use_buffer_mode = 1;
             }
         }
+        if (use_arena_mode)
+            selection_reason = "explicit --arena";
+        else if (use_buffer_mode)
+            selection_reason = buffer_mode ? "explicit --buffer" : "production default buffer";
 
         if (use_arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name)) {
             i++;
@@ -2356,25 +2441,34 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
             if (compatible.size) {
                 for (j = 0; j < compatible.size; j++) {
-                    ebpf_start_netdata_json(compatible.files[j], is_return);
+                    ebpf_start_netdata_json(compatible.files[j], is_return, ebpf_modules[i].name,
+                                            ebpf_candidate_version_index(compatible.files[j],
+                                                    ebpf_modules[i].name, is_return, rhf_version,
+                                                    kernels_to_use, max_idx, use_buffer_mode, use_arena_mode),
+                                            use_buffer_mode, use_arena_mode, selection_reason);
                     {
                         char *result = ebpf_tester(compatible.files[j], ebpf_modules[i].update_names,
                                                    flags & NETDATA_FLAG_CONTENT, ebpf_modules[i].ctrl_table, kver);
-NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
+NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" : \"%s\"\n}", result);
                     }
                 }
             } else if (first_incompatible) {
-                ebpf_start_netdata_json(first_incompatible, is_return);
+                ebpf_start_netdata_json(first_incompatible, is_return, ebpf_modules[i].name,
+                                        ebpf_candidate_version_index(first_incompatible,
+                                                ebpf_modules[i].name, is_return, rhf_version,
+                                                kernels_to_use, max_idx, use_buffer_mode, use_arena_mode),
+                                        use_buffer_mode, use_arena_mode, selection_reason);
                 ebpf_write_map_compatibility_debug(unsupported_type, &map_support);
-                NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", "Fail");
+                NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" : \"%s\"\n}", "Fail");
             } else {
                 ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, rhf_version,
                                 use_buffer_mode, use_arena_mode);
-                ebpf_start_netdata_json(load, is_return);
+                ebpf_start_netdata_json(load, is_return, ebpf_modules[i].name,
+                                        idx, use_buffer_mode, use_arena_mode, selection_reason);
                 {
                     char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT,
                                                ebpf_modules[i].ctrl_table, kver);
-NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
+NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" : \"%s\"\n}", result);
                 }
             }
 
@@ -2421,10 +2515,9 @@ static void ebpf_help()
                     "--load-binary      Load a given eBPF program into  kernel.\n"
                     "--dns-port         Comma separated list of DNS ports to monitor. Default value is 53.\n"
                     "--netdata-path     Directory where eBPF programs are present.\n"
-                    "--log-path         Filename to write log information. When this option is not given,\n"
-                    "                   software will use stderr.\n\n"
-                    "--content          Test content stored inside hash tables.\n"
-                    "--iteration        Number of iterations when content is read, default value is 1.\n"
+                    "--log-path         Filename for JSON output. Without this option, JSON goes to stdout.\n\n"
+                    "--content          Inspect maps even when one or more programs fail to attach.\n"
+                    "--iteration        Deprecated and ignored; retained for CLI compatibility.\n"
                     "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"
                     "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n"
                     "--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n\n"
@@ -2689,7 +2782,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                     stdlog = fopen(log_path, "w");
                     if (!stdlog) {
                         stdlog = stderr;
-                        NETDATA_LOG_THREAD_SAFE("\"Error\": \"Cannot open %s\",\n", log_path);
+                        fprintf(stderr, "Cannot open %s\n", log_path);
                     }
 
                     break;
@@ -2698,8 +2791,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                 {
                     int value = (int)strtol(optarg, NULL, 10);
                     if (value < 1) {
-                        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Value given (%d) is smaller than the minimum, reseting to default 1.\",\n",
-                                value);
+                        fprintf(stderr, "Invalid --iteration value '%s'; using 1.\n", optarg);
                         value = 1;
                     }
 
@@ -2710,8 +2802,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                 {
                     int value = (int)strtol(optarg, NULL, 10);
                     if (value < NETDATA_APPS_LEVEL_REAL_PARENT || value >= NETDATA_APPS_LEVEL_END) {
-                        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Value given (%d) is not valid, reseting to default 0 (Real Parent).\",\n",
-                                value);
+                        fprintf(stderr, "Invalid --pid value '%s'; using 0 (Real Parent).\n", optarg);
                         value = NETDATA_APPS_LEVEL_REAL_PARENT;
                     }
 
@@ -2734,12 +2825,12 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
     }
 
     if (buffer_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_5_8) {
-        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n");
+        fprintf(stderr, "Ring buffer support requires kernel >= 5.8; current kernel is not supported.\n");
         exit(1);
     }
 
     if (arena_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_6_9) {
-        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n");
+        fprintf(stderr, "Arena support requires kernel >= 6.9; current kernel is not supported.\n");
         exit(1);
     }
 
@@ -2791,8 +2882,8 @@ static void ebpf_clean_name_vectors()
  */
 static int ebpf_write_error_exit(char *msg, int ret)
 {
-    NETDATA_LOG_THREAD_SAFE("\"Error\" : \"%s\",\n", msg);
-    if (log_path)
+    NETDATA_LOG_THREAD_SAFE(",\n  \"Error\" : \"%s\",\n  \"End\" : \"Good bye!!!\" }\n", msg);
+    if (log_path && stdlog != stderr && stdlog != stdout)
         fclose(stdlog);
 
     return ret;
@@ -2813,6 +2904,17 @@ int main(int argc, char **argv)
     uint32_t my_kernel = ebpf_get_kernel_version();
     int rhf_version = ebpf_get_redhat_release();
     int ret = 0;
+    char kernel_release[VERSION_STRING_LEN + 1] = "unknown";
+    FILE *kernel_release_file;
+
+    kernel_release_file = fopen("/proc/sys/kernel/osrelease", "r");
+    if (kernel_release_file) {
+        if (fgets(kernel_release, sizeof(kernel_release), kernel_release_file)) {
+            kernel_release[strcspn(kernel_release, "\r\n")] = '\0';
+        }
+        fclose(kernel_release_file);
+    }
+
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
     if (nprocesses < 0) {
@@ -2822,8 +2924,28 @@ int main(int argc, char **argv)
 
     uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel, rhf_version);
 
+    if (end_iteration > 1) {
+        fprintf(stderr, "Warning: --iteration is deprecated and ignored; the tester uses one capture window per object.\n");
+        end_iteration = 1;
+    }
+
+    if (!log_path || stdlog == stderr)
+        stdlog = stdout;
+
     // Start JSON output
-    NETDATA_LOG_THREAD_SAFE("{");
+    NETDATA_LOG_THREAD_SAFE("{\n  \"Run Info\" : {\n"
+                            "    \"Kernel Version\" : ");
+    ebpf_write_json_string(kernel_release);
+    NETDATA_LOG_THREAD_SAFE(",\n"
+                            "    \"Kernel Code\" : %u,\n"
+                            "    \"Red Hat Version\" : %d,\n"
+                            "    \"Flags\" : %llu,\n"
+                            "    \"Buffer Mode\" : %s,\n"
+                            "    \"Arena Mode\" : %s\n"
+                            "  }",
+                            my_kernel,
+                            rhf_version, (unsigned long long)flags,
+                            buffer_mode ? "true" : "false", arena_mode ? "true" : "false");
 
     if (ebpf_memlock_limit()) {
         return ebpf_write_error_exit("Cannot adjust memory limit.", 2);
@@ -2840,20 +2962,42 @@ int main(int argc, char **argv)
         if (specific_ebpf) {
             ebpf_start_external_json(specific_ebpf);
             char *result = ebpf_tester(specific_ebpf, NULL, flags & NETDATA_FLAG_CONTENT, NULL, my_kernel);
-            NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
+            NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" : \"%s\"\n}", result);
         }
     }
 
     if (!tests_started) {
         NETDATA_LOG_THREAD_SAFE(
-                "\"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\",\n");
+                ",\n  \"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\"");
         ret = 1;
     }
 
     // END JSON output
-    NETDATA_LOG_THREAD_SAFE("\"End\" : \"Good bye!!!\" }\n");
+    NETDATA_LOG_THREAD_SAFE(",\n  \"Skipped\" : [");
+    {
+        int first = 1;
+        int i;
+        for (i = 0; !(flags & NETDATA_FLAG_LOAD_BINARY) && ebpf_modules[i].name; i++) {
+            const char *reason = NULL;
+            if (!(flags & ebpf_modules[i].flags))
+                reason = "not selected by flags";
+            else if (!strcmp(ebpf_modules[i].name, "disk") && rhf_version <= 0 &&
+                     my_kernel >= NETDATA_EBPF_KERNEL_6_16)
+                reason = "disabled on generic kernels >= 6.16";
+            else if (arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name))
+                reason = "arena flavor unavailable";
+            else if (buffer_mode && !ebpf_module_has_buffer(ebpf_modules[i].name))
+                reason = "buffer flavor unavailable";
+            if (reason) {
+                NETDATA_LOG_THREAD_SAFE("%s{\"Module\" : \"%s\", \"Reason\" : \"%s\"}",
+                                        first ? "" : ", ", ebpf_modules[i].name, reason);
+                first = 0;
+            }
+        }
+    }
+    NETDATA_LOG_THREAD_SAFE("],\n  \"End\" : \"Good bye!!!\" }\n");
 
-    if (log_path)
+    if (log_path && stdlog != stderr && stdlog != stdout)
         fclose(stdlog);
 
     return ret;

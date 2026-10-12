@@ -6,6 +6,7 @@
 struct bpf_object;
 struct bpf_map;
 
+void            ebpf_json_member_prefix(void);
 struct bpf_map *ebpf_find_socket_table(struct bpf_object *obj);
 struct bpf_map *ebpf_find_socket_events(struct bpf_object *obj);
 void            ebpf_socket_table_tester(struct bpf_map *map, FILE *out, int iterations);
