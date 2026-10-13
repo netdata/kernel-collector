@@ -1,6 +1,6 @@
 CLANG = clang
 LLC = llc
-KERNELSOURCE ?= $(shell for dir in /usr/src/linux /lib/modules/$(shell uname -r)/build; do if [ -r "$$dir/include/config/kernel.release" ]; then printf '%s\n' "$$dir"; exit 0; fi; done; printf '%s\n' /usr/src/linux)
+KERNELSOURCE = /usr/src/linux
 LIBBPF = ../libbpf
 LIBBPF_HEADERS = ../.local_libbpf
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
@@ -35,7 +35,7 @@ LLVM_INCLUDES += -I/opt/rh/llvm-toolset-7.0/root/usr/lib64/clang/$(CLANG_VERSION
 NETDATA_KERNEL_HEADERS := $(wildcard ../includes/*.h)
 
 #KERNEL_VERSION="$(shell basename $(realpath $(KERNELSOURCE)) | cut -f 2 -d '-')"
-KERNEL_VERSION := $(shell if [ -r "$(KERNELSOURCE)/include/config/kernel.release" ]; then cat "$(KERNELSOURCE)/include/config/kernel.release"; else uname -r; fi)
+KERNEL_VERSION := $(shell cat $(KERNELSOURCE)/include/config/kernel.release 2>/dev/null)
 
 ifeq ($(strip $(MAKECMDGOALS)),clean)
 CURRENT_KERNEL := 0
