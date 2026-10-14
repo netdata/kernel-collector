@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -9,6 +10,25 @@ import (
 	"syscall"
 	"testing"
 )
+
+func TestJSONMemberFramingWithFailureAfterMapTypes(t *testing.T) {
+	var output bytes.Buffer
+	previousTestsStarted := testsStarted
+	testsStarted = 0
+	defer func() { testsStarted = previousTestsStarted }()
+
+	output.WriteString(`{"Run Info":{}`)
+	members := startNetdataJSON(&output, `path/with"quote\\slash`, false, "disk", 12, "buffer", "production default buffer")
+	writeObjectMapTypes(&output, nil, members)
+	writeFailureDebug(&output, nil, "attach_programs", -1, false, 0, attachSummary{}, members)
+	members.prefix(&output)
+	output.WriteString(`"table_dump":{"Data":[]}`)
+	output.WriteString(`},"Status":"Fail"},"End":"Good bye!!!"}`)
+
+	if !json.Valid(output.Bytes()) {
+		t.Fatalf("invalid JSON after map types and failure debug: %s", output.String())
+	}
+}
 
 func TestParseDNSPortList(t *testing.T) {
 	t.Run("returns default when no valid ports exist", func(t *testing.T) {
@@ -21,8 +41,8 @@ func TestParseDNSPortList(t *testing.T) {
 
 		log := out.String()
 		for _, want := range []string{
-			`DNS port value (0) is not valid`,
-			`DNS port value (abc) is not valid`,
+			`Invalid DNS port value "0"`,
+			`Invalid DNS port value "abc"`,
 		} {
 			if !strings.Contains(log, want) {
 				t.Fatalf("missing %q in output: %s", want, log)
@@ -79,7 +99,9 @@ func TestKernelSelectionHelpers(t *testing.T) {
 		want    int
 	}{
 		{name: "rh release", release: "Red Hat Enterprise Linux release 9.4 (Plow)\n", want: 9*256 + 4},
+		{name: "two-digit release", release: "Red Hat Enterprise Linux release 10.0 (Coughlan)\n", want: 10 * 256},
 		{name: "centos release", release: "CentOS Linux release 7.9.2009 (Core)\n", want: 7*256 + 9},
+		{name: "stream release without minor", release: "CentOS Stream release 9\n", want: 9 * 256},
 		{name: "alma release", release: "AlmaLinux release 9.5 (Teal Serval)\n", want: 9*256 + 5},
 		{name: "invalid release", release: "Debian GNU/Linux\n", want: -1},
 	}
@@ -176,6 +198,7 @@ VERSION_ID="12"
 		{name: "rhf 5.14", rhfVersion: 1, kernelVersion: netdataEBPFKernel514, want: 7},
 		{name: "rhf 5.4", rhfVersion: 1, kernelVersion: netdataEBPFKernel54, want: 4},
 		{name: "generic 6.8", rhfVersion: 0, kernelVersion: netdataEBPFKernel68, want: 10},
+		{name: "generic 7.0", rhfVersion: 0, kernelVersion: netdataEBPFKernel70, want: 12},
 		{name: "generic 4.15", rhfVersion: 0, kernelVersion: netdataEBPFKernel415, want: 2},
 		{name: "too old", rhfVersion: 0, kernelVersion: netdataMinimumEBPFKernel - 1, want: 0},
 	}
@@ -189,6 +212,9 @@ VERSION_ID="12"
 	}
 
 	if got := selectKernelName(10); got != "6.8" {
+		t.Fatalf("unexpected kernel name: %q", got)
+	}
+	if got := selectKernelName(12); got != "7.0" {
 		t.Fatalf("unexpected kernel name: %q", got)
 	}
 
@@ -779,11 +805,11 @@ func TestEffectiveModeFlags(t *testing.T) {
 			wantBuffer:    true,
 			wantArena:     false,
 		},
-		"process-defaults-to-arena-on-6-12-nondebian": {
+		"process-defaults-to-buffer-on-6-12": {
 			module:        "process",
 			kernelVersion: netdataEBPFKernel612,
-			wantBuffer:    false,
-			wantArena:     true,
+			wantBuffer:    true,
+			wantArena:     false,
 		},
 		"process-stays-buffer-on-debian": {
 			module:        "process",
@@ -813,11 +839,11 @@ func TestEffectiveModeFlags(t *testing.T) {
 			wantBuffer:    true,
 			wantArena:     true,
 		},
-		"other-modules-unaffected": {
+		"other-modules-default-to-buffer": {
 			module:        "swap",
 			kernelVersion: netdataEBPFKernel612,
-			wantBuffer:    false,
-			wantArena:     true,
+			wantBuffer:    true,
+			wantArena:     false,
 		},
 	}
 

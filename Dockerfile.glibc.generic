@@ -5,6 +5,8 @@ ENV ARCH=$ARCH
 
 ARG KERNEL_VERSION=5.4.20
 ENV KERNEL_VERSION=$KERNEL_VERSION
+ARG KERNEL_LOCALVERSION=
+ENV KERNEL_LOCALVERSION=$KERNEL_LOCALVERSION
 
 ENV _LIBC=glibc
 
@@ -12,7 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y build-essential autoconf automake coreutils pkg-config \
                        bc libelf-dev libssl-dev clang-tools-18 libclang-18-dev \
-                       clang-18 llvm-18 rsync bison flex tar xz-utils wget
+                       clang-18 llvm-18 rsync bison flex tar xz-utils wget git
 
 RUN mkdir -p /usr/src && \
     cd /usr/src && \

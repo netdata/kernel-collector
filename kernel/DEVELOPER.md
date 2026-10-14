@@ -12,6 +12,8 @@ all (`tests/tester_user.c` for the legacy C tester and `gotests/` for the Go tes
 This repo is currently using two libbpf versions. We are using the [latest](https://github.com/netdata/libbpf) for kernels newer
 than `4.11`, and we still use version `0.0.9` to support `CentOS 7.9`. The transition between versions is done during compilation
 time using a [script](https://github.com/netdata/kernel-collector/blob/master/.dockerfiles/change_libbpf.sh).
+The supported build ranges are kernel `3.10` and kernels `4.12` or newer; builds from `3.11` through `4.11` are rejected because
+they use legacy map declarations with the newer libbpf path.
 
 ## Internal Code division
 

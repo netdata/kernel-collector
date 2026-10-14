@@ -5,8 +5,9 @@ LIBBPF = ../libbpf
 LIBBPF_HEADERS = ../.local_libbpf
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
-EXTRA_CFLAGS += -fno-stack-protector
-EXTRA_CFLAGS += -DCONFIG_CC_HAS_ASM_INLINE=0
+override EXTRA_CFLAGS += -fno-stack-protector
+override EXTRA_CFLAGS += -DCONFIG_CC_HAS_ASM_INLINE=0
+override EXTRA_CFLAGS += -Wno-microsoft-anon-tag
 
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated
 LINUXINCLUDE += -I$(KERNELSOURCE)/arch/$(ARCH)/include/generated/uapi
@@ -34,13 +35,42 @@ LLVM_INCLUDES += -I/opt/rh/llvm-toolset-7.0/root/usr/lib64/clang/$(CLANG_VERSION
 NETDATA_KERNEL_HEADERS := $(wildcard ../includes/*.h)
 
 #KERNEL_VERSION="$(shell basename $(realpath $(KERNELSOURCE)) | cut -f 2 -d '-')"
-KERNEL_VERSION="$(shell cat $(KERNELSOURCE)/include/config/kernel.release)"
+KERNEL_VERSION := $(shell cat $(KERNELSOURCE)/include/config/kernel.release 2>/dev/null)
 
-VER_MAJOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f1)
-VER_MINOR=$(shell echo $(KERNEL_VERSION) | cut -d. -f2)
-VER_PATCH=$(shell echo $(KERNEL_VERSION) | cut -d. -f3)
+ifeq ($(strip $(MAKECMDGOALS)),clean)
+CURRENT_KERNEL := 0
+else
+CURRENT_KERNEL := $(shell printf '%s\n' '$(KERNEL_VERSION)' | awk -F'[.-]' '{ if ($$1 !~ /^[0-9]+$$/ || $$2 !~ /^[0-9]+$$/) exit 1; patch = ($$3 ~ /^[0-9]+$$/) ? $$3 : 0; printf "%d\n", $$1 * 65536 + $$2 * 256 + patch }')
+endif
 
-CURRENT_KERNEL=$(shell echo $(VER_MAJOR)\*65536 + $(VER_MINOR)\*256 + $(VER_PATCH) |bc)
+VER_MAJOR := $(shell printf '%s\n' '$(KERNEL_VERSION)' | cut -d. -f1)
+VER_MINOR := $(shell printf '%s\n' '$(KERNEL_VERSION)' | cut -d. -f2)
+
+ifneq ($(strip $(MAKECMDGOALS)),clean)
+ifeq ($(strip $(KERNEL_VERSION)),)
+$(error Cannot read $(KERNELSOURCE)/include/config/kernel.release; set KERNELSOURCE to a configured kernel tree)
+endif
+ifneq ($(shell printf '%s\n' '$(KERNEL_VERSION)' | awk -F'[.-]' '{ if (($$1 == 3 && $$2 == 10) || $$1 > 4 || ($$1 == 4 && $$2 >= 12)) exit 0; exit 1 }'; echo $$?),0)
+$(error Unsupported kernel $(KERNEL_VERSION): supported versions are 3.10 and 4.12 or newer)
+endif
+endif
+
+KERNEL_AUTO_CONF := $(KERNELSOURCE)/include/config/auto.conf
+CONFIG_CC_MS_EXTENSIONS := $(shell sed -n 's/^CONFIG_CC_MS_EXTENSIONS=//p' $(KERNEL_AUTO_CONF) 2>/dev/null)
+ifneq ($(strip $(CONFIG_CC_MS_EXTENSIONS)),)
+ifeq ($(shell $(CLANG) $(CONFIG_CC_MS_EXTENSIONS) -fsyntax-only -x c /dev/null >/dev/null 2>&1; echo $$?),0)
+override EXTRA_CFLAGS += $(CONFIG_CC_MS_EXTENSIONS)
+else ifeq ($(shell $(CLANG) -fms-extensions -fsyntax-only -x c /dev/null >/dev/null 2>&1; echo $$?),0)
+override EXTRA_CFLAGS += -fms-extensions
+else
+$(error Kernel requests $(CONFIG_CC_MS_EXTENSIONS), but $(CLANG) supports neither it nor -fms-extensions)
+endif
+endif
+
+# This build bypasses Kbuild's compiler-capability define required by ftrace.h.
+ifeq ($(shell grep -q '^CONFIG_FUNCTION_TRACER=y' $(KERNEL_AUTO_CONF) 2>/dev/null && grep -q '^CONFIG_HAVE_FENTRY=y' $(KERNEL_AUTO_CONF) 2>/dev/null && $(CLANG) -mfentry -fsyntax-only -x c /dev/null >/dev/null 2>&1; echo $$?),0)
+override EXTRA_CFLAGS += -DCC_USING_FENTRY
+endif
 
 NETDATA_ALL_APPS= btrfs \
     		  cachestat \
@@ -80,10 +110,16 @@ NETDATA_APPS= 	swap \
 # Kernel newer than 6.8.0 ( 395264 = 6 * 65536 + 8 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 395264 ; echo $$?),0)
 NETDATA_APPS= swap \
+	      disk \
 	      #
-# Kernel newer than 5.15.256 ( 331776 = 5 * 65536 + 16 * 256)
+# The 5.17 disk object is built against the request_queue layout transition.
+else ifeq ($(VER_MAJOR).$(VER_MINOR),5.17)
+NETDATA_APPS= disk \
+	      #
+# Kernel newer than 5.16.0 ( 331776 = 5 * 65536 + 16 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 331776 ; echo $$?),0)
 NETDATA_APPS= cachestat \
+	      disk \
 	      #
 # Kernel newer than 5.14.256 ( 331520 = 5 * 65536 + 14 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 331520 ; echo $$?),0)
@@ -95,6 +131,7 @@ NETDATA_APPS= ${NETDATA_ALL_APPS}
 # Kernel newer than 5.10.256 ( 330496 = 5 * 65536 + 11 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330496 ; echo $$?),0)
 NETDATA_APPS= fd \
+	      disk \
 	      #
 # Kernel newer than 5.9.256  ( 330240 = 5 * 65536 + 10 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 330240 ; echo $$?),0)
@@ -112,7 +149,9 @@ CC_LIBBPF = gcc
 endif
 
 # BPF_MAP_TYPE_RINGBUF requires kernel >= 5.8 (329728 = 5 * 65536 + 8 * 256)
-ifeq ($(shell test $(CURRENT_KERNEL) -ge 329728 ; echo $$?),0)
+ifeq ($(VER_MAJOR).$(VER_MINOR),5.17)
+NETDATA_RINGBUF_APPS=
+else ifeq ($(shell test $(CURRENT_KERNEL) -ge 329728 ; echo $$?),0)
 NETDATA_RINGBUF_APPS= cachestat_buffer \
                       dc_buffer \
                       dns_buffer \
@@ -145,13 +184,53 @@ else
 NETDATA_ARENA_APPS=
 endif
 
+.PHONY: all dev tester libbpf
+
+ifeq ($(VER_MAJOR).$(VER_MINOR),3.10)
+ifneq ($(LEGACY_LIBBPF_ACTIVE),1)
+LEGACY_LIBBPF_COMMIT := 673424c56127bb556e64095f41fd60c26f9083ec
+LEGACY_LIBBPF_APPS := $(NETDATA_ALL_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
+LEGACY_LIBBPF_TARGETS := all dev tester libbpf $(LEGACY_LIBBPF_APPS)
+LEGACY_LIBBPF_OBJECTS := $(addsuffix _kern.o,$(LEGACY_LIBBPF_APPS))
+.PHONY: $(LEGACY_LIBBPF_TARGETS) $(LEGACY_LIBBPF_OBJECTS)
+
+$(LEGACY_LIBBPF_TARGETS) $(LEGACY_LIBBPF_OBJECTS):
+	@set -e; \
+	libbpf_dir=$$(cd "$(LIBBPF)" && pwd -P); \
+	libbpf_git() { GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$$libbpf_dir" git -C "$$libbpf_dir" "$$@"; }; \
+	libbpf_ref=$$(libbpf_git symbolic-ref --quiet --short HEAD || libbpf_git rev-parse HEAD); \
+	trap 'libbpf_git checkout --quiet "$$libbpf_ref"' EXIT; \
+	if ! libbpf_git cat-file -e "$(LEGACY_LIBBPF_COMMIT)^{commit}" 2>/dev/null; then libbpf_git fetch --quiet --no-tags origin netdata-patch; fi; \
+	libbpf_git checkout --quiet --detach "$(LEGACY_LIBBPF_COMMIT)"; \
+	$(MAKE) LEGACY_LIBBPF_ACTIVE=1 "$@"
+else
 all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
 
 dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS} ${NETDATA_ARENA_APPS}
+endif
+else
+all: $(NETDATA_APPS) $(NETDATA_RINGBUF_APPS) $(NETDATA_ARENA_APPS)
 
+dev: ${NETDATA_ALL_APPS} ${NETDATA_RINGBUF_APPS} ${NETDATA_ARENA_APPS}
+endif
+
+ifeq ($(VER_MAJOR).$(VER_MINOR),3.10)
+ifeq ($(LEGACY_LIBBPF_ACTIVE),1)
 libbpf:
 	# -fPIE added to be compatible with olders clang/gcc
-	cd $(LIBBPF)/src && /bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR) && $(MAKE) CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install \
+	$(MAKE) -C $(LIBBPF)/src CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install
+
+tester: libbpf
+	cd ../tests && $(MAKE) tester
+endif
+else
+libbpf:
+	# -fPIE added to be compatible with olders clang/gcc
+	$(MAKE) -C $(LIBBPF)/src CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install
+
+tester: libbpf
+	cd ../tests && $(MAKE) tester
+endif
 
 %_kern.o: %_kern.c $(NETDATA_KERNEL_HEADERS) libbpf
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
@@ -186,6 +265,8 @@ libbpf:
 	$(LLC) -march=bpf -filetype=obj -o p$@ $(<:.c=.ll)
 	/bin/bash rename_binaries.sh "$(VER_MAJOR)" "$(VER_MINOR)" "$@"
 
+ifeq ($(VER_MAJOR).$(VER_MINOR),3.10)
+ifeq ($(LEGACY_LIBBPF_ACTIVE),1)
 $(NETDATA_APPS): %: %_kern.o
 
 ${NETDATA_ALL_APPS}: %: %_kern.o
@@ -193,9 +274,16 @@ ${NETDATA_ALL_APPS}: %: %_kern.o
 ${NETDATA_RINGBUF_APPS}: %: %_kern.o
 
 ${NETDATA_ARENA_APPS}: %: %_kern.o
+endif
+else
+$(NETDATA_APPS): %: %_kern.o
 
-tester: libbpf
-	cd ../tests && $(MAKE) tester
+${NETDATA_ALL_APPS}: %: %_kern.o
+
+${NETDATA_RINGBUF_APPS}: %: %_kern.o
+
+${NETDATA_ARENA_APPS}: %: %_kern.o
+endif
 
 clean:
 	cd $(LIBBPF)/src && make clean

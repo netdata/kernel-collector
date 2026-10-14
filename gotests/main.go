@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +26,7 @@ const (
 	netdataDNSMaxPorts          = 32
 	netdataDNSDefaultPort       = 53
 	netdataControllerEnd        = 6
+	diskHistogramBins           = 24
 	netdataMinimumEBPFKernel    = 264960
 	netdataEBPFKernel414        = 265728
 	netdataEBPFKernel415        = 265984
@@ -38,9 +40,12 @@ const (
 	netdataEBPFKernel514        = 331264
 	netdataEBPFKernel515        = 331520
 	netdataEBPFKernel516        = 331776
+	netdataEBPFKernel517        = 332032
 	netdataEBPFKernel68         = 395264
 	netdataEBPFKernel69         = 395520
 	netdataEBPFKernel612        = 396288
+	netdataEBPFKernel616        = 397312
+	netdataEBPFKernel70         = 458752
 
 	netdataV310 = 1 << 0
 	netdataV414 = 1 << 1
@@ -54,6 +59,8 @@ const (
 	netdataV516 = 1 << 9
 	netdataV68  = 1 << 10
 	netdataV612 = 1 << 11
+	netdataV70  = 1 << 12
+	netdataV517 = 1 << 13
 
 	flagBtrfs         uint64 = 1 << 0
 	flagCachestat     uint64 = 1 << 1
@@ -149,8 +156,25 @@ type tableData struct {
 	zero        uint64
 }
 
+type jsonMemberState struct {
+	first bool
+}
+
+type skippedModule struct {
+	Module string `json:"Module"`
+	Reason string `json:"Reason"`
+}
+
+func (state *jsonMemberState) prefix(w io.Writer) {
+	if !state.first {
+		fmt.Fprint(w, ",\n")
+	}
+	state.first = false
+}
+
 var (
-	testsStarted = 0
+	testsStarted   = 0
+	skippedModules []skippedModule
 
 	netdataSyscalls = map[string]struct{}{
 		"fdatasync":       {},
@@ -262,30 +286,30 @@ var (
 
 	ebpfModules = []module{
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV510 | netdataV514, flags: flagBtrfs, name: "btrfs", ctrlTable: "btrfs_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV516, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagDisk, name: "disk", ctrlTable: "disk_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV516, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514 | netdataV516 | netdataV517 | netdataV68, flags: flagDisk, name: "disk", ctrlTable: "disk_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagExt4, name: "ext4", ctrlTable: "ext4_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagFD, name: "fd", updateNames: &fdOptionalNames, ctrlTable: "fd_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagFD, name: "fd", updateNames: &fdOptionalNames, ctrlTable: "fd_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fdatasync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fsync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagHardIRQ, name: "hardirq"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMDFlush, name: "mdflush"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMount, name: "mount"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "msync"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagDNS, name: "dns"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagDNS, name: "dns"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNFS, name: "nfs", ctrlTable: "nfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNetworkViewer, name: "network_viewer", ctrlTable: "nv_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagOOMKill, name: "oomkill"},
-		{kernels: netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV510 | netdataV612, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagProcess, name: "process", ctrlTable: "process_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSHM, name: "shm", ctrlTable: "shm_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagOOMKill, name: "oomkill"},
+		{kernels: netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV510 | netdataV612 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagProcess, name: "process", ctrlTable: "process_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSHM, name: "shm", ctrlTable: "shm_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSoftIRQ, name: "softirq"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "syncfs"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync_file_range"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68 | netdataV612, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagSwap, name: "swap", updateNames: &swapOptionalNames, ctrlTable: "swap_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68 | netdataV612 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSwap, name: "swap", updateNames: &swapOptionalNames, ctrlTable: "swap_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagXFS, name: "xfs", ctrlTable: "xfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagZFS, name: "zfs", updateNames: &zfsOptionalNames, ctrlTable: "zfs_ctrl"},
 	}
@@ -299,6 +323,7 @@ func run() int {
 	kernelVersion := getKernelVersion()
 	rhfVersion := getRedHatRelease()
 	testsStarted = 0
+	skippedModules = nil
 	nprocesses := libbpfNumPossibleCPUs()
 	if nprocesses < 1 {
 		nprocesses = runtime.NumCPU()
@@ -319,11 +344,20 @@ func run() int {
 	if opts.unitTest {
 		return runUnitTests()
 	}
+	if opts.iterations > 1 {
+		fmt.Fprintln(os.Stderr, "Warning: --iteration is deprecated and ignored; the tester uses one capture window per object.")
+		opts.iterations = 1
+	}
+	if logger.file == nil {
+		logger.writer = os.Stdout
+	}
 
 	writer := bufio.NewWriter(logger.writer)
 	defer writer.Flush()
 
-	fmt.Fprint(writer, "{")
+	fmt.Fprint(writer, "{\n  \"Run Info\" : {\n")
+	kernelRelease, _ := os.ReadFile("/proc/sys/kernel/osrelease")
+	fmt.Fprintf(writer, "    \"Kernel Version\" : %q,\n    \"Kernel Code\" : %d,\n    \"Red Hat Version\" : %d,\n    \"Flags\" : %d,\n    \"Buffer Mode\" : %t,\n    \"Arena Mode\" : %t\n  }", strings.TrimSpace(string(kernelRelease)), kernelVersion, rhfVersion, opts.flags, opts.bufferMode, opts.arenaMode)
 	if err := memlockLimit(); err != nil {
 		writeErrorExit(writer, "Cannot adjust memory limit.")
 		return 2
@@ -334,18 +368,27 @@ func run() int {
 		runNetdataTests(writer, rhfVersion, kernelVersion, true, opts, nprocesses)
 		runNetdataTests(writer, rhfVersion, kernelVersion, false, opts, nprocesses)
 	} else if opts.specificEBPF != "" {
-		startExternalJSON(writer, opts.specificEBPF)
-		result := ebpfTester(writer, opts.specificEBPF, nil, opts.flags&flagContent != 0, "", opts, nprocesses, kernelVersion)
-		fmt.Fprintf(writer, "    },\n    \"Status\" :  \"%s\"\n},\n", result)
+		members := startExternalJSON(writer, opts.specificEBPF)
+		result := ebpfTester(writer, opts.specificEBPF, nil, opts.flags&flagContent != 0, "", opts, nprocesses, kernelVersion, members)
+		fmt.Fprintf(writer, "    },\n    \"Status\" : \"%s\"\n}", result)
 	}
 
+	if len(skippedModules) > 0 {
+		var encoded bytes.Buffer
+		encoder := json.NewEncoder(&encoded)
+		encoder.SetEscapeHTML(false)
+		_ = encoder.Encode(skippedModules)
+		fmt.Fprintf(writer, ",\n  \"Skipped\" : %s", strings.TrimSpace(encoded.String()))
+	} else {
+		fmt.Fprint(writer, ",\n  \"Skipped\" : []")
+	}
 	if testsStarted == 0 {
-		fmt.Fprint(writer, "\"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\",\n")
-		fmt.Fprint(writer, "\"End\" : \"Good bye!!!\" }\n")
+		fmt.Fprint(writer, ",\n  \"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\"")
+		fmt.Fprint(writer, ",\n  \"End\" : \"Good bye!!!\" }\n")
 		return 1
 	}
 
-	fmt.Fprint(writer, "\"End\" : \"Good bye!!!\" }\n")
+	fmt.Fprint(writer, ",\n  \"End\" : \"Good bye!!!\" }\n")
 	return 0
 }
 
@@ -419,29 +462,31 @@ func getRedHatRelease() int {
 	return parseOSRelease(string(data))
 }
 
-// parseOSRelease detects RH-family distros from /etc/os-release.
-// Matches ID or ID_LIKE containing "rhel", "centos", "almalinux", or "rocky",
-// then parses VERSION_ID=X.Y to return X*256+Y. Returns -1 on no match.
+// parseOSRelease detects RH-family distros by exact ID or ID_LIKE tokens, then
+// parses VERSION_ID to return major*256+minor. Returns -1 on no match.
 func parseOSRelease(content string) int {
 	major := 0
 	minor := 0
 	isRHEL := false
 
 	for _, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(line, "ID=") || strings.HasPrefix(line, "ID_LIKE=") {
-			low := strings.ToLower(line)
-			if strings.Contains(low, "rhel") || strings.Contains(low, "centos") ||
-				strings.Contains(low, "almalinux") || strings.Contains(low, "rocky") {
-				isRHEL = true
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		switch key {
+		case "ID", "ID_LIKE":
+			for _, id := range strings.Fields(strings.Trim(val, "\"'")) {
+				if isRHELFamilyID(id) {
+					isRHEL = true
+					break
+				}
 			}
-		} else if strings.HasPrefix(line, "VERSION_ID=") {
-			val := strings.TrimPrefix(line, "VERSION_ID=")
-			val = strings.Trim(val, "\"")
+		case "VERSION_ID":
+			val = strings.Trim(val, "\"'")
 			parts := strings.SplitN(val, ".", 2)
-			if len(parts) >= 1 {
-				major = parseLeadingLong(parts[0])
-			}
-			if len(parts) >= 2 {
+			major = parseLeadingLong(parts[0])
+			if len(parts) == 2 {
 				minor = parseLeadingLong(parts[1])
 			}
 		}
@@ -451,6 +496,15 @@ func parseOSRelease(content string) int {
 		return major*256 + minor
 	}
 	return -1
+}
+
+func isRHELFamilyID(id string) bool {
+	switch strings.ToLower(id) {
+	case "rhel", "centos", "almalinux", "rocky":
+		return true
+	default:
+		return false
+	}
 }
 
 func IsDebianFlavor() bool {
@@ -473,21 +527,36 @@ func IsDebianFlavor() bool {
 }
 
 func parseRedHatRelease(release string) int {
-	major := 0
-	minor := -1
-
-	if len(release) <= 4 {
+	version := strings.Index(release, "release")
+	if version < 0 {
+		return -1
+	}
+	vendor := strings.ToLower(strings.TrimSpace(release[:version]))
+	if !strings.HasPrefix(vendor, "red hat") && !strings.HasPrefix(vendor, "centos") &&
+		!strings.HasPrefix(vendor, "almalinux") && !strings.HasPrefix(vendor, "rocky linux") {
 		return -1
 	}
 
-	if idx := strings.IndexByte(release, '.'); idx >= 0 {
-		head := release[:idx]
-		if idx > 0 {
-			major = parseLeadingLong(head[idx-1:])
-			tail := release[idx+1:]
-			if end := strings.IndexByte(tail, ' '); end >= 0 {
-				minor = parseLeadingLong(tail[:end])
-			}
+	fields := strings.Fields(release[version+len("release"):])
+	if len(fields) == 0 {
+		return -1
+	}
+
+	parts := strings.SplitN(fields[0], ".", 2)
+	major, err := strconv.Atoi(parts[0])
+	if err != nil || major <= 0 || major > (int(^uint(0)>>1)-255)/256 {
+		return -1
+	}
+
+	minor := 0
+	if len(parts) == 2 {
+		minorPart := parts[1]
+		if suffix := strings.IndexByte(minorPart, '.'); suffix >= 0 {
+			minorPart = minorPart[:suffix]
+		}
+		minor, err = strconv.Atoi(minorPart)
+		if err != nil || minor < 0 || minor > 255 {
+			return -1
 		}
 	}
 
@@ -514,10 +583,9 @@ func helpText(exe string) string {
 		"--load-binary      Load a given eBPF program into  kernel.\n"+
 		"--dns-port         Comma separated list of DNS ports to monitor. Default value is 53.\n"+
 		"--netdata-path     Directory where eBPF programs are present.\n"+
-		"--log-path         Filename to write log information. When this option is not given,\n"+
-		"                   software will use stderr.\n\n"+
-		"--content          Test content stored inside hash tables.\n"+
-		"--iteration        Number of iterations when content is read, default value is 1.\n"+
+		"--log-path         Filename for JSON output. Without this option, JSON goes to stdout.\n\n"+
+		"--content          Inspect maps even when one or more programs fail to attach.\n"+
+		"--iteration        Deprecated and ignored; retained for CLI compatibility.\n"+
 		"--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"+
 		"--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n"+
 		"--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n\n"+
@@ -623,7 +691,7 @@ func parseArguments(args []string, kernelVersion int, rhfVersion int, logger *lo
 			opts.flags |= flagLoadBinary
 		case "dns-port":
 			value, i = optionValue(args, i, value)
-			opts.dnsPorts = parseDNSPortList(logger.writer, value, opts.dnsPorts)
+			opts.dnsPorts = parseDNSPortList(os.Stderr, value, opts.dnsPorts)
 		case "netdata-path":
 			value, i = optionValue(args, i, value)
 			opts.netdataPath = value
@@ -633,7 +701,7 @@ func parseArguments(args []string, kernelVersion int, rhfVersion int, logger *lo
 			file, err := os.OpenFile(value, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
 				logger.writer = os.Stderr
-				fmt.Fprintf(logger.writer, "\"Error\": \"Cannot open %s\",\n", value)
+				fmt.Fprintf(os.Stderr, "Cannot open log path %q: %v\n", value, err)
 			} else {
 				logger.file = file
 				logger.writer = file
@@ -644,7 +712,7 @@ func parseArguments(args []string, kernelVersion int, rhfVersion int, logger *lo
 			value, i = optionValue(args, i, value)
 			iteration, err := strconv.Atoi(value)
 			if err != nil || iteration < 1 {
-				fmt.Fprintf(logger.writer, "\"Error\" : \"Value given (%d) is smaller than the minimum, reseting to default 1.\",\n", iteration)
+				fmt.Fprintf(os.Stderr, "Invalid --iteration value %q; using 1.\n", value)
 				iteration = 1
 			}
 			opts.iterations = iteration
@@ -652,7 +720,7 @@ func parseArguments(args []string, kernelVersion int, rhfVersion int, logger *lo
 			value, i = optionValue(args, i, value)
 			pidLevel, err := strconv.Atoi(value)
 			if err != nil || pidLevel < 0 || pidLevel >= 4 {
-				fmt.Fprintf(logger.writer, "\"Error\" : \"Value given (%d) is not valid, reseting to default 0 (Real Parent).\",\n", pidLevel)
+				fmt.Fprintf(os.Stderr, "Invalid --pid value %q; using 0 (Real Parent).\n", value)
 				pidLevel = 0
 			}
 			opts.mapLevel = pidLevel
@@ -674,12 +742,12 @@ func parseArguments(args []string, kernelVersion int, rhfVersion int, logger *lo
 	}
 
 	if opts.bufferMode && rhfVersion == -1 && kernelVersion < netdataEBPFKernel58 {
-		fmt.Fprintf(logger.writer, "\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n")
+		fmt.Fprintln(os.Stderr, "Ring buffer support requires kernel >= 5.8; current kernel is not supported.")
 		return opts, 1
 	}
 
 	if opts.arenaMode && rhfVersion == -1 && kernelVersion < netdataEBPFKernel69 {
-		fmt.Fprintf(logger.writer, "\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n")
+		fmt.Fprintln(os.Stderr, "Arena support requires kernel >= 6.9; current kernel is not supported.")
 		return opts, 1
 	}
 
@@ -708,7 +776,7 @@ func parseDNSPortList(w io.Writer, input string, existing []uint16) []uint16 {
 
 		portValue, err := strconv.ParseUint(token, 10, 16)
 		if err != nil || portValue == 0 {
-			fmt.Fprintf(w, "\"Error\" : \"DNS port value (%s) is not valid.\",\n", token)
+			fmt.Fprintf(w, "Invalid DNS port value %q; ignoring it.\n", token)
 			continue
 		}
 
@@ -717,7 +785,7 @@ func parseDNSPortList(w io.Writer, input string, existing []uint16) []uint16 {
 			continue
 		}
 		if len(ports) >= netdataDNSMaxPorts {
-			fmt.Fprintf(w, "\"Error\" : \"Maximum number of DNS ports (%d) reached.\",\n", netdataDNSMaxPorts)
+			fmt.Fprintf(w, "Maximum number of DNS ports (%d) reached; ignoring remaining ports.\n", netdataDNSMaxPorts)
 			break
 		}
 
@@ -771,10 +839,6 @@ func effectiveModeFlags(moduleName string, kernelVersion int, isDebian bool, buf
 		}
 
 		return false, false
-	}
-
-	if moduleHasArena(moduleName) && kernelVersion >= netdataEBPFKernel612 && !isDebian {
-		return false, true
 	}
 
 	if moduleHasBuffer(moduleName) && kernelVersion >= netdataEBPFKernel510 {
@@ -927,7 +991,7 @@ func writeSupportedMapTypes(w io.Writer, supported map[uint32]bool) {
 	fmt.Fprintf(w, "[%s]", strings.Join(names, ", "))
 }
 
-func writeObjectMapTypes(w io.Writer, obj *bpfObject) {
+func writeObjectMapTypes(w io.Writer, obj *bpfObject, members *jsonMemberState) {
 	seen := map[uint32]bool{}
 	names := make([]string, 0, 4)
 
@@ -943,7 +1007,8 @@ func writeObjectMapTypes(w io.Writer, obj *bpfObject) {
 		}
 	}
 
-	fmt.Fprintf(w, "        \"Map Types Used\" : [%s],\n", strings.Join(names, ", "))
+	members.prefix(w)
+	fmt.Fprintf(w, "        \"Map Types Used\" : [%s]", strings.Join(names, ", "))
 }
 
 func firstUnsupportedMapType(mapTypes []uint32, supported map[uint32]bool) (uint32, bool) {
@@ -997,8 +1062,9 @@ func filterCompatibleCandidates(candidates []string, supported map[uint32]bool) 
 	return compatible, incompatible, unsupportedType
 }
 
-func writeMapCompatibilityDebug(w io.Writer, unsupportedType uint32, supported map[uint32]bool) {
+func writeMapCompatibilityDebug(w io.Writer, unsupportedType uint32, supported map[uint32]bool, members *jsonMemberState) {
 	errCode := -int(syscall.EOPNOTSUPP)
+	members.prefix(w)
 	fmt.Fprintf(w,
 		"        \"Debug\" : {\n"+
 			"            \"Info\" : { \"Stage\" : \"map_compatibility\",\n"+
@@ -1008,7 +1074,7 @@ func writeMapCompatibilityDebug(w io.Writer, unsupportedType uint32, supported m
 			"                       \"Supported Map Types\" : ",
 		errCode, describeError(errCode), mapTypeName(unsupportedType))
 	writeSupportedMapTypes(w, supported)
-	fmt.Fprint(w, ",\n                       \"Programs\" : []\n                      }\n        }\n")
+	fmt.Fprint(w, ",\n                       \"Programs\" : []\n                      }\n        }")
 }
 
 func fillNames() {
@@ -1116,17 +1182,24 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 	isDebian := IsDebianFlavor()
 
 	for _, mod := range ebpfModules {
-		bufferMode, arenaMode := effectiveModeFlags(mod.name, kernelVersion, isDebian, opts.bufferMode, opts.arenaMode)
-
 		if opts.flags&mod.flags == 0 {
+			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "not selected by flags"})
+			continue
+		}
+		if mod.name == "disk" && rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel616 {
+			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "disabled on generic kernels >= 6.16"})
 			continue
 		}
 
+		bufferMode, arenaMode := effectiveModeFlags(mod.name, kernelVersion, isDebian, opts.bufferMode, opts.arenaMode)
+
 		if arenaMode && !moduleHasArena(mod.name) {
+			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "arena flavor unavailable"})
 			continue
 		}
 
 		if bufferMode && !moduleHasBuffer(mod.name) {
+			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "buffer flavor unavailable"})
 			continue
 		}
 
@@ -1136,16 +1209,21 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 		} else if bufferMode && mod.bufferKernels != 0 {
 			kernels = mod.bufferKernels
 		}
-		maxIndex := selectMaxIndex(rhfVersion, kernelVersion)
-		idx := selectIndex(kernels, rhfVersion, kernelVersion)
+		maxIndex := selectModuleMaxIndex(mod.name, rhfVersion, kernelVersion)
+		idx := selectIndexFromMax(kernels, rhfVersion, maxIndex)
 		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, bufferMode, arenaMode)
 		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
 
 		if len(compatible) == 0 {
 			if incompatible != "" {
-				startNetdataJSON(w, incompatible, isReturn)
-				writeMapCompatibilityDebug(w, unsupportedType, supportedMapTypes)
-				fmt.Fprintf(w, "    },\n    \"Status\" :  \"%s\"\n},\n", "Fail")
+				flavor, reason := selectionFlavor(bufferMode, arenaMode, opts)
+				selectedIndex := idx
+				if candidateIndex := candidateVersionIndex(filepath.Base(incompatible), mod.name, isReturn, rhfVersion, kernels, maxIndex, bufferMode, arenaMode); candidateIndex >= 0 {
+					selectedIndex = uint32(candidateIndex)
+				}
+				members := startNetdataJSON(w, incompatible, isReturn, mod.name, selectedIndex, flavor, reason)
+				writeMapCompatibilityDebug(w, unsupportedType, supportedMapTypes, members)
+				fmt.Fprintf(w, "    },\n    \"Status\" : \"%s\"\n}", "Fail")
 				continue
 			}
 
@@ -1153,16 +1231,50 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 		}
 
 		for _, filename := range compatible {
-			startNetdataJSON(w, filename, isReturn)
-			result := ebpfTester(w, filename, mod.updateNames, opts.flags&flagContent != 0, mod.ctrlTable, opts, nprocesses, kernelVersion)
-			fmt.Fprintf(w, "    },\n    \"Status\" :  \"%s\"\n},\n", result)
+			flavor, reason := selectionFlavor(bufferMode, arenaMode, opts)
+			selectedIndex := idx
+			if candidateIndex := candidateVersionIndex(filepath.Base(filename), mod.name, isReturn, rhfVersion, kernels, maxIndex, bufferMode, arenaMode); candidateIndex >= 0 {
+				selectedIndex = uint32(candidateIndex)
+			}
+			members := startNetdataJSON(w, filename, isReturn, mod.name, selectedIndex, flavor, reason)
+			result := ebpfTester(w, filename, mod.updateNames, opts.flags&flagContent != 0, mod.ctrlTable, opts, nprocesses, kernelVersion, members)
+			fmt.Fprintf(w, "    },\n    \"Status\" : \"%s\"\n}", result)
 		}
 	}
 }
 
 func selectKernelName(selector uint32) string {
-	kernelNames := []string{"3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12"}
+	kernelNames := []string{"3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12", "7.0", "5.17"}
+	if int(selector) >= len(kernelNames) {
+		return "unknown"
+	}
 	return kernelNames[selector]
+}
+
+func appendUnique(values []skippedModule, value skippedModule) []skippedModule {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func selectModuleMaxIndex(moduleName string, rhfVersion int, kernelVersion int) uint32 {
+	if moduleName == "disk" && rhfVersion <= 0 {
+		switch {
+		case kernelVersion >= netdataEBPFKernel68:
+			return 10
+		case kernelVersion >= netdataEBPFKernel517:
+			return 13
+		case kernelVersion >= netdataEBPFKernel516:
+			return 9
+		case kernelVersion >= netdataEBPFKernel511:
+			return 6
+		}
+	}
+
+	return selectMaxIndex(rhfVersion, kernelVersion)
 }
 
 func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
@@ -1177,6 +1289,8 @@ func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 		}
 	} else {
 		switch {
+		case kernelVersion >= netdataEBPFKernel70:
+			return 12
 		case kernelVersion >= netdataEBPFKernel612:
 			return 11
 		case kernelVersion >= netdataEBPFKernel68:
@@ -1202,7 +1316,10 @@ func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 }
 
 func selectIndex(kernels uint32, rhfVersion int, kernelVersion int) uint32 {
-	start := selectMaxIndex(rhfVersion, kernelVersion)
+	return selectIndexFromMax(kernels, rhfVersion, selectMaxIndex(rhfVersion, kernelVersion))
+}
+
+func selectIndexFromMax(kernels uint32, rhfVersion int, start uint32) uint32 {
 	if rhfVersion == -1 {
 		kernels &^= netdataV514
 	}
@@ -1246,60 +1363,86 @@ func mountName(kernelIndex uint32, name string, isReturn bool, rhfVersion int, n
 	return fmt.Sprintf("%s/%cnetdata_ebpf_%s%s.%s%s.o", path, prefix, name, modeSuffix(bufferMode, arenaMode), version, suffix)
 }
 
-func startExternalJSON(w io.Writer, filename string) {
+func startExternalJSON(w io.Writer, filename string) *jsonMemberState {
 	testsStarted++
-	fmt.Fprintf(w, "\n\"%s\" : {\n    \"Tables\" : {\n", filename)
+	fmt.Fprintf(w, ",\n  %s : {\n    \"Tables\" : {\n", jsonString(filename))
+	return &jsonMemberState{first: true}
 }
 
-func startNetdataJSON(w io.Writer, filename string, isReturn bool) {
+func selectionFlavor(bufferMode bool, arenaMode bool, opts options) (string, string) {
+	if arenaMode {
+		return "arena", "explicit --arena"
+	}
+	if bufferMode {
+		if opts.bufferMode {
+			return "buffer", "explicit --buffer"
+		}
+		return "buffer", "production default buffer"
+	}
+	return "base", "base flavor"
+}
+
+func startNetdataJSON(w io.Writer, filename string, isReturn bool, module string, index uint32, flavor string, reason string) *jsonMemberState {
 	testsStarted++
 	testType := "entry"
 	if isReturn {
 		testType = "return"
 	}
-	fmt.Fprintf(w, "\"%s\" : {\n    \"Test\" : \"%s\",\n    \"Tables\" : {\n", filename, testType)
+	fmt.Fprintf(w, ",\n  %s : {\n    \"Test\" : \"%s\",\n    \"Selected\" : {\"Module\" : %q, \"Index\" : %d, \"Kernel\" : %q, \"Flavor\" : %q, \"Reason\" : %q},\n    \"Tables\" : {\n", jsonString(filename), testType, module, index, selectKernelName(index), flavor, reason)
+	return &jsonMemberState{first: true}
 }
 
-func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, ctrl string, opts options, nprocesses int, kernelVersion int) string {
+func jsonString(value string) string {
+	encoded, _ := json.Marshal(value)
+	return string(encoded)
+}
+
+func ebpfTester(w io.Writer, filename string, names *[]specifyName, maps bool, ctrl string, opts options, nprocesses int, kernelVersion int, members *jsonMemberState) string {
 	const (
 		success = "Success"
 		failure = "Fail"
 	)
+	mapsRequested := maps
 
 	obj, errCode := openBPFObject(filename)
 	if errCode != 0 {
-		writeFailureDebug(w, nil, "open_file", errCode, false, 0, attachSummary{})
+		writeFailureDebug(w, nil, "open_file", errCode, false, 0, attachSummary{}, members)
 		return failure
 	}
 	defer obj.close()
 
-	writeObjectMapTypes(w, obj)
+	writeObjectMapTypes(w, obj, members)
 
 	total := obj.countPrograms()
 	socketFilterDetected := obj.hasSocketFilter()
 	if socketFilterDetected {
-		return runDNSSocketFilterTester(obj, maps, w, opts.iterations, opts.dnsPorts)
+		return runDNSSocketFilterTester(obj, true, w, opts.iterations, opts.dnsPorts, members)
 	}
 
 	loadErr := obj.load()
 	if loadErr != 0 {
-		writeFailureDebug(w, obj, "object_load", loadErr, socketFilterDetected, total, attachSummary{})
+		writeFailureDebug(w, obj, "object_load", loadErr, socketFilterDetected, total, attachSummary{}, members)
 		return failure
 	}
 
 	summary := attachPrograms(obj, names, kernelVersion)
 	if summary.fail > 0 {
-		writeFailureDebug(w, obj, "attach_programs", summary.lastError, socketFilterDetected, total, summary)
+		writeFailureDebug(w, obj, "attach_programs", summary.lastError, socketFilterDetected, total, summary, members)
+	}
+	if summary.fail == 0 {
+		maps = true
 	}
 
 	if maps {
 		if hasSocketTable(obj) {
-			runSocketTableTester(w, obj, opts.iterations)
+			time.Sleep(mapCaptureDuration(obj))
+			runSocketTableTester(w, obj, opts.iterations, members)
 		} else {
-			if ctrl != "" {
+			if ctrl != "" && mapsRequested {
 				fillCtrl(obj, ctrl, opts.mapLevel, nprocesses)
 			}
-			testMaps(w, obj, ctrl, opts.iterations, nprocesses)
+			time.Sleep(mapCaptureDuration(obj))
+			testMaps(w, obj, ctrl, opts.iterations, nprocesses, members)
 		}
 	}
 
@@ -1357,6 +1500,25 @@ func attachPrograms(obj *bpfObject, names *[]specifyName, kernelVersion int) att
 
 		summary.links = append(summary.links, link)
 		summary.success++
+
+		switch prog.name() {
+		case "netdata_block_rq_issue":
+			if link, err := prog.attachKprobe(false, "blk_start_request"); err == 0 {
+				summary.links = append(summary.links, link)
+			} else {
+				summary.skipped++
+			}
+		case "netdata_block_rq_complete":
+			link, err := prog.attachKprobe(false, "__blk_mq_end_request")
+			if err != 0 {
+				link, err = prog.attachKprobe(false, "blk_mq_free_request")
+			}
+			if err == 0 {
+				summary.links = append(summary.links, link)
+			} else {
+				summary.skipped++
+			}
+		}
 	}
 
 	return summary
@@ -1442,7 +1604,8 @@ func findOptionalName(names *[]specifyName, programName string) *specifyName {
 	return nil
 }
 
-func writeFailureDebug(w io.Writer, obj *bpfObject, stage string, err int, socketFilterDetected bool, total int, summary attachSummary) {
+func writeFailureDebug(w io.Writer, obj *bpfObject, stage string, err int, socketFilterDetected bool, total int, summary attachSummary, members *jsonMemberState) {
+	members.prefix(w)
 	fmt.Fprintf(w,
 		"        \"Debug\" : {\n"+
 			"            \"Info\" : { \"Stage\" : \"%s\",\n"+
@@ -1522,6 +1685,16 @@ func mapValueLength(meta mapMeta, nprocesses int) int {
 	return mapValueStride(meta) * nprocesses
 }
 
+func mapValueCPUCount(meta mapMeta, nprocesses int) int {
+	if !isPerCPUMapType(meta.Type) {
+		return 1
+	}
+	if nprocesses < 1 {
+		return 1
+	}
+	return nprocesses
+}
+
 func controllerEntryLimit(meta mapMeta) int {
 	limit := netdataControllerEnd
 
@@ -1582,7 +1755,6 @@ func readGenericTable(values *tableData, fd int) {
 
 func writeCommonJSONVector(w io.Writer, values *tableData, fd int, iterations int) {
 	for i := 0; i < iterations; i++ {
-		time.Sleep(5 * time.Second)
 		readGenericTable(values, fd)
 		if i > 0 {
 			fmt.Fprint(w, ",\n")
@@ -1591,6 +1763,180 @@ func writeCommonJSONVector(w io.Writer, values *tableData, fd int, iterations in
 			i, values.filled+values.zero, values.filled, values.zero)
 	}
 	fmt.Fprint(w, "\n")
+}
+
+type diskHistogram struct {
+	dev  uint32
+	bins [diskHistogramBins]uint64
+}
+
+var filesystemHistogramMaps = map[string]struct{}{
+	"tbl_btrfs": {},
+	"tbl_ext4":  {},
+	"tbl_nfs":   {},
+	"tbl_xfs":   {},
+	"tbl_zfs":   {},
+}
+
+func isFilesystemHistogramMap(name string) bool {
+	_, ok := filesystemHistogramMaps[name]
+	return ok
+}
+
+func mapCaptureDuration(obj *bpfObject) time.Duration {
+	duration := time.Duration(0)
+	for m := obj.firstMap(); m != nil; m = obj.nextMap(m) {
+		if m.name() == "socket_events" {
+			if duration < 5*time.Second {
+				duration = 5 * time.Second
+			}
+			continue
+		}
+		if !supportsMapKeyValueIO(m.meta().Type) {
+			return 10 * time.Second
+		}
+		if duration < 5*time.Second {
+			duration = 5 * time.Second
+		}
+	}
+	return duration
+}
+
+func writeDiskHistogram(w io.Writer, meta mapMeta, ncpus int) {
+	rows := make(map[uint32]*diskHistogram)
+	key := make([]byte, meta.KeySize)
+	nextKey := make([]byte, meta.KeySize)
+	stride := mapValueStride(meta)
+	value := make([]byte, mapValueLength(meta, ncpus))
+
+	if meta.KeySize < 8 || meta.ValueSize < 8 || stride*mapValueCPUCount(meta, ncpus) > len(value) {
+		fmt.Fprint(w, "\n")
+		return
+	}
+	if bpfMapGetNextKey(meta.FD, nil, nextKey) == 0 {
+		for {
+			clear(value)
+			if bpfMapLookupElem(meta.FD, nextKey, value) == 0 {
+				bin := int(binary.NativeEndian.Uint32(nextKey[:4]))
+				dev := binary.NativeEndian.Uint32(nextKey[4:8])
+				if bin < diskHistogramBins {
+					row := rows[dev]
+					if row == nil {
+						row = &diskHistogram{dev: dev}
+						rows[dev] = row
+					}
+					for cpu := 0; cpu < mapValueCPUCount(meta, ncpus); cpu++ {
+						start := cpu * stride
+						row.bins[bin] += binary.NativeEndian.Uint64(value[start : start+8])
+					}
+				}
+			}
+			copy(key, nextKey)
+			if bpfMapGetNextKey(meta.FD, key, nextKey) != 0 {
+				break
+			}
+		}
+	}
+
+	devices := make([]uint32, 0, len(rows))
+	for dev := range rows {
+		devices = append(devices, dev)
+	}
+	sort.Slice(devices, func(i, j int) bool {
+		majorI, majorJ := diskDeviceMajor(devices[i]), diskDeviceMajor(devices[j])
+		if majorI != majorJ {
+			return majorI < majorJ
+		}
+		return diskDeviceMinor(devices[i]) < diskDeviceMinor(devices[j])
+	})
+
+	fmt.Fprint(w, "                                    ")
+	for deviceIndex, dev := range devices {
+		if deviceIndex > 0 {
+			fmt.Fprint(w, ",\n                                    ")
+		}
+		fmt.Fprintf(w, "{ \"Device\" : \"%d:%d\", \"Histogram\" : [\n", diskDeviceMajor(dev), diskDeviceMinor(dev))
+		for bin, count := range rows[dev].bins {
+			if bin > 0 {
+				fmt.Fprint(w, ",\n")
+			}
+			minUS := uint64(1) << bin
+			maxUS := (uint64(1) << (bin + 1)) - 1
+			if bin == 0 {
+				minUS = 0
+			}
+			if bin == diskHistogramBins-1 {
+				fmt.Fprintf(w, "                                        { \"Bin\" : %d, \"Latency_us\" : \">=%d\", \"Count\" : %d }", bin, minUS, count)
+			} else {
+				fmt.Fprintf(w, "                                        { \"Bin\" : %d, \"Latency_us\" : \"%d-%d\", \"Count\" : %d }", bin, minUS, maxUS, count)
+			}
+		}
+		fmt.Fprint(w, "\n                                    ] }")
+	}
+	fmt.Fprint(w, "\n")
+}
+
+func writeFilesystemHistogram(w io.Writer, meta mapMeta, ncpus int) {
+	const operations = 4
+	operationNames := [...]string{"read", "write", "open", "sync"}
+	if meta.Name == "tbl_nfs" {
+		operationNames[3] = "getattr"
+	}
+	if meta.KeySize < 4 || meta.ValueSize < 8 || meta.MaxEntries < operations*diskHistogramBins || ncpus < 1 {
+		fmt.Fprint(w, "\n")
+		return
+	}
+
+	stride := mapValueStride(meta)
+	value := make([]byte, mapValueLength(meta, ncpus))
+	var histogram [operations][diskHistogramBins]uint64
+	key := make([]byte, meta.KeySize)
+	for index := 0; index < operations*diskHistogramBins; index++ {
+		clear(key)
+		binary.NativeEndian.PutUint32(key[:4], uint32(index))
+		clear(value)
+		if bpfMapLookupElem(meta.FD, key, value) != 0 {
+			continue
+		}
+		operation, bin := index/diskHistogramBins, index%diskHistogramBins
+		for cpu := 0; cpu < mapValueCPUCount(meta, ncpus); cpu++ {
+			start := cpu * stride
+			histogram[operation][bin] += binary.NativeEndian.Uint64(value[start : start+8])
+		}
+	}
+
+	fmt.Fprint(w, "                                    ")
+	for operation, name := range operationNames {
+		if operation > 0 {
+			fmt.Fprint(w, ",\n                                    ")
+		}
+		fmt.Fprintf(w, "{ \"Operation\" : \"%s\", \"Histogram\" : [\n", name)
+		for bin, count := range histogram[operation] {
+			if bin > 0 {
+				fmt.Fprint(w, ",\n")
+			}
+			minUS := uint64(1) << bin
+			maxUS := (uint64(1) << (bin + 1)) - 1
+			if bin == 0 {
+				minUS = 0
+			}
+			if bin == diskHistogramBins-1 {
+				fmt.Fprintf(w, "                                        { \"Bin\" : %d, \"Latency_us\" : \">=%d\", \"Count\" : %d }", bin, minUS, count)
+			} else {
+				fmt.Fprintf(w, "                                        { \"Bin\" : %d, \"Latency_us\" : \"%d-%d\", \"Count\" : %d }", bin, minUS, maxUS, count)
+			}
+		}
+		fmt.Fprint(w, "\n                                    ] }")
+	}
+	fmt.Fprint(w, "\n")
+}
+
+func diskDeviceMajor(dev uint32) uint32 {
+	return (dev >> 8) & 0xfff
+}
+
+func diskDeviceMinor(dev uint32) uint32 {
+	return (dev & 0xff) | ((dev >> 12) & 0xffffff00)
 }
 
 func controllerJSON(w io.Writer, fd int, meta mapMeta, nprocesses int) {
@@ -1609,7 +1955,7 @@ func controllerJSON(w io.Writer, fd int, meta mapMeta, nprocesses int) {
 		filled+zero, filled, zero)
 }
 
-func testRingBufferMap(w io.Writer, meta mapMeta, iterations int) {
+func testRingBufferMap(w io.Writer, meta mapMeta, iterations int, members *jsonMemberState) {
 	mode := "ringbuf_consumer"
 	var (
 		rb       *ringBuffer
@@ -1624,6 +1970,7 @@ func testRingBufferMap(w io.Writer, meta mapMeta, iterations int) {
 		rb, setupErr = newRingBuffer(meta.FD)
 	}
 
+	members.prefix(w)
 	fmt.Fprintf(w,
 		"        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %d, \"Value\" : %d},\n"+
 			"                       \"Type\" : %d,\n"+
@@ -1634,8 +1981,6 @@ func testRingBufferMap(w io.Writer, meta mapMeta, iterations int) {
 	var prevSamples uint64
 	var prevBytes uint64
 	for i := 0; i < iterations; i++ {
-		time.Sleep(10 * time.Second)
-
 		opErr := setupErr
 		opResult := 0
 		var iterSamples uint64
@@ -1685,24 +2030,25 @@ func testRingBufferMap(w io.Writer, meta mapMeta, iterations int) {
 	}
 }
 
-func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocesses int) {
+func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocesses int, members *jsonMemberState) {
 	tables := 0
 	for m := obj.firstMap(); m != nil; m = obj.nextMap(m) {
 		meta := m.meta()
 		if meta.Name == "socket_events" {
-			runSocketRingBufferTester(w, obj, iterations)
-			fmt.Fprint(w, "                                ]\n                      }\n        },\n")
+			runSocketRingBufferTester(w, obj, iterations, members)
+			fmt.Fprint(w, "                                ]\n                      }\n        }")
 			tables++
 			continue
 		}
 		if !supportsMapKeyValueIO(meta.Type) {
-			testRingBufferMap(w, meta, iterations)
-			fmt.Fprint(w, "                                ]\n                      }\n        },\n")
+			testRingBufferMap(w, meta, iterations, members)
+			fmt.Fprint(w, "                                ]\n                      }\n        }")
 			tables++
 			continue
 		}
 
 		values := allocateTableData(meta, nprocesses)
+		members.prefix(w)
 		fmt.Fprintf(w,
 			"        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %d, \"Value\" : %d},\n"+
 				"                       \"Type\" : %d,\n"+
@@ -1710,19 +2056,22 @@ func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocess
 				"                       \"Data\" : [\n",
 			meta.Name, meta.KeySize, meta.ValueSize, meta.Type, meta.FD)
 
-		if ctrl == "" || ctrl != meta.Name {
+		if meta.Name == "tbl_disk_iocall" {
+			writeDiskHistogram(w, meta, nprocesses)
+		} else if isFilesystemHistogramMap(meta.Name) {
+			writeFilesystemHistogram(w, meta, nprocesses)
+		} else if ctrl == "" || ctrl != meta.Name {
 			writeCommonJSONVector(w, values, meta.FD, iterations)
 		} else {
 			controllerJSON(w, meta.FD, meta, nprocesses)
 		}
 
-		fmt.Fprint(w, "                                ]\n                      }\n        },\n")
+		fmt.Fprint(w, "                                ]\n                      }\n        }")
 		tables++
 	}
 
-	if tables > 0 {
-		fmt.Fprintf(w, "        \"Total tables\" : %d\n", tables)
-	}
+	members.prefix(w)
+	fmt.Fprintf(w, "        \"Total tables\" : %d\n", tables)
 }
 
 func fillCtrl(obj *bpfObject, ctrl string, mapLevel int, nprocesses int) {
@@ -1773,7 +2122,7 @@ func putUint32(dst []byte, value uint32) {
 }
 
 func writeErrorExit(w io.Writer, msg string) {
-	fmt.Fprintf(w, "\"Error\" : \"%s\",\n", msg)
+	fmt.Fprintf(w, ",\n  \"Error\" : %q,\n  \"End\" : \"Good bye!!!\" }\n", msg)
 }
 
 func describeError(err int) string {

@@ -505,7 +505,8 @@ func (c *dnsCollector) processResponse(packet dnsPacket, nowUsec uint64) {
 	}
 }
 
-func dnsWritePortsJSON(w io.Writer, meta mapMeta, ports []uint16) {
+func dnsWritePortsJSON(w io.Writer, meta mapMeta, ports []uint16, members *jsonMemberState) {
+	members.prefix(w)
 	fmt.Fprintf(w,
 		"        \"dns_ports\" : {\n"+
 			"            \"Info\" : { \"Length\" : { \"Key\" : %d, \"Value\" : %d},\n"+
@@ -542,7 +543,8 @@ func dnsWriteRcodesJSON(w io.Writer, rcodes []dnsRcodeCounter) {
 	fmt.Fprint(w, " }")
 }
 
-func dnsWriteResultsJSON(w io.Writer, collector *dnsCollector, captureSeconds int) {
+func dnsWriteResultsJSON(w io.Writer, collector *dnsCollector, captureSeconds int, members *jsonMemberState) {
+	members.prefix(w)
 	fmt.Fprintf(w,
 		"        \"dns_results\" : {\n"+
 			"            \"Info\" : { \"Collection Seconds\" : %d,\n"+
@@ -580,7 +582,8 @@ func dnsWriteResultsJSON(w io.Writer, collector *dnsCollector, captureSeconds in
 			"        }")
 }
 
-func dnsWriteFailureDebug(w io.Writer, ports []uint16, debug dnsDebug) {
+func dnsWriteFailureDebug(w io.Writer, ports []uint16, debug dnsDebug, members *jsonMemberState) {
+	members.prefix(w)
 	fmt.Fprintf(w,
 		"        \"Debug\" : {\n"+
 			"            \"Info\" : { \"Stage\" : \"%s\",\n"+
@@ -614,7 +617,7 @@ func dnsWriteFailureDebug(w io.Writer, ports []uint16, debug dnsDebug) {
 	fmt.Fprint(w, "]\n                      }\n        }\n")
 }
 
-func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations int, ports []uint16) string {
+func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations int, ports []uint16, members *jsonMemberState) string {
 	const (
 		success = "Success"
 		failure = "Fail"
@@ -625,7 +628,7 @@ func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations
 		operation:      "initialize",
 		mapsRequested:  maps,
 		iterations:     iterations,
-		captureSeconds: iterations * dnsCaptureInterval,
+		captureSeconds: dnsCaptureInterval,
 		programFD:      -1,
 		sockFD:         -1,
 		dnsPortsFD:     -1,
@@ -635,7 +638,7 @@ func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations
 		debug.stage = "load_object"
 		debug.operation = "bpf_object__load"
 		debug.errorCode = loadErr
-		dnsWriteFailureDebug(w, ports, debug)
+		dnsWriteFailureDebug(w, ports, debug, members)
 		return failure
 	}
 
@@ -644,7 +647,7 @@ func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations
 		debug.stage = "find_socket_filter_program"
 		debug.operation = "bpf_object__next_program"
 		debug.errorCode = -int(syscall.ENOENT)
-		dnsWriteFailureDebug(w, ports, debug)
+		dnsWriteFailureDebug(w, ports, debug, members)
 		return failure
 	}
 
@@ -655,7 +658,7 @@ func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations
 		debug.stage = "configure_ports"
 		debug.operation = "find_dns_ports_map"
 		debug.errorCode = -int(syscall.ENOENT)
-		dnsWriteFailureDebug(w, ports, debug)
+		dnsWriteFailureDebug(w, ports, debug, members)
 		return failure
 	}
 
@@ -678,7 +681,7 @@ func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations
 			debug.stage = "configure_ports"
 			debug.operation = "bpf_map_update_elem"
 			debug.errorCode = err
-			dnsWriteFailureDebug(w, ports, debug)
+			dnsWriteFailureDebug(w, ports, debug, members)
 			return failure
 		}
 	}
@@ -688,7 +691,7 @@ func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations
 		debug.stage = "open_capture_socket"
 		debug.operation = "netdata_open_capture_socket"
 		debug.errorCode = sockErr
-		dnsWriteFailureDebug(w, ports, debug)
+		dnsWriteFailureDebug(w, ports, debug, members)
 		return failure
 	}
 	defer closeFD(sockFD)
@@ -698,10 +701,10 @@ func runDNSSocketFilterTester(obj *bpfObject, maps bool, w io.Writer, iterations
 	if maps {
 		collector := &dnsCollector{}
 		dnsCollectPackets(sockFD, collector, debug.captureSeconds)
-		dnsWritePortsJSON(w, meta, ports)
-		fmt.Fprint(w, ",\n")
-		dnsWriteResultsJSON(w, collector, debug.captureSeconds)
-		fmt.Fprint(w, ",\n        \"Total tables\" : 2\n")
+		dnsWritePortsJSON(w, meta, ports, members)
+		dnsWriteResultsJSON(w, collector, debug.captureSeconds, members)
+		members.prefix(w)
+		fmt.Fprint(w, "        \"Total tables\" : 2")
 	}
 
 	return success

@@ -12,9 +12,11 @@ jobs:
       fail-fast: false
       matrix:
         kernel_version:
+          - '7.2.8'
           - '6.16.2'
           - '6.8.2'
           - '5.16.18'
+          - '5.17.15'
           - '5.15.63'
           - '5.14.0'
           - '5.11.19'
@@ -33,6 +35,10 @@ jobs:
             libc: static
           - kernel_version: 5.4.17
             libc: musl
+        include:
+          - kernel_version: '7.2.8'
+            libc: glibc
+            kernel_localversion: '-15-generic'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -51,7 +57,7 @@ jobs:
           else
             os=generic
           fi
-          ./build.sh ${{ matrix.kernel_version }} ${{ matrix.libc }} "${os}"
+          KERNEL_LOCALVERSION='${{ matrix.kernel_localversion }}' ./build.sh ${{ matrix.kernel_version }} ${{ matrix.libc }} "${os}"
       - name: List Artifacts
         run: |
           ls -lah artifacts

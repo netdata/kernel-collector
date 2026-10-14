@@ -371,7 +371,7 @@ func TestDNSCollectorStateManagement(t *testing.T) {
 func TestDNSJSONWriters(t *testing.T) {
 	t.Run("ports writer includes metadata and ports", func(t *testing.T) {
 		var out bytes.Buffer
-		dnsWritePortsJSON(&out, mapMeta{KeySize: 2, ValueSize: 4, Type: 1, FD: 9, MaxEntries: 8}, []uint16{53, 5353})
+		dnsWritePortsJSON(&out, mapMeta{KeySize: 2, ValueSize: 4, Type: 1, FD: 9, MaxEntries: 8}, []uint16{53, 5353}, &jsonMemberState{first: true})
 
 		got := out.String()
 		for _, want := range []string{
@@ -412,7 +412,7 @@ func TestDNSJSONWriters(t *testing.T) {
 			}},
 		}
 
-		dnsWriteResultsJSON(&out, collector, 5)
+		dnsWriteResultsJSON(&out, collector, 5, &jsonMemberState{first: true})
 		got := out.String()
 		for _, want := range []string{
 			`"Collection Seconds" : 5`,

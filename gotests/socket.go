@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
@@ -23,22 +22,22 @@ const (
 	socketIdxPidOffset   = 36
 
 	// Binary offsets within netdata_socket_t (112 bytes).
-	socketValNameOffset        = 0
-	socketValProtocolOffset    = 32
-	socketValFamilyOffset      = 34
-	socketValTCPSentCalls      = 40
-	socketValTCPRecvCalls      = 44
-	socketValTCPBytesSent      = 48
-	socketValTCPBytesRecv      = 56
-	socketValTCPClose          = 64
-	socketValTCPRetransmit     = 68
-	socketValTCPIPv4Connect    = 72
-	socketValTCPIPv6Connect    = 76
-	socketValTCPState          = 80
-	socketValUDPSentCalls      = 88
-	socketValUDPRecvCalls      = 92
-	socketValUDPBytesSent      = 96
-	socketValUDPBytesRecv      = 104
+	socketValNameOffset     = 0
+	socketValProtocolOffset = 32
+	socketValFamilyOffset   = 34
+	socketValTCPSentCalls   = 40
+	socketValTCPRecvCalls   = 44
+	socketValTCPBytesSent   = 48
+	socketValTCPBytesRecv   = 56
+	socketValTCPClose       = 64
+	socketValTCPRetransmit  = 68
+	socketValTCPIPv4Connect = 72
+	socketValTCPIPv6Connect = 76
+	socketValTCPState       = 80
+	socketValUDPSentCalls   = 88
+	socketValUDPRecvCalls   = 92
+	socketValUDPBytesSent   = 96
+	socketValUDPBytesRecv   = 104
 )
 
 type socketEntry struct {
@@ -68,7 +67,7 @@ func socketDecodeKey(key []byte) (e socketEntry) {
 	copy(e.saddr[:], key[socketIdxSaddrOffset:socketIdxSaddrOffset+16])
 	copy(e.daddr[:], key[socketIdxDaddrOffset:socketIdxDaddrOffset+16])
 	e.dport = binary.LittleEndian.Uint16(key[socketIdxDportOffset:])
-	e.pid   = binary.LittleEndian.Uint32(key[socketIdxPidOffset:])
+	e.pid = binary.LittleEndian.Uint32(key[socketIdxPidOffset:])
 	return e
 }
 
@@ -92,24 +91,24 @@ func socketAggregatePerCPU(e *socketEntry, buf []byte, stride, ncpus int) {
 			for end < len(raw) && raw[end] != 0 {
 				end++
 			}
-			e.name     = string(raw[:end])
+			e.name = string(raw[:end])
 			e.protocol = binary.LittleEndian.Uint16(slot[socketValProtocolOffset:])
-			e.family   = binary.LittleEndian.Uint16(slot[socketValFamilyOffset:])
-			metaFound  = true
+			e.family = binary.LittleEndian.Uint16(slot[socketValFamilyOffset:])
+			metaFound = true
 		}
 
-		e.tcpSentCalls   += binary.LittleEndian.Uint32(slot[socketValTCPSentCalls:])
-		e.tcpRecvCalls   += binary.LittleEndian.Uint32(slot[socketValTCPRecvCalls:])
-		e.tcpBytesSent   += binary.LittleEndian.Uint64(slot[socketValTCPBytesSent:])
-		e.tcpBytesRecv   += binary.LittleEndian.Uint64(slot[socketValTCPBytesRecv:])
-		e.tcpClose       += binary.LittleEndian.Uint32(slot[socketValTCPClose:])
-		e.tcpRetransmit  += binary.LittleEndian.Uint32(slot[socketValTCPRetransmit:])
+		e.tcpSentCalls += binary.LittleEndian.Uint32(slot[socketValTCPSentCalls:])
+		e.tcpRecvCalls += binary.LittleEndian.Uint32(slot[socketValTCPRecvCalls:])
+		e.tcpBytesSent += binary.LittleEndian.Uint64(slot[socketValTCPBytesSent:])
+		e.tcpBytesRecv += binary.LittleEndian.Uint64(slot[socketValTCPBytesRecv:])
+		e.tcpClose += binary.LittleEndian.Uint32(slot[socketValTCPClose:])
+		e.tcpRetransmit += binary.LittleEndian.Uint32(slot[socketValTCPRetransmit:])
 		e.tcpIPv4Connect += binary.LittleEndian.Uint32(slot[socketValTCPIPv4Connect:])
 		e.tcpIPv6Connect += binary.LittleEndian.Uint32(slot[socketValTCPIPv6Connect:])
-		e.udpSentCalls   += binary.LittleEndian.Uint32(slot[socketValUDPSentCalls:])
-		e.udpRecvCalls   += binary.LittleEndian.Uint32(slot[socketValUDPRecvCalls:])
-		e.udpBytesSent   += binary.LittleEndian.Uint64(slot[socketValUDPBytesSent:])
-		e.udpBytesRecv   += binary.LittleEndian.Uint64(slot[socketValUDPBytesRecv:])
+		e.udpSentCalls += binary.LittleEndian.Uint32(slot[socketValUDPSentCalls:])
+		e.udpRecvCalls += binary.LittleEndian.Uint32(slot[socketValUDPRecvCalls:])
+		e.udpBytesSent += binary.LittleEndian.Uint64(slot[socketValUDPBytesSent:])
+		e.udpBytesRecv += binary.LittleEndian.Uint64(slot[socketValUDPBytesRecv:])
 
 		if st := binary.LittleEndian.Uint32(slot[socketValTCPState:]); st != 0 {
 			e.tcpState = st
@@ -162,9 +161,10 @@ func hasSocketTable(obj *bpfObject) bool {
 	return obj.findMapByName("tbl_nd_socket") != nil
 }
 
-func runSocketTableTester(w io.Writer, obj *bpfObject, iterations int) {
+func runSocketTableTester(w io.Writer, obj *bpfObject, iterations int, members *jsonMemberState) {
 	m := obj.findMapByName("tbl_nd_socket")
 	if m == nil {
+		members.prefix(w)
 		fmt.Fprint(w, "        \"Total tables\" : 0\n")
 		return
 	}
@@ -175,9 +175,10 @@ func runSocketTableTester(w io.Writer, obj *bpfObject, iterations int) {
 		ncpus = 1
 	}
 
-	stride            := socketRoundUp8(int(meta.ValueSize))
-	collectionSeconds := iterations * socketSleepSec
+	stride := socketRoundUp8(int(meta.ValueSize))
+	collectionSeconds := socketSleepSec
 
+	members.prefix(w)
 	fmt.Fprintf(w,
 		"        \"socket_connections\" : {\n"+
 			"            \"Info\" : { \"Length\" : { \"Key\" : %d, \"Value\" : %d},\n"+
@@ -188,22 +189,21 @@ func runSocketTableTester(w io.Writer, obj *bpfObject, iterations int) {
 			"                       \"Data\" : [\n",
 		meta.KeySize, meta.ValueSize, meta.Type, meta.FD, ncpus, collectionSeconds)
 
-	time.Sleep(time.Duration(collectionSeconds) * time.Second)
-
 	socketReadEntries(w, meta.FD, int(meta.KeySize), stride, ncpus)
 
 	fmt.Fprint(w,
 		"                                ]\n"+
 			"                      }\n"+
-			"        },\n"+
-			"        \"Total tables\" : 1\n")
+			"        }")
+	members.prefix(w)
+	fmt.Fprint(w, "        \"Total tables\" : 1")
 }
 
 func socketReadEntries(w io.Writer, fd, keySize, stride, ncpus int) {
-	keyBuf    := make([]byte, keySize)
-	nextKey   := make([]byte, keySize)
+	keyBuf := make([]byte, keySize)
+	nextKey := make([]byte, keySize)
 	percpuBuf := make([]byte, stride*ncpus)
-	first     := true
+	first := true
 
 	if bpfMapGetNextKey(fd, nil, nextKey) != 0 {
 		return
@@ -266,14 +266,14 @@ func socketWriteCollectedEntries(w io.Writer, coll *socketRingbufCollector) {
 	}
 }
 
-func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
+func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int, members *jsonMemberState) {
 	m := obj.findMapByName("socket_events")
 	if m == nil {
 		return
 	}
 
 	meta := m.meta()
-	collectionSeconds := iterations * socketSleepSec
+	collectionSeconds := socketSleepSec
 	collector := &socketRingbufCollector{entries: make(map[string]*socketEntry)}
 	var rb *socketRingBuffer
 	errCode := 0
@@ -285,6 +285,7 @@ func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
 		}
 	}
 
+	members.prefix(w)
 	fmt.Fprintf(w,
 		"        \"socket_connections\" : {\n"+
 			"            \"Info\" : { \"Length\" : { \"Key\" : %d, \"Value\" : %d},\n"+
@@ -295,10 +296,6 @@ func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
 		socketEventKeySize, socketEventValueSize, meta.Type, meta.FD, collectionSeconds)
 
 	if errCode == 0 && rb != nil {
-		for sec := 0; sec < collectionSeconds; sec++ {
-			time.Sleep(time.Second)
-			rb.poll(0)
-		}
 		rb.poll(0)
 		socketWriteCollectedEntries(w, getSocketRingbufCollector(rb.handle))
 	} else {
@@ -313,11 +310,8 @@ func runSocketRingBufferTester(w io.Writer, obj *bpfObject, iterations int) {
 				ainfo.DataOffset, arenaPtr, initHead)
 		}
 		fmt.Fprintf(os.Stderr,
-			"[socket_arena_go] collecting for %ds — open external connections now\n",
+			"[socket_arena_go] reading arena events collected during the previous %ds\n",
 			collectionSeconds)
-		for sec := 0; sec < collectionSeconds; sec++ {
-			time.Sleep(time.Second)
-		}
 		headBefore := uint32(0)
 		if arenaPtr != nil {
 			headBefore = binary.LittleEndian.Uint32(unsafe.Slice((*byte)(arenaPtr), 4))

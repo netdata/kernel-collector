@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <ctype.h>
 #include <dirent.h>
 
 // Syscalls
@@ -79,20 +80,20 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_10 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_BTRFS, .name = "btrfs", .update_names = NULL, .ctrl_table = "btrfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_15 | NETDATA_V5_14 | NETDATA_V5_16,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_CACHESTAT, .name = "cachestat", .update_names = NULL, .ctrl_table = "cstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_DC, .name = "dc", .update_names = dc_optional_name, .ctrl_table = "dcstat_ctrl" },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_16 | NETDATA_V5_17 | NETDATA_V6_8,
       .flags = NETDATA_FLAG_DISK, .name = "disk", .update_names = NULL, .ctrl_table = "disk_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_EXT4, .name = "ext4", .update_names = NULL, .ctrl_table = "ext4_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_FD, .name = "fd", .update_names = fd_optional_name, .ctrl_table = "fd_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "fdatasync", .update_names = NULL, .ctrl_table = NULL },
@@ -107,28 +108,28 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "msync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_DNS, .name = "dns", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_OOMKILL, .name = "oomkill", .update_names = NULL, .ctrl_table = NULL },
-    { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10 | NETDATA_V6_12,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+    { .kernels =  NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V5_10 | NETDATA_V6_12 | NETDATA_V7_0,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_PROCESS, .name = "process", .update_names = NULL, .ctrl_table = "process_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SHM, .name = "shm", .update_names = NULL, .ctrl_table = "shm_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOFTIRQ, .name = "softirq", .update_names = NULL, .ctrl_table = NULL },
@@ -138,13 +139,13 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_SYNC, .name = "syncfs", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "sync_file_range", .update_names = NULL, .ctrl_table = NULL },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8 | NETDATA_V6_12,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SWAP, .name = "swap", .update_names = swap_optional_name, .ctrl_table = "swap_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
-      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
-      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_XFS, .name = "xfs", .update_names = NULL, .ctrl_table = "xfs_ctrl" },
@@ -170,7 +171,8 @@ static uint16_t dns_ports[NETDATA_DNS_MAX_PORTS] = { NETDATA_DNS_DEFAULT_PORT };
 static size_t dns_port_count = 1;
 static int dns_ports_overridden = 0;
 static size_t tests_started = 0;
-static char *ebpf_kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12" };
+static int json_first_member;
+static char *ebpf_kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "5.17", "6.8", "6.12", "7.0" };
 
 pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -180,6 +182,55 @@ pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
     fflush(stdlog); \
     pthread_mutex_unlock(&log_mutex); \
 } while (0)
+
+void ebpf_json_member_prefix(void)
+{
+    if (json_first_member) {
+        json_first_member = 0;
+        return;
+    }
+
+    NETDATA_LOG_THREAD_SAFE(",\n");
+}
+
+static void ebpf_write_json_string(const char *value)
+{
+    const unsigned char *current = (const unsigned char *)value;
+
+    NETDATA_LOG_THREAD_SAFE("\"");
+    while (*current) {
+        switch (*current) {
+            case '"':
+                NETDATA_LOG_THREAD_SAFE("\\\"");
+                break;
+            case '\\':
+                NETDATA_LOG_THREAD_SAFE("\\\\");
+                break;
+            case '\b':
+                NETDATA_LOG_THREAD_SAFE("\\b");
+                break;
+            case '\f':
+                NETDATA_LOG_THREAD_SAFE("\\f");
+                break;
+            case '\n':
+                NETDATA_LOG_THREAD_SAFE("\\n");
+                break;
+            case '\r':
+                NETDATA_LOG_THREAD_SAFE("\\r");
+                break;
+            case '\t':
+                NETDATA_LOG_THREAD_SAFE("\\t");
+                break;
+            default:
+                if (*current < 0x20)
+                    NETDATA_LOG_THREAD_SAFE("\\u%04x", *current);
+                else
+                    NETDATA_LOG_THREAD_SAFE("%c", *current);
+        }
+        current++;
+    }
+    NETDATA_LOG_THREAD_SAFE("\"");
+}
 
 typedef struct ebpf_map_support {
     int hash;
@@ -222,6 +273,11 @@ static int ebpf_possible_cpu_count(void)
 static int ebpf_map_is_percpu(uint32_t type)
 {
     return type == BPF_MAP_TYPE_PERCPU_ARRAY || type == BPF_MAP_TYPE_PERCPU_HASH;
+}
+
+static int ebpf_map_value_cpu_count(uint32_t type)
+{
+    return ebpf_map_is_percpu(type) ? ebpf_possible_cpu_count() : 1;
 }
 
 static int ebpf_map_is_ringbuf(uint32_t type)
@@ -280,7 +336,7 @@ static void ebpf_add_dns_port(uint16_t port)
     }
 
     if (dns_port_count >= NETDATA_DNS_MAX_PORTS) {
-        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Maximum number of DNS ports (%d) reached.\",\n", NETDATA_DNS_MAX_PORTS);
+        fprintf(stderr, "Maximum number of DNS ports (%d) reached; ignoring remaining ports.\n", NETDATA_DNS_MAX_PORTS);
         return;
     }
 
@@ -300,7 +356,7 @@ static void ebpf_parse_dns_port_list(const char *input)
 
     copy = strdup(input);
     if (!copy) {
-        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Cannot duplicate DNS port list.\",\n");
+        fprintf(stderr, "Cannot duplicate DNS port list.\n");
         return;
     }
 
@@ -315,7 +371,7 @@ static void ebpf_parse_dns_port_list(const char *input)
 
         port = strtoul(token, &endptr, 10);
         if (*endptr || port == 0 || port > UINT16_MAX) {
-            NETDATA_LOG_THREAD_SAFE("\"Error\" : \"DNS port value (%s) is not valid.\",\n", token);
+            fprintf(stderr, "Invalid DNS port value '%s'; ignoring it.\n", token);
             goto next_token;
         }
 
@@ -399,6 +455,7 @@ static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, 
     char error_buffer[128];
     const char *error_message = ebpf_describe_error(err, error_buffer, sizeof(error_buffer));
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE(
             "        \"Debug\" : {\n"
             "            \"Info\" : { \"Stage\" : \"%s\",\n"
@@ -421,7 +478,7 @@ static void ebpf_write_failure_debug(struct bpf_object *obj, const char *stage, 
 
     NETDATA_LOG_THREAD_SAFE(",\n                       \"Programs\" : ");
     ebpf_write_program_inventory(obj);
-    NETDATA_LOG_THREAD_SAFE("\n                      }\n        }\n");
+    NETDATA_LOG_THREAD_SAFE("\n                      }\n        }");
 }
 
 static char *ebpf_strdup_string(const char *src)
@@ -537,6 +594,10 @@ static int ebpf_candidate_version_index(const char *filename, const char *name, 
                                         int buffer_mode, int arena_mode)
 {
     int idx;
+    const char *basename = strrchr(filename, '/');
+
+    if (basename)
+        filename = basename + 1;
 
     if (rhf_version == -1)
         kernels &= ~NETDATA_V5_14;
@@ -548,6 +609,27 @@ static int ebpf_candidate_version_index(const char *filename, const char *name, 
         if (ebpf_candidate_matches(filename, name, is_return, ebpf_kernel_names[idx], rhf_version,
                                    buffer_mode, arena_mode))
             return idx;
+    }
+
+    return -1;
+}
+
+static int ebpf_json_kernel_index(int index)
+{
+    static const char *json_kernel_names[] = {
+        "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16",
+        "6.8", "6.12", "7.0", "5.17"
+    };
+    const char *version;
+    size_t i;
+
+    if (index < 0 || (size_t)index >= sizeof(ebpf_kernel_names) / sizeof(ebpf_kernel_names[0]))
+        return -1;
+
+    version = ebpf_kernel_names[index];
+    for (i = 0; i < sizeof(json_kernel_names) / sizeof(json_kernel_names[0]); i++) {
+        if (!strcmp(version, json_kernel_names[i]))
+            return (int)i;
     }
 
     return -1;
@@ -765,6 +847,7 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
     int seen[__MAX_BPF_MAP_TYPE] = { 0 };
     int first = 1;
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE("        \"Map Types Used\" : [");
     if (obj) {
         bpf_object__for_each_map(map, obj) {
@@ -792,7 +875,7 @@ static void ebpf_write_object_map_types(struct bpf_object *obj)
         }
     }
 
-    NETDATA_LOG_THREAD_SAFE("],\n");
+    NETDATA_LOG_THREAD_SAFE("]");
 }
 
 static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_map_support_t *support)
@@ -800,6 +883,7 @@ static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_
     char error_buffer[128];
     const char *error_message = ebpf_describe_error(-EOPNOTSUPP, error_buffer, sizeof(error_buffer));
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE(
             "        \"Debug\" : {\n"
             "            \"Info\" : { \"Stage\" : \"map_compatibility\",\n"
@@ -813,7 +897,7 @@ static void ebpf_write_map_compatibility_debug(int unsupported_type, const ebpf_
             ",\n"
             "                       \"Programs\" : []\n"
             "                      }\n"
-            "        }\n");
+            "        }");
 }
 
 /****************************************************************************************************
@@ -896,6 +980,33 @@ int ebpf_get_kernel_version()
  */
 /* Parse /etc/os-release to detect RH-family distros that lack /etc/redhat-release
  * (e.g. minimal Alma 9 containers). Returns major*256+minor on match, -1 otherwise. */
+static int ebpf_is_redhat_family_id(const char *value, size_t length)
+{
+    return (length == 4 && !strncmp(value, "rhel", length)) ||
+           (length == 6 && !strncmp(value, "centos", length)) ||
+           (length == 9 && !strncmp(value, "almalinux", length)) ||
+           (length == 5 && !strncmp(value, "rocky", length));
+}
+
+static int ebpf_has_redhat_family_id(const char *value)
+{
+    while (*value) {
+        while (*value == ' ' || *value == '\t' || *value == '"' || *value == '\'')
+            value++;
+
+        const char *start = value;
+        while (*value && *value != ' ' && *value != '\t' && *value != '"' && *value != '\'' && *value != '\n')
+            value++;
+
+        if (ebpf_is_redhat_family_id(start, (size_t)(value - start)))
+            return 1;
+        if (*value)
+            value++;
+    }
+
+    return 0;
+}
+
 static int ebpf_get_rh_from_os_release(void)
 {
     FILE *fp = fopen("/etc/os-release", "r");
@@ -907,8 +1018,8 @@ static int ebpf_get_rh_from_os_release(void)
 
     while (fgets(line, sizeof(line), fp)) {
         if (strncmp(line, "ID=", 3) == 0 || strncmp(line, "ID_LIKE=", 8) == 0) {
-            if (strstr(line, "rhel") || strstr(line, "centos") ||
-                strstr(line, "almalinux") || strstr(line, "rocky"))
+            const char *value = strchr(line, '=') + 1;
+            if (ebpf_has_redhat_family_id(value))
                 is_rhel = 1;
         } else if (strncmp(line, "VERSION_ID=", 11) == 0) {
             char *val = line + 11;
@@ -928,76 +1039,77 @@ static int ebpf_get_rh_from_os_release(void)
     return -1;
 }
 
+static int ebpf_parse_redhat_release_version(const char *release);
+
 int ebpf_get_redhat_release()
 {
     char buffer[VERSION_STRING_LEN + 1];
-    int major, minor;
     FILE *fp = fopen("/etc/redhat-release", "r");
 
     if (fp) {
-        major = 0;
-        minor = -1;
         size_t length = fread(buffer, sizeof(char), VERSION_STRING_LEN, fp);
-        if (length > 4) {
+        if (length > 0) {
             buffer[length] = '\0';
-            char *end = strchr(buffer, '.');
-            char *start;
-            if (end) {
-                *end = '\0';
-
-                if (end > buffer) {
-                    start = end - 1;
-
-                    major = strtol(start, NULL, 10);
-                    start = ++end;
-
-                    char *minor_end = strchr(start, ' ');
-                    if (minor_end) {
-                        *minor_end = '\0';
-                        minor = strtol(start, NULL, 10);
-                    } else {
-                        minor = -1;
-                    }
-                }
-            }
+            fclose(fp);
+            int parsed = ebpf_parse_redhat_release_version(buffer);
+            if (parsed >= 0)
+                return parsed;
+        } else {
+            fclose(fp);
         }
-
-        fclose(fp);
-        return ((major * 256) + minor);
     }
 
     return ebpf_get_rh_from_os_release();
 }
 
-static int ebpf_is_debian_flavor(void)
+static int ebpf_parse_redhat_release_version(const char *release)
 {
-    FILE *fp = fopen("/etc/os-release", "r");
-    if (!fp)
-        return 0;
+    while (isspace((unsigned char)*release))
+        release++;
 
-    char line[VERSION_STRING_LEN + 1];
-    int is_debian = 0;
+    const char *version = strstr(release, "release");
+    if (!version)
+        return -1;
 
-    while (fgets(line, sizeof(line), fp)) {
-        if (strncmp(line, "ID=", 3) != 0)
-            continue;
+    size_t vendor_len = (size_t)(version - release);
+    int is_supported_vendor =
+        (vendor_len >= 7 && !strncmp(release, "Red Hat", 7)) ||
+        (vendor_len >= 6 && !strncmp(release, "CentOS", 6)) ||
+        (vendor_len >= 9 && !strncmp(release, "AlmaLinux", 9)) ||
+        (vendor_len >= 11 && !strncmp(release, "Rocky Linux", 11));
+    if (!is_supported_vendor)
+        return -1;
 
-        char *value = line + 3;
-        if (*value == '"' || *value == '\'')
-            value++;
+    version += strlen("release");
+    while (isspace((unsigned char)*version))
+        version++;
 
-        char *end = strpbrk(value, "\"\n");
-        if (end)
-            *end = '\0';
+    char *end;
+    errno = 0;
+    long major = strtol(version, &end, 10);
+    if (end == version || errno || major <= 0 || major > (INT_MAX - 255) / 256)
+        return -1;
 
-        if (!strcmp(value, "debian")) {
-            is_debian = 1;
-            break;
-        }
+    long minor = 0;
+    if (*end == '.') {
+        const char *minor_start = end + 1;
+        errno = 0;
+        minor = strtol(minor_start, &end, 10);
+        if (end == minor_start || errno || minor < 0 || minor > 255)
+            return -1;
     }
 
-    fclose(fp);
-    return is_debian;
+    while (*end == '.') {
+        const char *suffix_start = end + 1;
+        strtol(suffix_start, &end, 10);
+        if (end == suffix_start)
+            return -1;
+    }
+
+    if (*end && !isspace((unsigned char)*end) && *end != '(')
+        return -1;
+
+    return (int)(major * 256 + minor);
 }
 
 /**
@@ -1037,11 +1149,15 @@ static int ebpf_select_max_index(int rhf_version, uint32_t kver)
         else if (kver >= NETDATA_EBPF_KERNEL_4_11)
             return 3;
     } else { // Kernels from kernel.org
-        if (kver >= NETDATA_EBPF_KERNEL_6_12)
-            return 11;
+        if (kver >= NETDATA_EBPF_KERNEL_7_0)
+            return 13;
+        else if (kver >= NETDATA_EBPF_KERNEL_6_12)
+            return 12;
         else if (kver >= NETDATA_EBPF_KERNEL_6_8)
+            return 11;
+        else if (kver >= NETDATA_EBPF_KERNEL_5_17)
             return 10;
-	else if (kver >= NETDATA_EBPF_KERNEL_5_16)
+        else if (kver >= NETDATA_EBPF_KERNEL_5_16)
             return 9;
         else if (kver >= NETDATA_EBPF_KERNEL_5_15)
             return 8;
@@ -1099,8 +1215,10 @@ static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kv
 static void ebpf_start_external_json(char *filename)
 {
     tests_started++;
-    NETDATA_LOG_THREAD_SAFE("\n\"%s\" : {\n    \"Tables\" : {\n",
-            filename);
+    json_first_member = 1;
+    NETDATA_LOG_THREAD_SAFE(",\n  ");
+    ebpf_write_json_string(filename);
+    NETDATA_LOG_THREAD_SAFE(" : {\n    \"Tables\" : {\n");
 }
 
 /*
@@ -1111,7 +1229,8 @@ static void ebpf_start_external_json(char *filename)
  * @param filename  the file to be tested.
  * @param is_return the file type.
  */
-static void ebpf_start_netdata_json(char *filename, int is_return)
+static void ebpf_start_netdata_json(char *filename, int is_return, const char *module,
+                                    int index, int use_buffer, int use_arena, const char *reason)
 {
     static int first = 1;
     tests_started++;
@@ -1119,8 +1238,16 @@ static void ebpf_start_netdata_json(char *filename, int is_return)
         first = 0;
         NETDATA_LOG_THREAD_SAFE("\n");
     }
-    NETDATA_LOG_THREAD_SAFE("\"%s\" : {\n    \"Test\" : \"%s\",\n    \"Tables\" : {\n",
-            filename, (is_return) ? "return" : "entry");
+    json_first_member = 1;
+    NETDATA_LOG_THREAD_SAFE(",\n  ");
+    ebpf_write_json_string(filename);
+    NETDATA_LOG_THREAD_SAFE(" : {\n    \"Test\" : \"%s\",\n"
+                           "    \"Selected\" : {\"Module\" : \"%s\", \"Index\" : %d, \"Kernel\" : \"%s\", "
+                           "\"Flavor\" : \"%s\", \"Reason\" : \"%s\"},\n"
+                           "    \"Tables\" : {\n",
+            (is_return) ? "return" : "entry", module, ebpf_json_kernel_index(index),
+            index >= 0 && (size_t)index < sizeof(ebpf_kernel_names) / sizeof(ebpf_kernel_names[0]) ? ebpf_kernel_names[index] : "unknown",
+            use_arena ? "arena" : (use_buffer ? "buffer" : "base"), reason);
 }
 
 /**
@@ -1228,17 +1355,17 @@ static ebpf_specify_name_t *ebpf_find_names(ebpf_specify_name_t *names, const ch
 static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, size_t total, ebpf_specify_name_t *names)
 {
     memset(load, 0, sizeof(*load));
-    load->links = calloc(total , sizeof(struct bpf_link *));
+    load->links = calloc(total + 2, sizeof(struct bpf_link *));
     if (!load->links) {
         load->last_error = -ENOMEM;
         return -1;
     }
 
     struct bpf_link **links = load->links;
-    size_t i = 0;
     struct bpf_program *prog;
     bpf_object__for_each_program(prog, obj)
     {
+        size_t slot = load->link_count;
         ebpf_specify_name_t *w;
         if (names) {
             const char *name = bpf_program__name(prog);
@@ -1246,26 +1373,39 @@ static int ebpf_attach_programs(ebpf_attach_t *load, struct bpf_object *obj, siz
         } else
             w = NULL;
 
-        if (w) {
-            enum bpf_prog_type type = bpf_program__get_type(prog);
+        if (w && bpf_program__get_type(prog) == BPF_PROG_TYPE_KPROBE) {
             const char *target = w->optional ? w->optional : w->function_to_attach;
-            if (type == BPF_PROG_TYPE_KPROBE)
-                links[i] = bpf_program__attach_kprobe(prog, w->retprobe, target);
+            links[slot] = bpf_program__attach_kprobe(prog, w->retprobe, target);
         } else
-            links[i] = bpf_program__attach(prog);
+            links[slot] = bpf_program__attach(prog);
 
-        if (libbpf_get_error(links[i])) {
-            load->last_error = (int)libbpf_get_error(links[i]);
+        if (libbpf_get_error(links[slot])) {
+            load->last_error = (int)libbpf_get_error(links[slot]);
             load->failed_program_name = bpf_program__name(prog);
             load->failed_program_type = bpf_program__get_type(prog);
-            links[i] = NULL;
-        } else
-            i++;
+            links[slot] = NULL;
+            continue;
+        }
+
+        load->link_count++;
+        load->success++;
+
+        const char *program_name = bpf_program__name(prog);
+        if (!strcmp(program_name, "netdata_block_rq_issue")) {
+            struct bpf_link *extra = bpf_program__attach_kprobe(prog, false, "blk_start_request");
+            if (!libbpf_get_error(extra))
+                links[load->link_count++] = extra;
+        } else if (!strcmp(program_name, "netdata_block_rq_complete")) {
+            struct bpf_link *extra = bpf_program__attach_kprobe(prog, false, "__blk_mq_end_request");
+            if (libbpf_get_error(extra))
+                extra = bpf_program__attach_kprobe(prog, false, "blk_mq_free_request");
+            if (!libbpf_get_error(extra))
+                links[load->link_count++] = extra;
+        }
 
     }
 
-    load->success  = i;
-    load->fail = total - i;
+    load->fail = total - load->success;
 
     return 0;
 }
@@ -1515,11 +1655,7 @@ static void ebpf_read_generic_table(ebpf_table_data_t *values, int fd)
 static void ebpf_write_common_json_vector(ebpf_table_data_t *values, int fd)
 {
     int i;
-    // Read values from 
     for (i = 0; i < end_iteration; i++) {
-       // Wait 5 seconds to fill table.
-        sleep(5);
-
         // Get data from table
         ebpf_read_generic_table(values, fd);
 
@@ -1565,6 +1701,243 @@ static void ebpf_controller_json(ebpf_table_data_t *values, int fd)
             value + zero,  value, zero);
 }
 
+#define NETDATA_DISK_HISTOGRAM_BINS 24
+
+static uint32_t ebpf_map_max_entries_compat(struct bpf_map *map)
+{
+#ifdef LIBBPF_MAJOR_VERSION
+    return bpf_map__max_entries(map);
+#else
+    const struct bpf_map_def *def = bpf_map__def(map);
+    return def ? def->max_entries : 0;
+#endif
+}
+
+typedef struct ebpf_disk_histogram {
+    uint32_t dev;
+    uint64_t bins[NETDATA_DISK_HISTOGRAM_BINS];
+} ebpf_disk_histogram_t;
+
+static uint32_t ebpf_disk_major(uint32_t dev)
+{
+    return (dev >> 8) & 0xfff;
+}
+
+static uint32_t ebpf_disk_minor(uint32_t dev)
+{
+    return (dev & 0xff) | ((dev >> 12) & 0xffffff00);
+}
+
+static int ebpf_disk_histogram_compare(const void *left, const void *right)
+{
+    const ebpf_disk_histogram_t *a = left;
+    const ebpf_disk_histogram_t *b = right;
+    uint32_t major_a = ebpf_disk_major(a->dev);
+    uint32_t major_b = ebpf_disk_major(b->dev);
+
+    if (major_a != major_b)
+        return major_a < major_b ? -1 : 1;
+
+    uint32_t minor_a = ebpf_disk_minor(a->dev);
+    uint32_t minor_b = ebpf_disk_minor(b->dev);
+    return (minor_a > minor_b) - (minor_a < minor_b);
+}
+
+static void ebpf_write_disk_histogram(int fd, struct bpf_map *map, uint32_t type,
+                                      uint32_t key_size, uint32_t value_size)
+{
+    uint32_t capacity = ebpf_map_max_entries_compat(map);
+    int cpus = ebpf_map_value_cpu_count(type);
+    size_t stride = ebpf_map_value_stride(type, value_size);
+    size_t value_length = stride * (size_t)cpus;
+    uint8_t *key = NULL;
+    uint8_t *next_key = NULL;
+    uint8_t *value = NULL;
+    ebpf_disk_histogram_t *rows = NULL;
+    size_t row_count = 0;
+
+    if (key_size < 8 || value_size < sizeof(uint64_t) || !capacity || cpus < 1) {
+        NETDATA_LOG_THREAD_SAFE("\n");
+        return;
+    }
+
+    key = calloc(key_size, 1);
+    next_key = calloc(key_size, 1);
+    value = calloc(value_length, 1);
+    rows = calloc(capacity, sizeof(*rows));
+    if (!key || !next_key || !value || !rows)
+        goto cleanup;
+
+    if (!bpf_map_get_next_key(fd, NULL, next_key)) {
+        do {
+            uint32_t bin, dev;
+            if (!bpf_map_lookup_elem(fd, next_key, value)) {
+                memcpy(&bin, next_key, sizeof(bin));
+                memcpy(&dev, next_key + sizeof(bin), sizeof(dev));
+                if (bin < NETDATA_DISK_HISTOGRAM_BINS) {
+                    size_t row;
+                    for (row = 0; row < row_count && rows[row].dev != dev; row++)
+                        ;
+                    if (row == row_count && row_count < capacity) {
+                        rows[row].dev = dev;
+                        row_count++;
+                    }
+                    if (row < row_count) {
+                        int cpu;
+                        for (cpu = 0; cpu < cpus; cpu++) {
+                            uint64_t count;
+                            memcpy(&count, value + (size_t)cpu * stride, sizeof(count));
+                            rows[row].bins[bin] += count;
+                        }
+                    }
+                }
+            }
+
+            memcpy(key, next_key, key_size);
+            memset(value, 0, value_length);
+        } while (!bpf_map_get_next_key(fd, key, next_key));
+    }
+
+    qsort(rows, row_count, sizeof(*rows), ebpf_disk_histogram_compare);
+    NETDATA_LOG_THREAD_SAFE("                                    ");
+    for (size_t row = 0; row < row_count; row++) {
+        if (row)
+            NETDATA_LOG_THREAD_SAFE(",\n                                    ");
+        NETDATA_LOG_THREAD_SAFE("{ \"Device\" : \"%u:%u\", \"Histogram\" : [\n",
+                                ebpf_disk_major(rows[row].dev), ebpf_disk_minor(rows[row].dev));
+        for (uint32_t bin = 0; bin < NETDATA_DISK_HISTOGRAM_BINS; bin++) {
+            uint64_t min_us = bin ? (uint64_t)1 << bin : 0;
+            uint64_t max_us = ((uint64_t)1 << (bin + 1)) - 1;
+            if (bin)
+                NETDATA_LOG_THREAD_SAFE(",\n");
+            if (bin == NETDATA_DISK_HISTOGRAM_BINS - 1) {
+                NETDATA_LOG_THREAD_SAFE(
+                        "                                        { \"Bin\" : %u, \"Latency_us\" : \">=%llu\", \"Count\" : %llu }",
+                        bin, (unsigned long long)min_us, (unsigned long long)rows[row].bins[bin]);
+            } else {
+                NETDATA_LOG_THREAD_SAFE(
+                        "                                        { \"Bin\" : %u, \"Latency_us\" : \"%llu-%llu\", \"Count\" : %llu }",
+                        bin, (unsigned long long)min_us, (unsigned long long)max_us,
+                        (unsigned long long)rows[row].bins[bin]);
+            }
+        }
+        NETDATA_LOG_THREAD_SAFE("\n                                    ] }");
+    }
+    NETDATA_LOG_THREAD_SAFE("\n");
+
+cleanup:
+    free(rows);
+    free(value);
+    free(next_key);
+    free(key);
+}
+
+#define NETDATA_FS_HISTOGRAM_OPERATIONS 4
+
+static int ebpf_is_filesystem_histogram_map(const char *name)
+{
+    return !strcmp(name, "tbl_btrfs") || !strcmp(name, "tbl_ext4") || !strcmp(name, "tbl_nfs") ||
+           !strcmp(name, "tbl_xfs") || !strcmp(name, "tbl_zfs");
+}
+
+static unsigned int ebpf_map_capture_seconds(struct bpf_object *obj)
+{
+    struct bpf_map *map;
+    unsigned int capture_seconds = 0;
+
+    bpf_object__for_each_map(map, obj) {
+        const char *name = bpf_map__name(map);
+        uint32_t type;
+#ifdef LIBBPF_MAJOR_VERSION
+        type = bpf_map__type(map);
+#else
+        type = bpf_map__def(map)->type;
+#endif
+        if (!strcmp(name, "socket_events")) {
+            if (capture_seconds < 5)
+                capture_seconds = 5;
+            continue;
+        }
+
+        if (!ebpf_map_supports_key_value_io(type))
+            return 10;
+
+        if (capture_seconds < 5)
+            capture_seconds = 5;
+    }
+
+    return capture_seconds;
+}
+
+static void ebpf_write_filesystem_histogram(const char *name, int fd, uint32_t type, uint32_t key_size,
+                                           uint32_t value_size, uint32_t max_entries)
+{
+    static const char *operations[NETDATA_FS_HISTOGRAM_OPERATIONS] = { "read", "write", "open", "sync" };
+    static const char *nfs_operations[NETDATA_FS_HISTOGRAM_OPERATIONS] = { "read", "write", "open", "getattr" };
+    const char **operation_names = !strcmp(name, "tbl_nfs") ? nfs_operations : operations;
+    int cpus = ebpf_map_value_cpu_count(type);
+    size_t stride = ebpf_map_value_stride(type, value_size);
+    size_t value_length = stride * (size_t)cpus;
+    uint8_t *key = NULL;
+    uint8_t *value = NULL;
+    uint64_t histogram[NETDATA_FS_HISTOGRAM_OPERATIONS][NETDATA_DISK_HISTOGRAM_BINS] = { { 0 } };
+
+    if (key_size < sizeof(uint32_t) || value_size < sizeof(uint64_t) ||
+        max_entries < NETDATA_FS_HISTOGRAM_OPERATIONS * NETDATA_DISK_HISTOGRAM_BINS || cpus < 1) {
+        NETDATA_LOG_THREAD_SAFE("\n");
+        return;
+    }
+
+    key = calloc(key_size, 1);
+    value = calloc(value_length, 1);
+    if (!key || !value)
+        goto cleanup;
+
+    for (uint32_t index = 0; index < NETDATA_FS_HISTOGRAM_OPERATIONS * NETDATA_DISK_HISTOGRAM_BINS; index++) {
+        memcpy(key, &index, sizeof(index));
+        memset(value, 0, value_length);
+        if (bpf_map_lookup_elem(fd, key, value))
+            continue;
+
+        uint32_t operation = index / NETDATA_DISK_HISTOGRAM_BINS;
+        uint32_t bin = index % NETDATA_DISK_HISTOGRAM_BINS;
+        for (int cpu = 0; cpu < cpus; cpu++) {
+            uint64_t count;
+            memcpy(&count, value + (size_t)cpu * stride, sizeof(count));
+            histogram[operation][bin] += count;
+        }
+    }
+
+    NETDATA_LOG_THREAD_SAFE("                                    ");
+    for (uint32_t operation = 0; operation < NETDATA_FS_HISTOGRAM_OPERATIONS; operation++) {
+        if (operation)
+            NETDATA_LOG_THREAD_SAFE(",\n                                    ");
+        NETDATA_LOG_THREAD_SAFE("{ \"Operation\" : \"%s\", \"Histogram\" : [\n", operation_names[operation]);
+        for (uint32_t bin = 0; bin < NETDATA_DISK_HISTOGRAM_BINS; bin++) {
+            uint64_t min_us = bin ? (uint64_t)1 << bin : 0;
+            uint64_t max_us = ((uint64_t)1 << (bin + 1)) - 1;
+            if (bin)
+                NETDATA_LOG_THREAD_SAFE(",\n");
+            if (bin == NETDATA_DISK_HISTOGRAM_BINS - 1) {
+                NETDATA_LOG_THREAD_SAFE(
+                        "                                        { \"Bin\" : %u, \"Latency_us\" : \">=%llu\", \"Count\" : %llu }",
+                        bin, (unsigned long long)min_us, (unsigned long long)histogram[operation][bin]);
+            } else {
+                NETDATA_LOG_THREAD_SAFE(
+                        "                                        { \"Bin\" : %u, \"Latency_us\" : \"%llu-%llu\", \"Count\" : %llu }",
+                        bin, (unsigned long long)min_us, (unsigned long long)max_us,
+                        (unsigned long long)histogram[operation][bin]);
+            }
+        }
+        NETDATA_LOG_THREAD_SAFE("\n                                    ] }");
+    }
+    NETDATA_LOG_THREAD_SAFE("\n");
+
+cleanup:
+    free(value);
+    free(key);
+}
+
 static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
 {
     char error_buffer[128];
@@ -1581,6 +1954,7 @@ static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd,
         return;
     }
 
+    ebpf_json_member_prefix();
     NETDATA_LOG_THREAD_SAFE(
             "        \"%s\" : {\n"
             "            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
@@ -1609,8 +1983,6 @@ static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd,
         size_t ring_size = 0;
         size_t avail_data = 0;
         const char *error_message;
-
-        sleep(10);
 
         if (type == BPF_MAP_TYPE_RINGBUF && rb) {
             struct ring *ring = ring_buffer__ring(rb, 0);
@@ -1691,13 +2063,47 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
             ebpf_test_ringbuf_map(map, name, fd, type, key_size, value_size);
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                     "                      }\n"
-                    "        },\n");
+                    "        }");
+            tables++;
+            continue;
+        }
+
+        if (!strcmp(name, "tbl_disk_iocall")) {
+            ebpf_json_member_prefix();
+            NETDATA_LOG_THREAD_SAFE(
+                    "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
+                    "                       \"Type\" : %u,\n"
+                    "                       \"FD\" : %d,\n"
+                    "                       \"Data\" : [\n",
+                    name, key_size, value_size, type, fd);
+            ebpf_write_disk_histogram(fd, map, type, key_size, value_size);
+            NETDATA_LOG_THREAD_SAFE("                                ]\n"
+                    "                      }\n"
+                    "        }");
+            tables++;
+            continue;
+        }
+
+        if (ebpf_is_filesystem_histogram_map(name)) {
+            ebpf_json_member_prefix();
+            NETDATA_LOG_THREAD_SAFE(
+                    "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
+                    "                       \"Type\" : %u,\n"
+                    "                       \"FD\" : %d,\n"
+                    "                       \"Data\" : [\n",
+                    name, key_size, value_size, type, fd);
+            ebpf_write_filesystem_histogram(name, fd, type, key_size, value_size,
+                                            ebpf_map_max_entries_compat(map));
+            NETDATA_LOG_THREAD_SAFE("                                ]\n"
+                    "                      }\n"
+                    "        }");
             tables++;
             continue;
         }
 
         values = ebpf_allocate_tables(name, type, key_size, value_size);
         if (values) {
+            ebpf_json_member_prefix();
             // Write header
            NETDATA_LOG_THREAD_SAFE(
                    "        \"%s\" : {\n            \"Info\" : { \"Length\" : { \"Key\" : %u, \"Value\" : %u},\n"
@@ -1716,7 +2122,7 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
             // Close JSON vector and object
             NETDATA_LOG_THREAD_SAFE("                                ]\n"
                    "                      }\n"
-                   "        },\n");
+                   "        }");
 
             tables++;
 
@@ -1725,9 +2131,8 @@ static void ebpf_test_maps(struct bpf_object *obj, char *ctrl)
     }
 
     // Write total tables read
-    if (tables) {
-        NETDATA_LOG_THREAD_SAFE("        \"Total tables\" : %d\n", tables);
-    }
+    ebpf_json_member_prefix();
+    NETDATA_LOG_THREAD_SAFE("        \"Total tables\" : %d\n", tables);
 }
 
 /**
@@ -1763,7 +2168,8 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         end = def->max_entries;
 #endif
         if (!ebpf_map_supports_key_value_io(type)) {
-            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Control table %s uses unsupported map type %s.\",",
+            ebpf_json_member_prefix();
+            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Control table %s uses unsupported map type %s.\"",
                     name, ebpf_map_type_name(type));
             continue;
         }
@@ -1777,13 +2183,15 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
         unsigned int i;
 
         if (!value_buffer) {
-            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Cannot allocate control buffer for table %s.\",", name);
+            ebpf_json_member_prefix();
+            NETDATA_LOG_THREAD_SAFE("\"error\" : \"Cannot allocate control buffer for table %s.\"", name);
             continue;
         }
 
         if (limit > NETDATA_CONTROLLER_END) {
+            ebpf_json_member_prefix();
             NETDATA_LOG_THREAD_SAFE(
-                    "\"error\" : \"Control table %s has %u entries, limiting writes to %u.\",",
+                    "\"error\" : \"Control table %s has %u entries, limiting writes to %u.\"",
                     name, end, NETDATA_CONTROLLER_END);
             limit = NETDATA_CONTROLLER_END;
         }
@@ -1796,8 +2204,10 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
                 ebpf_store_scalar_value(value_buffer + (cpu * value_stride), value_size, values[i]);
             }
 
-             if (bpf_map_update_elem(fd, &i, value_buffer, 0))
-                 NETDATA_LOG_THREAD_SAFE("\"error\" : \"Add key(%u) for controller table failed.\",", i);
+             if (bpf_map_update_elem(fd, &i, value_buffer, 0)) {
+                 ebpf_json_member_prefix();
+                 NETDATA_LOG_THREAD_SAFE("\"error\" : \"Add key(%u) for controller table failed.\"", i);
+             }
         }
 
         free(value_buffer);
@@ -1826,8 +2236,11 @@ static void ebpf_fill_ctrl(struct bpf_object *obj, char *ctrl)
 static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t maps, char *ctrl, uint32_t my_kernel)
 {
     static char *result[] = { "Success", "Fail" };
+    int maps_requested = maps;
     int socket_filter_detected;
     size_t total;
+
+    (void)my_kernel;
 
     struct bpf_object *obj =  bpf_object__open_file(filename, NULL);
     if (libbpf_get_error(obj)) {
@@ -1840,6 +2253,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
     ebpf_write_object_map_types(obj);
     socket_filter_detected = ebpf_object_has_socket_filter(obj);
     if (socket_filter_detected) {
+        maps = 1;
         char *ret = (char *)ebpf_socket_filter_tester(obj, maps, stdlog, end_iteration, dns_ports, dns_port_count);
         bpf_object__close(obj);
         return ret;
@@ -1861,28 +2275,35 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
                                  load.last_error, socket_filter_detected, total, &load);
     }
 
+    if (!errors && !load.fail) {
+        maps = 1;
+    }
+
     if (!errors && maps) {
         struct bpf_map *socket_table = ebpf_find_socket_table(obj);
 
         if (socket_table) {
+            unsigned int remaining = ebpf_map_capture_seconds(obj);
+            while ((remaining = sleep(remaining)) > 0) {
+            }
             ebpf_socket_table_tester(socket_table, stdlog, end_iteration);
         } else {
-            if (ctrl) {
+            if (ctrl && maps_requested) {
                 ebpf_fill_ctrl(obj, ctrl);
             }
 
+            unsigned int remaining = ebpf_map_capture_seconds(obj);
+            while ((remaining = sleep(remaining)) > 0) {
+            }
             ebpf_test_maps(obj, ctrl);
         }
     }
 
     if (!errors) {
-        struct bpf_link **links = load.links;
-        struct bpf_program *prog;
-        size_t i = 0 ;
-        bpf_object__for_each_program(prog, obj) {
-            bpf_link__destroy(links[i]);
-            i++;
-        }
+        size_t i;
+        for (i = 0; i < load.link_count; i++)
+            bpf_link__destroy(load.links[i]);
+        free(load.links);
     }
 
     bpf_object__close(obj);
@@ -1943,25 +2364,32 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
     ebpf_map_support_t map_support;
     char load[FILENAME_MAX];
     int i = 0;
-    int is_debian = ebpf_is_debian_flavor();
 
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
+        if (!strcmp(ebpf_modules[i].name, "disk") && rhf_version <= 0 &&
+            kver >= NETDATA_EBPF_KERNEL_6_16) {
+            i++;
+            continue;
+        }
+
         int use_buffer_mode = buffer_mode;
         int use_arena_mode = arena_mode;
 
+        const char *selection_reason = "base flavor";
         if (!use_buffer_mode && !use_arena_mode) {
             if (!strcmp(ebpf_modules[i].name, "cachestat")) {
                 if (kver >= NETDATA_EBPF_KERNEL_5_10)
                     use_buffer_mode = 1;
-            } else if (ebpf_module_has_arena(ebpf_modules[i].name) &&
-                       kver >= NETDATA_EBPF_KERNEL_6_12 && !is_debian) {
-                use_arena_mode = 1;
             } else if (ebpf_module_has_buffer(ebpf_modules[i].name) &&
                        kver >= NETDATA_EBPF_KERNEL_5_10) {
                 use_buffer_mode = 1;
             }
         }
+        if (use_arena_mode)
+            selection_reason = "explicit --arena";
+        else if (use_buffer_mode)
+            selection_reason = buffer_mode ? "explicit --buffer" : "production default buffer";
 
         if (use_arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name)) {
             i++;
@@ -2013,25 +2441,34 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
             if (compatible.size) {
                 for (j = 0; j < compatible.size; j++) {
-                    ebpf_start_netdata_json(compatible.files[j], is_return);
+                    ebpf_start_netdata_json(compatible.files[j], is_return, ebpf_modules[i].name,
+                                            ebpf_candidate_version_index(compatible.files[j],
+                                                    ebpf_modules[i].name, is_return, rhf_version,
+                                                    kernels_to_use, max_idx, use_buffer_mode, use_arena_mode),
+                                            use_buffer_mode, use_arena_mode, selection_reason);
                     {
                         char *result = ebpf_tester(compatible.files[j], ebpf_modules[i].update_names,
                                                    flags & NETDATA_FLAG_CONTENT, ebpf_modules[i].ctrl_table, kver);
-NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
+NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" : \"%s\"\n}", result);
                     }
                 }
             } else if (first_incompatible) {
-                ebpf_start_netdata_json(first_incompatible, is_return);
+                ebpf_start_netdata_json(first_incompatible, is_return, ebpf_modules[i].name,
+                                        ebpf_candidate_version_index(first_incompatible,
+                                                ebpf_modules[i].name, is_return, rhf_version,
+                                                kernels_to_use, max_idx, use_buffer_mode, use_arena_mode),
+                                        use_buffer_mode, use_arena_mode, selection_reason);
                 ebpf_write_map_compatibility_debug(unsupported_type, &map_support);
-                NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", "Fail");
+                NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" : \"%s\"\n}", "Fail");
             } else {
                 ebpf_mount_name(load, FILENAME_MAX - 1, idx, ebpf_modules[i].name, is_return, rhf_version,
                                 use_buffer_mode, use_arena_mode);
-                ebpf_start_netdata_json(load, is_return);
+                ebpf_start_netdata_json(load, is_return, ebpf_modules[i].name,
+                                        idx, use_buffer_mode, use_arena_mode, selection_reason);
                 {
                     char *result = ebpf_tester(load, ebpf_modules[i].update_names, flags & NETDATA_FLAG_CONTENT,
                                                ebpf_modules[i].ctrl_table, kver);
-NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
+NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" : \"%s\"\n}", result);
                 }
             }
 
@@ -2078,10 +2515,9 @@ static void ebpf_help()
                     "--load-binary      Load a given eBPF program into  kernel.\n"
                     "--dns-port         Comma separated list of DNS ports to monitor. Default value is 53.\n"
                     "--netdata-path     Directory where eBPF programs are present.\n"
-                    "--log-path         Filename to write log information. When this option is not given,\n"
-                    "                   software will use stderr.\n\n"
-                    "--content          Test content stored inside hash tables.\n"
-                    "--iteration        Number of iterations when content is read, default value is 1.\n"
+                    "--log-path         Filename for JSON output. Without this option, JSON goes to stdout.\n\n"
+                    "--content          Inspect maps even when one or more programs fail to attach.\n"
+                    "--iteration        Deprecated and ignored; retained for CLI compatibility.\n"
                     "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"
                     "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n"
                     "--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n\n"
@@ -2346,7 +2782,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                     stdlog = fopen(log_path, "w");
                     if (!stdlog) {
                         stdlog = stderr;
-                        NETDATA_LOG_THREAD_SAFE("\"Error\": \"Cannot open %s\",\n", log_path);
+                        fprintf(stderr, "Cannot open %s\n", log_path);
                     }
 
                     break;
@@ -2355,8 +2791,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                 {
                     int value = (int)strtol(optarg, NULL, 10);
                     if (value < 1) {
-                        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Value given (%d) is smaller than the minimum, reseting to default 1.\",\n",
-                                value);
+                        fprintf(stderr, "Invalid --iteration value '%s'; using 1.\n", optarg);
                         value = 1;
                     }
 
@@ -2367,8 +2802,7 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
                 {
                     int value = (int)strtol(optarg, NULL, 10);
                     if (value < NETDATA_APPS_LEVEL_REAL_PARENT || value >= NETDATA_APPS_LEVEL_END) {
-                        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Value given (%d) is not valid, reseting to default 0 (Real Parent).\",\n",
-                                value);
+                        fprintf(stderr, "Invalid --pid value '%s'; using 0 (Real Parent).\n", optarg);
                         value = NETDATA_APPS_LEVEL_REAL_PARENT;
                     }
 
@@ -2391,12 +2825,12 @@ uint64_t ebpf_parse_arguments(int argc, char **argv, int kver, int rhf_version)
     }
 
     if (buffer_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_5_8) {
-        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Ring buffer support requires kernel >= 5.8, current version is not supported.\",\n");
+        fprintf(stderr, "Ring buffer support requires kernel >= 5.8; current kernel is not supported.\n");
         exit(1);
     }
 
     if (arena_mode && rhf_version == -1 && kver < NETDATA_EBPF_KERNEL_6_9) {
-        NETDATA_LOG_THREAD_SAFE("\"Error\" : \"Arena support requires kernel >= 6.9, current version is not supported.\",\n");
+        fprintf(stderr, "Arena support requires kernel >= 6.9; current kernel is not supported.\n");
         exit(1);
     }
 
@@ -2448,8 +2882,8 @@ static void ebpf_clean_name_vectors()
  */
 static int ebpf_write_error_exit(char *msg, int ret)
 {
-    NETDATA_LOG_THREAD_SAFE("\"Error\" : \"%s\",\n", msg);
-    if (log_path)
+    NETDATA_LOG_THREAD_SAFE(",\n  \"Error\" : \"%s\",\n  \"End\" : \"Good bye!!!\" }\n", msg);
+    if (log_path && stdlog != stderr && stdlog != stdout)
         fclose(stdlog);
 
     return ret;
@@ -2470,6 +2904,17 @@ int main(int argc, char **argv)
     uint32_t my_kernel = ebpf_get_kernel_version();
     int rhf_version = ebpf_get_redhat_release();
     int ret = 0;
+    char kernel_release[VERSION_STRING_LEN + 1] = "unknown";
+    FILE *kernel_release_file;
+
+    kernel_release_file = fopen("/proc/sys/kernel/osrelease", "r");
+    if (kernel_release_file) {
+        if (fgets(kernel_release, sizeof(kernel_release), kernel_release_file)) {
+            kernel_release[strcspn(kernel_release, "\r\n")] = '\0';
+        }
+        fclose(kernel_release_file);
+    }
+
     stdlog = stderr;
     nprocesses = sysconf(_SC_NPROCESSORS_ONLN);
     if (nprocesses < 0) {
@@ -2479,8 +2924,28 @@ int main(int argc, char **argv)
 
     uint64_t flags = ebpf_parse_arguments(argc, argv, my_kernel, rhf_version);
 
+    if (end_iteration > 1) {
+        fprintf(stderr, "Warning: --iteration is deprecated and ignored; the tester uses one capture window per object.\n");
+        end_iteration = 1;
+    }
+
+    if (!log_path || stdlog == stderr)
+        stdlog = stdout;
+
     // Start JSON output
-    NETDATA_LOG_THREAD_SAFE("{");
+    NETDATA_LOG_THREAD_SAFE("{\n  \"Run Info\" : {\n"
+                            "    \"Kernel Version\" : ");
+    ebpf_write_json_string(kernel_release);
+    NETDATA_LOG_THREAD_SAFE(",\n"
+                            "    \"Kernel Code\" : %u,\n"
+                            "    \"Red Hat Version\" : %d,\n"
+                            "    \"Flags\" : %llu,\n"
+                            "    \"Buffer Mode\" : %s,\n"
+                            "    \"Arena Mode\" : %s\n"
+                            "  }",
+                            my_kernel,
+                            rhf_version, (unsigned long long)flags,
+                            buffer_mode ? "true" : "false", arena_mode ? "true" : "false");
 
     if (ebpf_memlock_limit()) {
         return ebpf_write_error_exit("Cannot adjust memory limit.", 2);
@@ -2497,20 +2962,42 @@ int main(int argc, char **argv)
         if (specific_ebpf) {
             ebpf_start_external_json(specific_ebpf);
             char *result = ebpf_tester(specific_ebpf, NULL, flags & NETDATA_FLAG_CONTENT, NULL, my_kernel);
-            NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" :  \"%s\"\n},\n", result);
+            NETDATA_LOG_THREAD_SAFE("    },\n    \"Status\" : \"%s\"\n}", result);
         }
     }
 
     if (!tests_started) {
         NETDATA_LOG_THREAD_SAFE(
-                "\"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\",\n");
+                ",\n  \"Error\" : \"No eBPF tests were started. Check selected options, binary name, and --netdata-path.\"");
         ret = 1;
     }
 
     // END JSON output
-    NETDATA_LOG_THREAD_SAFE("\"End\" : \"Good bye!!!\" }\n");
+    NETDATA_LOG_THREAD_SAFE(",\n  \"Skipped\" : [");
+    {
+        int first = 1;
+        int i;
+        for (i = 0; !(flags & NETDATA_FLAG_LOAD_BINARY) && ebpf_modules[i].name; i++) {
+            const char *reason = NULL;
+            if (!(flags & ebpf_modules[i].flags))
+                reason = "not selected by flags";
+            else if (!strcmp(ebpf_modules[i].name, "disk") && rhf_version <= 0 &&
+                     my_kernel >= NETDATA_EBPF_KERNEL_6_16)
+                reason = "disabled on generic kernels >= 6.16";
+            else if (arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name))
+                reason = "arena flavor unavailable";
+            else if (buffer_mode && !ebpf_module_has_buffer(ebpf_modules[i].name))
+                reason = "buffer flavor unavailable";
+            if (reason) {
+                NETDATA_LOG_THREAD_SAFE("%s{\"Module\" : \"%s\", \"Reason\" : \"%s\"}",
+                                        first ? "" : ", ", ebpf_modules[i].name, reason);
+                first = 0;
+            }
+        }
+    }
+    NETDATA_LOG_THREAD_SAFE("],\n  \"End\" : \"Good bye!!!\" }\n");
 
-    if (log_path)
+    if (log_path && stdlog != stderr && stdlog != stdout)
         fclose(stdlog);
 
     return ret;
