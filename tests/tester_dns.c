@@ -1,5 +1,5 @@
 #include <arpa/inet.h>
-#include <bpf.h>
+#include <bpf/bpf.h>
 #include <errno.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
@@ -12,7 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <libbpf.h>
+#include <bpf/libbpf.h>
 
 #include "tester_dns.h"
 

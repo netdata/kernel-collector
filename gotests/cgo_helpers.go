@@ -1,7 +1,7 @@
 package main
 
 /*
-#cgo CFLAGS: -I../.local_libbpf -I../libbpf/include -I../libbpf/include/uapi -I../libbpf/src
+#cgo CFLAGS: -I../.local_libbpf
 #cgo LDFLAGS: -L../.local_libbpf -lbpf -lz -lelf
 
 #include <errno.h>

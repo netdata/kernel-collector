@@ -1,8 +1,8 @@
 #ifndef NETDATA_LEGACY_TESTER
 #define NETDATA_LEGACY_TESTER 1
 
-#include <libbpf.h>
-#include <bpf.h>
+#include <bpf/libbpf.h>
+#include <bpf/bpf.h>
 
 #include "../includes/netdata_defs.h"
 

@@ -1,5 +1,5 @@
 #include <arpa/inet.h>
-#include <bpf.h>
+#include <bpf/bpf.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <libbpf.h>
+#include <bpf/libbpf.h>
 
 #include "../includes/netdata_socket_buffer.h"
 #include "tester_socket.h"

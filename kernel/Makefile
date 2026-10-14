@@ -47,6 +47,9 @@ VER_MAJOR := $(shell printf '%s\n' '$(KERNEL_VERSION)' | cut -d. -f1)
 VER_MINOR := $(shell printf '%s\n' '$(KERNEL_VERSION)' | cut -d. -f2)
 
 ifneq ($(strip $(MAKECMDGOALS)),clean)
+ifeq ($(strip $(KERNEL_VERSION)),)
+$(error Cannot read $(KERNELSOURCE)/include/config/kernel.release; set KERNELSOURCE to a configured kernel tree)
+endif
 ifneq ($(shell printf '%s\n' '$(KERNEL_VERSION)' | awk -F'[.-]' '{ if (($$1 == 3 && $$2 == 10) || $$1 > 4 || ($$1 == 4 && $$2 >= 12)) exit 0; exit 1 }'; echo $$?),0)
 $(error Unsupported kernel $(KERNEL_VERSION): supported versions are 3.10 and 4.12 or newer)
 endif
@@ -223,11 +226,7 @@ endif
 else
 libbpf:
 	# -fPIE added to be compatible with olders clang/gcc
-	@set -e; \
-	libbpf_dir=$$(cd "$(LIBBPF)" && pwd -P); \
-	cd "$$libbpf_dir/src"; \
-	/bin/bash ../../.dockerfiles/change_libbpf.sh $(VER_MAJOR) $(VER_MINOR); \
-	$(MAKE) CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install
+	$(MAKE) -C $(LIBBPF)/src CC=$(CC_LIBBPF) CFLAGS="-fPIE" BUILD_STATIC_ONLY=1 DESTDIR=../../.local_libbpf INCLUDEDIR= LIBDIR= UAPIDIR= install
 
 tester: libbpf
 	cd ../tests && $(MAKE) tester
