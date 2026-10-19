@@ -68,25 +68,7 @@ jobs:
           if [ "${{ matrix.kernel_version }}" = "6.12.0" ]; then
             artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.12.rhf-*.tar' -print -quit)
             test -n "$artifact"
-            tar -tf "$artifact" > artifact.list
-            base_apps=(btrfs cachestat dc disk ext4 fd fdatasync fsync dns hardirq mdflush mount msync network_viewer nfs oomkill process shm socket softirq sync syncfs sync_file_range swap vfs xfs zfs)
-            ringbuf_apps=(cachestat dc dns fd socket oomkill process shm swap vfs)
-            arena_apps=(cachestat dc dns fd socket oomkill process shm swap vfs)
-            for app in "${base_apps[@]}"; do
-              for prefix in p r; do
-                grep -Fxq "${prefix}netdata_ebpf_${app}.6.12.rhf.o" artifact.list
-              done
-            done
-            for app in "${ringbuf_apps[@]}"; do
-              for prefix in p r; do
-                grep -Fxq "${prefix}netdata_ebpf_${app}_buffer.6.12.rhf.o" artifact.list
-              done
-            done
-            for app in "${arena_apps[@]}"; do
-              for prefix in p r; do
-                grep -Fxq "${prefix}netdata_ebpf_${app}_arena.6.12.rhf.o" artifact.list
-              done
-            done
+            .github/scripts/verify-rhf-artifact.sh "$artifact"
           fi
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
