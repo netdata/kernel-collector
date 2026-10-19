@@ -76,3 +76,31 @@ jobs:
         with:
           name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
           path: artifacts
+
+  build-generic-612:
+    name: Build generic 6.12 artifacts
+    strategy:
+      fail-fast: false
+      matrix:
+        libc: [static, glibc, musl]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: Build generic 6.12 objects
+        run: ./build.sh 6.12.0 "${{ matrix.libc }}" generic
+      - name: Verify generic artifact
+        run: |
+          ls -lah artifacts
+          artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.12-*.tar' -print -quit)
+          test -n "$artifact"
+          .github/scripts/verify-rhf-artifact.sh "$artifact" generic
+      - name: Upload generic artifacts
+        uses: actions/upload-artifact@v6
+        if: success()
+        with:
+          name: artifacts-6.12.0-generic-${{ matrix.libc }}
+          path: artifacts

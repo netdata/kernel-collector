@@ -30,6 +30,38 @@ func TestJSONMemberFramingWithFailureAfterMapTypes(t *testing.T) {
 	}
 }
 
+func TestLegacyArtifactFamilyAvailability(t *testing.T) {
+	tests := []struct {
+		name   string
+		module string
+		rhf    int
+		kver   int
+		want   bool
+	}{
+		{name: "3.10 keeps available collectors", module: "swap", rhf: 7 * 256, kver: 3<<16 + 10<<8, want: true},
+		{name: "3.10 skips missing DNS", module: "dns", rhf: 7 * 256, kver: 3<<16 + 10<<8},
+		{name: "generic 6.10 disk exists", module: "disk", rhf: -1, kver: 6<<16 + 10<<8, want: true},
+		{name: "generic 6.10 legacy family exists", module: "process", rhf: -1, kver: 6<<16 + 10<<8, want: true},
+		{name: "generic 6.12 full family exists", module: "dns", rhf: -1, kver: 6<<16 + 12<<8, want: true},
+		{name: "generic 6.16 family is absent", module: "swap", rhf: -1, kver: 6<<16 + 16<<8},
+		{name: "generic 7.0 process exists", module: "process", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 cachestat exists", module: "cachestat", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 dc exists", module: "dc", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 fd exists", module: "fd", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 socket exists", module: "socket", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 DNS is absent", module: "dns", rhf: -1, kver: netdataEBPFKernel70},
+		{name: "RHEL 10 6.12 family exists", module: "dns", rhf: 10 * 256, kver: netdataEBPFKernel612, want: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := legacyArtifactFamilyAvailable(tc.module, tc.rhf, tc.kver); got != tc.want {
+				t.Fatalf("legacyArtifactFamilyAvailable() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseDNSPortList(t *testing.T) {
 	t.Run("returns default when no valid ports exist", func(t *testing.T) {
 		var out bytes.Buffer

@@ -15,6 +15,7 @@ parse_kernel_version() {
 
 select_kernel_version() {
     FORCE_RHF="${3:-}"
+    FULL_KERNEL_VERSION="${4:-${1}.${2}}"
     VER6_12_0="006012"
     VER7_0_0="007000"
     VER6_8_0="006008"
@@ -31,7 +32,9 @@ select_kernel_version() {
     VER3_10_0="003010"
     ISRH=""
 
-    if [ "${KVER}" -eq "${VER3_10_0}" ]; then
+    if [ "${FULL_KERNEL_VERSION}" = "6.16.2" ]; then
+        KSELECTED="6.16.2";
+    elif [ "${KVER}" -eq "${VER3_10_0}" ]; then
         KSELECTED="3.10";
     elif [ "${KVER}" -ge "${VER7_0_0}" ]; then
         KSELECTED="7.0";
@@ -77,13 +80,7 @@ OBJECTNAME="$3"
 NAME=${OBJECTNAME%_*}
 KVER=$(parse_kernel_version "$1" "$2")
 
-KNAME=$(select_kernel_version "${1}" "${2}" "${RHF:-}")
-
-# Disk request layout changed in 5.17. Keep other objects on the existing
-# 5.16 suffix; the disk selector is updated independently in the agent.
-if [ "${NAME}" != "disk" ] && [ "${KVER}" -ge "005017" ] && [ "${KVER}" -lt "006008" ]; then
-    KNAME="5.16"
-fi
+KNAME=$(select_kernel_version "${1}" "${2}" "${4:-}" "${5:-}")
 
 cp "r${NAME}_kern.o" "../rnetdata_ebpf_${NAME}.${KNAME}.o"
 cp "p${NAME}_kern.o" "../pnetdata_ebpf_${NAME}.${KNAME}.o"

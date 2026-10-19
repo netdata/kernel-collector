@@ -79,11 +79,11 @@ static ebpf_specify_name_t fd_optional_name[] = { {.program_name = "netdata_clos
 ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_10 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_BTRFS, .name = "btrfs", .update_names = NULL, .ctrl_table = "btrfs_ctrl" },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_15 | NETDATA_V5_14 | NETDATA_V5_16,
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_15 | NETDATA_V5_14 | NETDATA_V7_0 | NETDATA_V5_16,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_CACHESTAT, .name = "cachestat", .update_names = NULL, .ctrl_table = "cstat_ctrl" },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V7_0,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_DC, .name = "dc", .update_names = dc_optional_name, .ctrl_table = "dcstat_ctrl" },
@@ -91,7 +91,7 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_DISK, .name = "disk", .update_names = NULL, .ctrl_table = "disk_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_EXT4, .name = "ext4", .update_names = NULL, .ctrl_table = "ext4_ctrl" },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14,
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V7_0,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_FD, .name = "fd", .update_names = fd_optional_name, .ctrl_table = "fd_ctrl" },
@@ -107,7 +107,7 @@ ebpf_module_t ebpf_modules[] = {
       .flags = NETDATA_FLAG_MOUNT, .name = "mount", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SYNC, .name = "msync", .update_names = NULL, .ctrl_table = NULL },
-    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+    { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V7_0,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SOCKET, .name = "socket", .update_names = NULL, .ctrl_table = "socket_ctrl" },
@@ -985,7 +985,8 @@ static int ebpf_is_redhat_family_id(const char *value, size_t length)
     return (length == 4 && !strncmp(value, "rhel", length)) ||
            (length == 6 && !strncmp(value, "centos", length)) ||
            (length == 9 && !strncmp(value, "almalinux", length)) ||
-           (length == 5 && !strncmp(value, "rocky", length));
+           (length == 5 && !strncmp(value, "rocky", length)) ||
+           (length == 10 && !strncmp(value, "cloudlinux", length));
 }
 
 static int ebpf_has_redhat_family_id(const char *value)
@@ -1076,7 +1077,8 @@ static int ebpf_parse_redhat_release_version(const char *release)
         (vendor_len >= 7 && !strncmp(release, "Red Hat", 7)) ||
         (vendor_len >= 6 && !strncmp(release, "CentOS", 6)) ||
         (vendor_len >= 9 && !strncmp(release, "AlmaLinux", 9)) ||
-        (vendor_len >= 11 && !strncmp(release, "Rocky Linux", 11));
+        (vendor_len >= 11 && !strncmp(release, "Rocky Linux", 11)) ||
+        (vendor_len >= 10 && !strncmp(release, "CloudLinux", 10));
     if (!is_supported_vendor)
         return -1;
 
@@ -1133,6 +1135,31 @@ static int ebpf_is_rhel10_6_12_stream(int rhf_version, uint32_t kver)
 {
     return rhf_version >= 10 * 256 && rhf_version < 11 * 256 && kver >= NETDATA_EBPF_KERNEL_6_12 &&
            kver < NETDATA_EBPF_KERNEL_6_12 + 256;
+}
+
+static int ebpf_legacy_artifact_family_supported(const char *name, int rhf_version, uint32_t kver)
+{
+    if (kver < NETDATA_EBPF_KERNEL_4_14)
+        return strcmp(name, "dns") != 0;
+
+    if (ebpf_is_rhel10_6_12_stream(rhf_version, kver) ||
+        (rhf_version <= 0 && kver >= NETDATA_EBPF_KERNEL_6_12 && kver < NETDATA_EBPF_KERNEL_6_12 + 256))
+        return 1;
+
+    if (rhf_version > 0)
+        return kver < NETDATA_EBPF_KERNEL_5_17;
+
+    if (kver >= NETDATA_EBPF_KERNEL_7_0)
+        return !strcmp(name, "cachestat") || !strcmp(name, "dc") || !strcmp(name, "fd") ||
+               !strcmp(name, "socket") || !strcmp(name, "process") || !strcmp(name, "swap");
+
+    if (kver >= NETDATA_EBPF_KERNEL_6_12 + 256)
+        return 0;
+
+    if (kver >= NETDATA_EBPF_KERNEL_6_8)
+        return 1;
+
+    return 1;
 }
 
 /**
@@ -2377,6 +2404,16 @@ static int ebpf_module_has_arena(const char *name)
     return 0;
 }
 
+static int ebpf_legacy_artifact_flavor_supported(const char *name, int rhf_version, uint32_t kver,
+                                                int use_buffer_mode, int use_arena_mode)
+{
+    if (use_arena_mode)
+        return ebpf_module_has_arena(name) && kver >= NETDATA_EBPF_KERNEL_6_9;
+    if (use_buffer_mode)
+        return ebpf_module_has_buffer(name) && kver >= NETDATA_EBPF_KERNEL_5_8;
+    return ebpf_legacy_artifact_family_supported(name, rhf_version, kver);
+}
+
 static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return, uint64_t flags)
 {
     ebpf_map_support_t map_support;
@@ -2421,6 +2458,12 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
             continue;
         }
 
+        if (!ebpf_legacy_artifact_flavor_supported(ebpf_modules[i].name, rhf_version, kver,
+                                                  use_buffer_mode, use_arena_mode)) {
+            i++;
+            continue;
+        }
+
         if (flags & ebpf_modules[i].flags) {
             ebpf_candidate_list_t candidates;
             ebpf_candidate_list_t compatible = { 0 };
@@ -2432,7 +2475,9 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
                                       ((use_buffer_mode && ebpf_modules[i].buffer_kernels) ?
                                        ebpf_modules[i].buffer_kernels : ebpf_modules[i].kernels);
             int rhel10 = ebpf_is_rhel10_6_12_stream(rhf_version, kver);
-            if (rhel10)
+            int generic612 = rhf_version <= 0 && kver >= NETDATA_EBPF_KERNEL_6_12 &&
+                             kver < NETDATA_EBPF_KERNEL_6_12 + 256;
+            if (rhel10 || generic612)
                 kernels_to_use |= NETDATA_V6_12;
             uint32_t max_idx = ebpf_select_max_index(rhf_version, kver);
             uint32_t idx = !strcmp(ebpf_modules[i].name, "disk")
@@ -2441,6 +2486,9 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
             ebpf_discover_candidates(&candidates, ebpf_modules[i].name, is_return,
                                      kernels_to_use, max_idx, rhf_version, use_buffer_mode, use_arena_mode);
+            if (!candidates.size && rhf_version > 0 && !rhel10)
+                ebpf_discover_candidates(&candidates, ebpf_modules[i].name, is_return,
+                                         kernels_to_use, max_idx, -1, use_buffer_mode, use_arena_mode);
             for (j = 0; j < candidates.size; j++) {
                 struct bpf_object *obj = bpf_object__open_file(candidates.files[j], NULL);
                 if (libbpf_get_error(obj)) {

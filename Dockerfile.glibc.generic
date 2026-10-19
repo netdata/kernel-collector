@@ -18,9 +18,10 @@ RUN apt-get update && \
 
 RUN mkdir -p /usr/src && \
     cd /usr/src && \
-    wget -q https://cdn.kernel.org/pub/linux/kernel/v$(echo "$KERNEL_VERSION" | cut -f 1 -d '.').x/linux-${KERNEL_VERSION}.tar.xz && \
-    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
-    ln -s linux-${KERNEL_VERSION} linux
+    SOURCE_KERNEL_VERSION=$(echo "$KERNEL_VERSION" | sed -E 's/\.0$//') && \
+    wget -q https://cdn.kernel.org/pub/linux/kernel/v$(echo "$SOURCE_KERNEL_VERSION" | cut -f 1 -d '.').x/linux-${SOURCE_KERNEL_VERSION}.tar.xz && \
+    tar -xf linux-${SOURCE_KERNEL_VERSION}.tar.xz && \
+    ln -s linux-${SOURCE_KERNEL_VERSION} linux
 
 COPY kernel-patches/${KERNEL_VERSION} /usr/src/linux-${KERNEL_VERSION}-patches
 COPY .dockerfiles/patch_kernel.sh /patch_kernel.sh
