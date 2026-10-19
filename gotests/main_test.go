@@ -149,6 +149,14 @@ VERSION_ID="9.3"
 			want: 9*256 + 3,
 		},
 		{
+			name: "amazon linux ancestry ignored",
+			content: `ID="amzn"
+ID_LIKE="centos rhel fedora"
+VERSION_ID="2"
+`,
+			want: -1,
+		},
+		{
 			name: "debian ignored",
 			content: `NAME="Debian GNU/Linux"
 ID=debian
@@ -163,6 +171,37 @@ VERSION_ID="12"
 		},
 	}
 
+	for _, module := range []string{"disk", "oomkill", "socket", "swap"} {
+		if got := selectModuleMaxIndex(module, 10*256, netdataEBPFKernel612); got != 11 {
+			t.Fatalf("RHEL 10 %s selector = %d, want 11 (6.12)", module, got)
+		}
+	}
+	if got := selectModuleMaxIndex("socket", 11*256, netdataEBPFKernel612); got == 11 {
+		t.Fatalf("RHEL 11 socket selector = %d, must not use the RHEL 10 6.12 rung", got)
+	}
+	diskSelectionCases := []struct {
+		name   string
+		rhf    int
+		kernel int
+		want   uint32
+	}{
+		{name: "pre-5.17 legacy supported", rhf: 9 * 256, kernel: netdataEBPFKernel517 - 1, want: 7},
+		{name: "RHEL 9 5.17 rejected", rhf: 9 * 256, kernel: netdataEBPFKernel517, want: ^uint32(0)},
+		{name: "RHEL 10 6.11 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 - 1, want: ^uint32(0)},
+		{name: "RHEL 10 6.12 supported", rhf: 10 * 256, kernel: netdataEBPFKernel612, want: 11},
+		{name: "RHEL 10 6.12 patch supported", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 3, want: 11},
+		{name: "RHEL 10 6.13 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 256, want: ^uint32(0)},
+		{name: "RHEL 10 6.15 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 3*256, want: ^uint32(0)},
+		{name: "RHEL 10 6.16 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel616, want: ^uint32(0)},
+		{name: "RHEL 11 6.12 rejected", rhf: 11 * 256, kernel: netdataEBPFKernel612, want: ^uint32(0)},
+	}
+	for _, tc := range diskSelectionCases {
+		t.Run("disk selector "+tc.name, func(t *testing.T) {
+			if got := selectModuleMaxIndex("disk", tc.rhf, tc.kernel); got != tc.want {
+				t.Fatalf("disk selector = %d, want %d", got, tc.want)
+			}
+		})
+	}
 	for _, tc := range osReleaseCases {
 		t.Run("os-release "+tc.name, func(t *testing.T) {
 			if got := parseOSRelease(tc.content); got != tc.want {

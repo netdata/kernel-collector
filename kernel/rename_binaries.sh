@@ -14,6 +14,7 @@ parse_kernel_version() {
 }
 
 select_kernel_version() {
+    FORCE_RHF="${3:-}"
     VER6_12_0="006012"
     VER7_0_0="007000"
     VER6_8_0="006008"
@@ -65,7 +66,7 @@ select_kernel_version() {
         exit 1
     fi
 
-    if [ -f /etc/redhat-release ]; then
+    if [ -f /etc/redhat-release ] || [ "${FORCE_RHF}" = ".rhf" ]; then
         ISRH=".rhf"
     fi
 
@@ -76,7 +77,7 @@ OBJECTNAME="$3"
 NAME=${OBJECTNAME%_*}
 KVER=$(parse_kernel_version "$1" "$2")
 
-KNAME=$(select_kernel_version "${1}" "${2}")
+KNAME=$(select_kernel_version "${1}" "${2}" "${RHF:-}")
 
 # Disk request layout changed in 5.17. Keep other objects on the existing
 # 5.16 suffix; the disk selector is updated independently in the agent.

@@ -16,6 +16,7 @@ jobs:
         kernel_version:
           - '7.2.8'
           - '6.16.2'
+          - '6.12.0'
           - '6.8.2'
           - '5.16.18'
           - '5.17.15'
@@ -49,7 +50,9 @@ jobs:
         run: git lfs checkout
       - name: Run build.sh
         run: |
-          if [ ${{ matrix.kernel_version }} = "5.14.0" ]; then
+          if [ ${{ matrix.kernel_version }} = "6.12.0" ]; then
+            os=centos10
+          elif [ ${{ matrix.kernel_version }} = "5.14.0" ]; then
             os=centos9
           elif [ ${{ matrix.kernel_version }} = "5.4.17" ]; then
             os=oracle8

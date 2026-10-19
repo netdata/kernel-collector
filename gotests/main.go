@@ -462,7 +462,7 @@ func getRedHatRelease() int {
 	return parseOSRelease(string(data))
 }
 
-// parseOSRelease detects RH-family distros by exact ID or ID_LIKE tokens, then
+// parseOSRelease detects the explicitly supported RH-family IDs, then
 // parses VERSION_ID to return major*256+minor. Returns -1 on no match.
 func parseOSRelease(content string) int {
 	major := 0
@@ -475,7 +475,7 @@ func parseOSRelease(content string) int {
 			continue
 		}
 		switch key {
-		case "ID", "ID_LIKE":
+		case "ID":
 			for _, id := range strings.Fields(strings.Trim(val, "\"'")) {
 				if isRHELFamilyID(id) {
 					isRHEL = true
@@ -1209,7 +1209,14 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 		} else if bufferMode && mod.bufferKernels != 0 {
 			kernels = mod.bufferKernels
 		}
+		if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) {
+			kernels |= netdataV612
+		}
 		maxIndex := selectModuleMaxIndex(mod.name, rhfVersion, kernelVersion)
+		if maxIndex == ^uint32(0) {
+			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "legacy disk unsupported for this Red Hat kernel"})
+			continue
+		}
 		idx := selectIndexFromMax(kernels, rhfVersion, maxIndex)
 		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, bufferMode, arenaMode)
 		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
@@ -1261,6 +1268,15 @@ func appendUnique(values []skippedModule, value skippedModule) []skippedModule {
 }
 
 func selectModuleMaxIndex(moduleName string, rhfVersion int, kernelVersion int) uint32 {
+	if moduleName == "disk" && rhfVersion > 0 && kernelVersion >= netdataEBPFKernel517 {
+		if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) {
+			return 11
+		}
+		return ^uint32(0) // No supported Red Hat legacy disk object in this kernel range.
+	}
+	if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) {
+		return 11
+	}
 	if moduleName == "disk" && rhfVersion <= 0 {
 		switch {
 		case kernelVersion >= netdataEBPFKernel68:
@@ -1277,9 +1293,16 @@ func selectModuleMaxIndex(moduleName string, rhfVersion int, kernelVersion int) 
 	return selectMaxIndex(rhfVersion, kernelVersion)
 }
 
+func isRHEL10Kernel612Stream(rhfVersion int, kernelVersion int) bool {
+	return rhfVersion >= 10*256 && rhfVersion < 11*256 &&
+		kernelVersion >= netdataEBPFKernel612 && kernelVersion < 6*65536+13*256
+}
+
 func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 	if rhfVersion > 0 {
 		switch {
+		case isRHEL10Kernel612Stream(rhfVersion, kernelVersion):
+			return 11
 		case kernelVersion >= netdataEBPFKernel514:
 			return 7
 		case kernelVersion >= netdataEBPFKernel54:

@@ -107,6 +107,16 @@ NETDATA_APPS= 	swap \
 		process \
 		#
 
+# The Red Hat 10 6.12 build supplies the complete legacy object family as well as
+# the buffer and arena variants below; other 6.12 builds retain the smaller set.
+else ifeq ($(VER_MAJOR).$(VER_MINOR),6.12)
+ifneq ($(strip $(RHF)),)
+NETDATA_APPS= ${NETDATA_ALL_APPS}
+else
+NETDATA_APPS= swap \
+	      disk \
+	      #
+endif
 # Kernel newer than 6.8.0 ( 395264 = 6 * 65536 + 8 * 256)
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 395264 ; echo $$?),0)
 NETDATA_APPS= swap \
@@ -263,7 +273,7 @@ endif
 		-include ../includes/netdata_asm_goto.h \
 		-O2 -g -emit-llvm $< -o $(<:.c=.ll)
 	$(LLC) -march=bpf -filetype=obj -o p$@ $(<:.c=.ll)
-	/bin/bash rename_binaries.sh "$(VER_MAJOR)" "$(VER_MINOR)" "$@"
+	/bin/bash rename_binaries.sh "$(VER_MAJOR)" "$(VER_MINOR)" "$@" "$(RHF)"
 
 ifeq ($(VER_MAJOR).$(VER_MINOR),3.10)
 ifeq ($(LEGACY_LIBBPF_ACTIVE),1)

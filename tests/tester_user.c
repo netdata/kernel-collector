@@ -1017,7 +1017,7 @@ static int ebpf_get_rh_from_os_release(void)
     int major = 0, minor = 0, is_rhel = 0;
 
     while (fgets(line, sizeof(line), fp)) {
-        if (strncmp(line, "ID=", 3) == 0 || strncmp(line, "ID_LIKE=", 8) == 0) {
+        if (strncmp(line, "ID=", 3) == 0) {
             const char *value = strchr(line, '=') + 1;
             if (ebpf_has_redhat_family_id(value))
                 is_rhel = 1;
@@ -1129,6 +1129,12 @@ static char *ebpf_select_kernel_name(uint32_t selector)
     return ebpf_kernel_names[selector];
 }
 
+static int ebpf_is_rhel10_6_12_stream(int rhf_version, uint32_t kver)
+{
+    return rhf_version >= 10 * 256 && rhf_version < 11 * 256 && kver >= NETDATA_EBPF_KERNEL_6_12 &&
+           kver < NETDATA_EBPF_KERNEL_6_12 + 256;
+}
+
 /**
  * Select Max Index
  *
@@ -1142,6 +1148,8 @@ static char *ebpf_select_kernel_name(uint32_t selector)
 static int ebpf_select_max_index(int rhf_version, uint32_t kver)
 {
     if (rhf_version > 0) { // Red Hat family
+        if (ebpf_is_rhel10_6_12_stream(rhf_version, kver))
+            return 12;
         if (kver >= NETDATA_EBPF_KERNEL_5_14)
             return 7;
         else if (kver >= NETDATA_EBPF_KERNEL_5_4) 
@@ -1199,6 +1207,16 @@ static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kv
     }
 
     return idx;
+}
+
+static uint32_t ebpf_select_disk_index(uint32_t kernels, int rhf_version, uint32_t kver)
+{
+    if (rhf_version > 0 && kver >= NETDATA_EBPF_KERNEL_5_17) {
+        if (ebpf_is_rhel10_6_12_stream(rhf_version, kver))
+            return 12;
+        return UINT32_MAX; // No supported Red Hat legacy disk object in this kernel range.
+    }
+    return ebpf_select_index(kernels, rhf_version, kver);
 }
 
 /****************************************************************************************************
@@ -2367,8 +2385,10 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
 
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
-        if (!strcmp(ebpf_modules[i].name, "disk") && rhf_version <= 0 &&
-            kver >= NETDATA_EBPF_KERNEL_6_16) {
+        if (!strcmp(ebpf_modules[i].name, "disk") &&
+            ((rhf_version <= 0 && kver >= NETDATA_EBPF_KERNEL_6_16) ||
+             (rhf_version > 0 && kver >= NETDATA_EBPF_KERNEL_5_17 &&
+              !ebpf_is_rhel10_6_12_stream(rhf_version, kver)))) {
             i++;
             continue;
         }
@@ -2411,8 +2431,13 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
                                       ebpf_modules[i].arena_kernels :
                                       ((use_buffer_mode && ebpf_modules[i].buffer_kernels) ?
                                        ebpf_modules[i].buffer_kernels : ebpf_modules[i].kernels);
+            int rhel10 = ebpf_is_rhel10_6_12_stream(rhf_version, kver);
+            if (rhel10)
+                kernels_to_use |= NETDATA_V6_12;
             uint32_t max_idx = ebpf_select_max_index(rhf_version, kver);
-            uint32_t idx = ebpf_select_index(kernels_to_use, rhf_version, kver);
+            uint32_t idx = !strcmp(ebpf_modules[i].name, "disk")
+                               ? ebpf_select_disk_index(kernels_to_use, rhf_version, kver)
+                               : ebpf_select_index(kernels_to_use, rhf_version, kver);
 
             ebpf_discover_candidates(&candidates, ebpf_modules[i].name, is_return,
                                      kernels_to_use, max_idx, rhf_version, use_buffer_mode, use_arena_mode);
