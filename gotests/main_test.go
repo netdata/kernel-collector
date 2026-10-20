@@ -43,6 +43,9 @@ func TestLegacyArtifactFamilyAvailability(t *testing.T) {
 		{name: "generic 6.10 disk exists", module: "disk", rhf: -1, kver: 6<<16 + 10<<8, want: true},
 		{name: "generic 6.10 legacy family exists", module: "process", rhf: -1, kver: 6<<16 + 10<<8, want: true},
 		{name: "generic 6.12 full family exists", module: "dns", rhf: -1, kver: 6<<16 + 12<<8, want: true},
+		{name: "generic exact 6.16.2 disk base exists", module: "disk", rhf: -1, kver: netdataEBPFKernel6162, want: true},
+		{name: "generic exact 6.16.2 swap base exists", module: "swap", rhf: -1, kver: netdataEBPFKernel6162, want: true},
+		{name: "generic exact 6.16.2 cachestat base absent", module: "cachestat", rhf: -1, kver: netdataEBPFKernel6162},
 		{name: "generic 6.16 family is absent", module: "swap", rhf: -1, kver: 6<<16 + 16<<8},
 		{name: "generic 7.0 process exists", module: "process", rhf: -1, kver: netdataEBPFKernel70, want: true},
 		{name: "generic 7.0 cachestat exists", module: "cachestat", rhf: -1, kver: netdataEBPFKernel70, want: true},
@@ -225,6 +228,7 @@ VERSION_ID="12"
 		{name: "RHEL 10 6.13 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 256, want: ^uint32(0)},
 		{name: "RHEL 10 6.15 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 3*256, want: ^uint32(0)},
 		{name: "RHEL 10 6.16 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel616, want: ^uint32(0)},
+		{name: "generic exact 6.16.2 disk supported", rhf: -1, kernel: netdataEBPFKernel6162, want: 14},
 		{name: "RHEL 11 6.12 rejected", rhf: 11 * 256, kernel: netdataEBPFKernel612, want: ^uint32(0)},
 	}
 	for _, tc := range diskSelectionCases {
@@ -270,6 +274,7 @@ VERSION_ID="12"
 		{name: "rhf 5.4", rhfVersion: 1, kernelVersion: netdataEBPFKernel54, want: 4},
 		{name: "generic 6.8", rhfVersion: 0, kernelVersion: netdataEBPFKernel68, want: 10},
 		{name: "generic 7.0", rhfVersion: 0, kernelVersion: netdataEBPFKernel70, want: 12},
+		{name: "generic exact 6.16.2", rhfVersion: 0, kernelVersion: netdataEBPFKernel6162, want: 14},
 		{name: "generic 4.15", rhfVersion: 0, kernelVersion: netdataEBPFKernel415, want: 2},
 		{name: "too old", rhfVersion: 0, kernelVersion: netdataMinimumEBPFKernel - 1, want: 0},
 	}
@@ -287,6 +292,29 @@ VERSION_ID="12"
 	}
 	if got := selectKernelName(12); got != "7.0" {
 		t.Fatalf("unexpected kernel name: %q", got)
+	}
+	if got := selectKernelName(14); got != "6.16.2" {
+		t.Fatalf("unexpected exact kernel name: %q", got)
+	}
+	for _, tc := range []struct {
+		name   string
+		kernel int
+		want   uint32
+	}{
+		{name: "6.16.1 stays at 6.12", kernel: netdataEBPFKernel6162 - 1, want: 11},
+		{name: "6.16.2 uses its exact rung", kernel: netdataEBPFKernel6162, want: 14},
+		{name: "6.16.3 stays at 6.12", kernel: netdataEBPFKernel6162 + 1, want: 11},
+		{name: "7.0 does not select 6.16.2", kernel: netdataEBPFKernel70, want: 12},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			kernels := uint32(netdataV6162 | netdataV70 | netdataV612)
+			if got := selectIndex(kernels, -1, tc.kernel); got != tc.want {
+				t.Fatalf("selectIndex() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+	if got := selectIndex(uint32(netdataV70|netdataV612), -1, netdataEBPFKernel6162); got != 11 {
+		t.Fatalf("6.16.2 without exact artifacts selected %d, want 6.12 selector 11", got)
 	}
 
 	if got := selectIndex(netdataV514, -1, netdataEBPFKernel514); got != 0 {

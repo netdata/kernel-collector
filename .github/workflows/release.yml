@@ -78,6 +78,10 @@ jobs:
             artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.12.rhf-*.tar' -print -quit)
             test -n "$artifact"
             .github/scripts/verify-rhf-artifact.sh "$artifact"
+          elif [ "${{ matrix.kernel_version }}" = "6.16.2" ]; then
+            artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.16-*.tar' -print -quit)
+            test -n "$artifact"
+            .github/scripts/verify-rhf-artifact.sh "$artifact" generic 6.16.2
           fi
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
@@ -155,6 +159,12 @@ jobs:
             while IFS= read -r object; do
               cmp <(tar -xOf "${generic_archive}" "${object}") "${package}/${object}"
             done < <(tar -tf "${generic_archive}" | grep -E '^[pr]netdata_ebpf_.*\.6\.12\.o$')
+            exact_archive=$(find "artifacts/artifacts-6.16.2-${libc}" -maxdepth 1 -type f -name "netdata_ebpf-*_*-${libc}.tar" -print -quit)
+            test -n "${exact_archive}"
+            .github/scripts/verify-rhf-artifact.sh "${exact_archive}" generic 6.16.2
+            while IFS= read -r object; do
+              cmp <(tar -xOf "${exact_archive}" "${object}") "${package}/${object}"
+            done < <(tar -tf "${exact_archive}" | grep -E '^[pr]netdata_ebpf_.*\.6\.16\.2\.o$')
             if [ "${libc}" == "static" ] || [ "${libc}" == "glibc" ]; then cp -R CentOS7/* "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"; fi
             tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
           done

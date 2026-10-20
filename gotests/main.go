@@ -45,22 +45,24 @@ const (
 	netdataEBPFKernel69         = 395520
 	netdataEBPFKernel612        = 396288
 	netdataEBPFKernel616        = 397312
+	netdataEBPFKernel6162       = 397314
 	netdataEBPFKernel70         = 458752
 
-	netdataV310 = 1 << 0
-	netdataV414 = 1 << 1
-	netdataV416 = 1 << 2
-	netdataV418 = 1 << 3
-	netdataV54  = 1 << 4
-	netdataV510 = 1 << 5
-	netdataV511 = 1 << 6
-	netdataV514 = 1 << 7
-	netdataV515 = 1 << 8
-	netdataV516 = 1 << 9
-	netdataV68  = 1 << 10
-	netdataV612 = 1 << 11
-	netdataV70  = 1 << 12
-	netdataV517 = 1 << 13
+	netdataV310  = 1 << 0
+	netdataV414  = 1 << 1
+	netdataV416  = 1 << 2
+	netdataV418  = 1 << 3
+	netdataV54   = 1 << 4
+	netdataV510  = 1 << 5
+	netdataV511  = 1 << 6
+	netdataV514  = 1 << 7
+	netdataV515  = 1 << 8
+	netdataV516  = 1 << 9
+	netdataV68   = 1 << 10
+	netdataV612  = 1 << 11
+	netdataV70   = 1 << 12
+	netdataV517  = 1 << 13
+	netdataV6162 = 1 << 14
 
 	flagBtrfs         uint64 = 1 << 0
 	flagCachestat     uint64 = 1 << 1
@@ -1197,7 +1199,7 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "not selected by flags"})
 			continue
 		}
-		if mod.name == "disk" && rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel616 {
+		if mod.name == "disk" && rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel616 && kernelVersion != netdataEBPFKernel6162 {
 			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "disabled on generic kernels >= 6.16"})
 			continue
 		}
@@ -1218,15 +1220,7 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 			continue
 		}
 
-		kernels := mod.kernels
-		if arenaMode && mod.arenaKernels != 0 {
-			kernels = mod.arenaKernels
-		} else if bufferMode && mod.bufferKernels != 0 {
-			kernels = mod.bufferKernels
-		}
-		if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) || (rhfVersion <= 0 && kernelVersion >= 6<<16+12<<8 && kernelVersion < 6<<16+13<<8) {
-			kernels |= netdataV612
-		}
+		kernels := moduleArtifactKernels(mod, rhfVersion, kernelVersion, bufferMode, arenaMode)
 		maxIndex := selectModuleMaxIndex(mod.name, rhfVersion, kernelVersion)
 		if maxIndex == ^uint32(0) {
 			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "legacy disk unsupported for this Red Hat kernel"})
@@ -1268,8 +1262,28 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 	}
 }
 
+func moduleArtifactKernels(mod module, rhfVersion int, kernelVersion int, bufferMode bool, arenaMode bool) uint32 {
+	kernels := mod.kernels
+	if arenaMode && mod.arenaKernels != 0 {
+		kernels = mod.arenaKernels
+	} else if bufferMode && mod.bufferKernels != 0 {
+		kernels = mod.bufferKernels
+	}
+	if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) ||
+		(rhfVersion <= 0 && kernelVersion >= 6<<16+12<<8 && kernelVersion < 6<<16+13<<8) {
+		kernels |= netdataV612
+	}
+	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
+		if bufferMode || arenaMode || mod.name == "disk" || mod.name == "swap" {
+			kernels |= netdataV6162
+		}
+		kernels &^= netdataV70
+	}
+	return kernels
+}
+
 func selectKernelName(selector uint32) string {
-	kernelNames := []string{"3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12", "7.0", "5.17"}
+	kernelNames := []string{"3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12", "7.0", "5.17", "6.16.2"}
 	if int(selector) >= len(kernelNames) {
 		return "unknown"
 	}
@@ -1286,6 +1300,9 @@ func appendUnique(values []skippedModule, value skippedModule) []skippedModule {
 }
 
 func selectModuleMaxIndex(moduleName string, rhfVersion int, kernelVersion int) uint32 {
+	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
+		return 14
+	}
 	if moduleName == "disk" && rhfVersion > 0 && kernelVersion >= netdataEBPFKernel517 {
 		if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) {
 			return 11
@@ -1317,6 +1334,9 @@ func isRHEL10Kernel612Stream(rhfVersion int, kernelVersion int) bool {
 }
 
 func legacyArtifactFamilyAvailable(module string, rhfVersion int, kernelVersion int) bool {
+	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
+		return module == "disk" || module == "swap"
+	}
 	if kernelVersion < netdataEBPFKernel414 {
 		return module != "dns"
 	}
@@ -1351,6 +1371,8 @@ func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 		}
 	} else {
 		switch {
+		case kernelVersion == netdataEBPFKernel6162:
+			return 14
 		case kernelVersion >= netdataEBPFKernel70:
 			return 12
 		case kernelVersion >= netdataEBPFKernel612:
@@ -1378,6 +1400,9 @@ func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 }
 
 func selectIndex(kernels uint32, rhfVersion int, kernelVersion int) uint32 {
+	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
+		kernels &^= netdataV70
+	}
 	return selectIndexFromMax(kernels, rhfVersion, selectMaxIndex(rhfVersion, kernelVersion))
 }
 
