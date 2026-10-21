@@ -16,6 +16,7 @@ jobs:
         kernel_version:
           - '7.2.8'
           - '6.16.2'
+          - '6.12.0'
           - '6.8.2'
           - '5.16.18'
           - '5.17.15'
@@ -47,9 +48,19 @@ jobs:
           lfs: true
       - name: Checkout LFS objects
         run: git lfs checkout
+      - name: Verify stored 3.10 BPF objects
+        run: |
+          for object in CentOS7/*.o; do
+            readelf -h "$object" | grep -Eq 'Machine:.*Linux BPF' || {
+              echo "invalid or missing BPF ELF payload: $object" >&2
+              exit 1
+            }
+          done
       - name: Run build.sh
         run: |
-          if [ ${{ matrix.kernel_version }} = "5.14.0" ]; then
+          if [ ${{ matrix.kernel_version }} = "6.12.0" ]; then
+            os=centos10
+          elif [ ${{ matrix.kernel_version }} = "5.14.0" ]; then
             os=centos9
           elif [ ${{ matrix.kernel_version }} = "5.4.17" ]; then
             os=oracle8
@@ -63,6 +74,15 @@ jobs:
         run: |
           ls -lah artifacts
           test -f artifacts/netdata_ebpf-*.tar
+          if [ "${{ matrix.kernel_version }}" = "6.12.0" ]; then
+            artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.12.rhf-*.tar' -print -quit)
+            test -n "$artifact"
+            .github/scripts/verify-rhf-artifact.sh "$artifact"
+          elif [ "${{ matrix.kernel_version }}" = "6.16.2" ]; then
+            artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.16-*.tar' -print -quit)
+            test -n "$artifact"
+            .github/scripts/verify-rhf-artifact.sh "$artifact" generic 6.16.2
+          fi
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         if: success()
@@ -70,9 +90,37 @@ jobs:
           name: artifacts-${{ matrix.kernel_version }}-${{ matrix.libc }}
           path: artifacts
 
+  build-generic-612:
+    name: Build generic 6.12 artifacts
+    strategy:
+      fail-fast: false
+      matrix:
+        libc: [static, glibc, musl]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: Build generic 6.12 objects
+        run: ./build.sh 6.12.0 "${{ matrix.libc }}" generic
+      - name: Verify generic artifact
+        run: |
+          ls -lah artifacts
+          artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.12-*.tar' -print -quit)
+          test -n "$artifact"
+          .github/scripts/verify-rhf-artifact.sh "$artifact" generic
+      - name: Upload generic artifacts
+        uses: actions/upload-artifact@v6
+        if: success()
+        with:
+          name: artifacts-6.12.0-generic-${{ matrix.libc }}
+          path: artifacts
+
   create-release:
     name: Create Release
-    needs: build-artifacts
+    needs: [build-artifacts, build-generic-612]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -88,7 +136,6 @@ jobs:
         with:
           pattern: artifacts-*
           path: artifacts
-          merge-multiple: true
       - name: Set release_tag
         run: |
           echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
@@ -96,11 +143,29 @@ jobs:
         run: |
           mkdir -p final-artifacts
           for libc in static glibc musl; do
-            for pkg in artifacts/netdata_ebpf-*_*-${libc}.tar; do
-              mkdir -p "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"
-              tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -xvf "${pkg}"
-            done
-            if [ "${libc}" == "glibc" ]; then cp -R CentOS7/* "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"; fi
+            package="packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"
+            mkdir -p "${package}"
+            while IFS= read -r pkg; do
+              case "${pkg}" in
+                artifacts/artifacts-6.12.0-generic-*) continue ;;
+              esac
+              tar -C "${package}" -xvf "${pkg}"
+            done < <(find artifacts -mindepth 2 -maxdepth 2 -type f -name "netdata_ebpf-*_*-${libc}.tar" -print | sort)
+            # Generic 6.12 objects own the .6.12 suffix; unpack them last so the
+            # 6.16 build cannot replace the 6.12 ABI in the published package.
+            generic_archive=$(find "artifacts/artifacts-6.12.0-generic-${libc}" -maxdepth 1 -type f -name "netdata_ebpf-*_*-${libc}.tar" -print -quit)
+            test -n "${generic_archive}"
+            tar -C "${package}" -xvf "${generic_archive}"
+            while IFS= read -r object; do
+              cmp <(tar -xOf "${generic_archive}" "${object}") "${package}/${object}"
+            done < <(tar -tf "${generic_archive}" | grep -E '^[pr]netdata_ebpf_.*\.6\.12\.o$')
+            exact_archive=$(find "artifacts/artifacts-6.16.2-${libc}" -maxdepth 1 -type f -name "netdata_ebpf-*_*-${libc}.tar" -print -quit)
+            test -n "${exact_archive}"
+            .github/scripts/verify-rhf-artifact.sh "${exact_archive}" generic 6.16.2
+            while IFS= read -r object; do
+              cmp <(tar -xOf "${exact_archive}" "${object}") "${package}/${object}"
+            done < <(tar -tf "${exact_archive}" | grep -E '^[pr]netdata_ebpf_.*\.6\.16\.2\.o$')
+            if [ "${libc}" == "static" ] || [ "${libc}" == "glibc" ]; then cp -R CentOS7/* "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"; fi
             tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
           done
           cd final-artifacts && sha256sum ./*.tar.xz > sha256sums.txt

@@ -45,22 +45,24 @@ const (
 	netdataEBPFKernel69         = 395520
 	netdataEBPFKernel612        = 396288
 	netdataEBPFKernel616        = 397312
+	netdataEBPFKernel6162       = 397314
 	netdataEBPFKernel70         = 458752
 
-	netdataV310 = 1 << 0
-	netdataV414 = 1 << 1
-	netdataV416 = 1 << 2
-	netdataV418 = 1 << 3
-	netdataV54  = 1 << 4
-	netdataV510 = 1 << 5
-	netdataV511 = 1 << 6
-	netdataV514 = 1 << 7
-	netdataV515 = 1 << 8
-	netdataV516 = 1 << 9
-	netdataV68  = 1 << 10
-	netdataV612 = 1 << 11
-	netdataV70  = 1 << 12
-	netdataV517 = 1 << 13
+	netdataV310  = 1 << 0
+	netdataV414  = 1 << 1
+	netdataV416  = 1 << 2
+	netdataV418  = 1 << 3
+	netdataV54   = 1 << 4
+	netdataV510  = 1 << 5
+	netdataV511  = 1 << 6
+	netdataV514  = 1 << 7
+	netdataV515  = 1 << 8
+	netdataV516  = 1 << 9
+	netdataV68   = 1 << 10
+	netdataV612  = 1 << 11
+	netdataV70   = 1 << 12
+	netdataV517  = 1 << 13
+	netdataV6162 = 1 << 14
 
 	flagBtrfs         uint64 = 1 << 0
 	flagCachestat     uint64 = 1 << 1
@@ -286,18 +288,18 @@ var (
 
 	ebpfModules = []module{
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV510 | netdataV514, flags: flagBtrfs, name: "btrfs", ctrlTable: "btrfs_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV516, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV70 | netdataV516, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514 | netdataV516 | netdataV517 | netdataV68, flags: flagDisk, name: "disk", ctrlTable: "disk_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagExt4, name: "ext4", ctrlTable: "ext4_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagFD, name: "fd", updateNames: &fdOptionalNames, ctrlTable: "fd_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagFD, name: "fd", updateNames: &fdOptionalNames, ctrlTable: "fd_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fdatasync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fsync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagHardIRQ, name: "hardirq"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMDFlush, name: "mdflush"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMount, name: "mount"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "msync"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagDNS, name: "dns"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNFS, name: "nfs", ctrlTable: "nfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNetworkViewer, name: "network_viewer", ctrlTable: "nv_ctrl"},
@@ -462,7 +464,7 @@ func getRedHatRelease() int {
 	return parseOSRelease(string(data))
 }
 
-// parseOSRelease detects RH-family distros by exact ID or ID_LIKE tokens, then
+// parseOSRelease detects the explicitly supported RH-family IDs, then
 // parses VERSION_ID to return major*256+minor. Returns -1 on no match.
 func parseOSRelease(content string) int {
 	major := 0
@@ -475,7 +477,7 @@ func parseOSRelease(content string) int {
 			continue
 		}
 		switch key {
-		case "ID", "ID_LIKE":
+		case "ID":
 			for _, id := range strings.Fields(strings.Trim(val, "\"'")) {
 				if isRHELFamilyID(id) {
 					isRHEL = true
@@ -500,7 +502,7 @@ func parseOSRelease(content string) int {
 
 func isRHELFamilyID(id string) bool {
 	switch strings.ToLower(id) {
-	case "rhel", "centos", "almalinux", "rocky":
+	case "rhel", "centos", "almalinux", "rocky", "cloudlinux":
 		return true
 	default:
 		return false
@@ -533,7 +535,8 @@ func parseRedHatRelease(release string) int {
 	}
 	vendor := strings.ToLower(strings.TrimSpace(release[:version]))
 	if !strings.HasPrefix(vendor, "red hat") && !strings.HasPrefix(vendor, "centos") &&
-		!strings.HasPrefix(vendor, "almalinux") && !strings.HasPrefix(vendor, "rocky linux") {
+		!strings.HasPrefix(vendor, "almalinux") && !strings.HasPrefix(vendor, "rocky linux") &&
+		!strings.HasPrefix(vendor, "cloudlinux") {
 		return -1
 	}
 
@@ -1177,6 +1180,16 @@ func moduleHasArena(name string) bool {
 	return arenaModules[name]
 }
 
+func legacyArtifactFlavorAvailable(module string, rhfVersion, kernelVersion int, bufferMode, arenaMode, isDebian bool) bool {
+	if arenaMode {
+		return moduleHasArena(module) && kernelVersion >= netdataEBPFKernel69 && !isDebian
+	}
+	if bufferMode {
+		return moduleHasBuffer(module) && kernelVersion >= netdataEBPFKernel58
+	}
+	return legacyArtifactFamilyAvailable(module, rhfVersion, kernelVersion)
+}
+
 func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bool, opts options, nprocesses int) {
 	supportedMapTypes := detectSupportedMapTypes(rhfVersion, kernelVersion)
 	isDebian := IsDebianFlavor()
@@ -1184,10 +1197,6 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 	for _, mod := range ebpfModules {
 		if opts.flags&mod.flags == 0 {
 			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "not selected by flags"})
-			continue
-		}
-		if mod.name == "disk" && rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel616 {
-			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "disabled on generic kernels >= 6.16"})
 			continue
 		}
 
@@ -1202,16 +1211,22 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "buffer flavor unavailable"})
 			continue
 		}
-
-		kernels := mod.kernels
-		if arenaMode && mod.arenaKernels != 0 {
-			kernels = mod.arenaKernels
-		} else if bufferMode && mod.bufferKernels != 0 {
-			kernels = mod.bufferKernels
+		if !legacyArtifactFlavorAvailable(mod.name, rhfVersion, kernelVersion, bufferMode, arenaMode, isDebian) {
+			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "no compatible object family for the selected flavor"})
+			continue
 		}
+
+		kernels := moduleArtifactKernels(mod, rhfVersion, kernelVersion, bufferMode, arenaMode)
 		maxIndex := selectModuleMaxIndex(mod.name, rhfVersion, kernelVersion)
+		if maxIndex == ^uint32(0) {
+			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "legacy disk unsupported for this Red Hat kernel"})
+			continue
+		}
 		idx := selectIndexFromMax(kernels, rhfVersion, maxIndex)
 		candidates := discoverCandidates(mod.name, isReturn, rhfVersion, kernels, maxIndex, opts.netdataPath, bufferMode, arenaMode)
+		if len(candidates) == 0 && rhfVersion > 0 && !isRHEL10Kernel612Stream(rhfVersion, kernelVersion) {
+			candidates = discoverCandidates(mod.name, isReturn, -1, kernels, maxIndex, opts.netdataPath, bufferMode, arenaMode)
+		}
 		compatible, incompatible, unsupportedType := filterCompatibleCandidates(candidates, supportedMapTypes)
 
 		if len(compatible) == 0 {
@@ -1243,8 +1258,28 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 	}
 }
 
+func moduleArtifactKernels(mod module, rhfVersion int, kernelVersion int, bufferMode bool, arenaMode bool) uint32 {
+	kernels := mod.kernels
+	if arenaMode && mod.arenaKernels != 0 {
+		kernels = mod.arenaKernels
+	} else if bufferMode && mod.bufferKernels != 0 {
+		kernels = mod.bufferKernels
+	}
+	if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) ||
+		(rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel612) {
+		kernels |= netdataV612
+	}
+	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
+		if bufferMode || arenaMode || mod.name == "disk" || mod.name == "swap" {
+			kernels |= netdataV6162
+		}
+		kernels &^= netdataV70
+	}
+	return kernels
+}
+
 func selectKernelName(selector uint32) string {
-	kernelNames := []string{"3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12", "7.0", "5.17"}
+	kernelNames := []string{"3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "6.8", "6.12", "7.0", "5.17", "6.16.2"}
 	if int(selector) >= len(kernelNames) {
 		return "unknown"
 	}
@@ -1261,8 +1296,22 @@ func appendUnique(values []skippedModule, value skippedModule) []skippedModule {
 }
 
 func selectModuleMaxIndex(moduleName string, rhfVersion int, kernelVersion int) uint32 {
+	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
+		return 14
+	}
+	if moduleName == "disk" && rhfVersion > 0 && kernelVersion >= netdataEBPFKernel517 {
+		if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) {
+			return 11
+		}
+		return ^uint32(0) // No supported Red Hat legacy disk object in this kernel range.
+	}
+	if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) {
+		return 11
+	}
 	if moduleName == "disk" && rhfVersion <= 0 {
 		switch {
+		case kernelVersion >= netdataEBPFKernel612:
+			return 11
 		case kernelVersion >= netdataEBPFKernel68:
 			return 10
 		case kernelVersion >= netdataEBPFKernel517:
@@ -1277,9 +1326,30 @@ func selectModuleMaxIndex(moduleName string, rhfVersion int, kernelVersion int) 
 	return selectMaxIndex(rhfVersion, kernelVersion)
 }
 
+func isRHEL10Kernel612Stream(rhfVersion int, kernelVersion int) bool {
+	return rhfVersion >= 10*256 && rhfVersion < 11*256 &&
+		kernelVersion >= netdataEBPFKernel612 && kernelVersion < 6*65536+13*256
+}
+
+func legacyArtifactFamilyAvailable(module string, rhfVersion int, kernelVersion int) bool {
+	if kernelVersion < netdataEBPFKernel414 {
+		return module != "dns"
+	}
+	if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) ||
+		(rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel612) {
+		return true
+	}
+	if rhfVersion > 0 {
+		return kernelVersion < netdataEBPFKernel517
+	}
+	return true
+}
+
 func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 	if rhfVersion > 0 {
 		switch {
+		case isRHEL10Kernel612Stream(rhfVersion, kernelVersion):
+			return 11
 		case kernelVersion >= netdataEBPFKernel514:
 			return 7
 		case kernelVersion >= netdataEBPFKernel54:
@@ -1289,6 +1359,8 @@ func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 		}
 	} else {
 		switch {
+		case kernelVersion == netdataEBPFKernel6162:
+			return 14
 		case kernelVersion >= netdataEBPFKernel70:
 			return 12
 		case kernelVersion >= netdataEBPFKernel612:
@@ -1316,6 +1388,9 @@ func selectMaxIndex(rhfVersion int, kernelVersion int) uint32 {
 }
 
 func selectIndex(kernels uint32, rhfVersion int, kernelVersion int) uint32 {
+	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
+		kernels &^= netdataV70
+	}
 	return selectIndexFromMax(kernels, rhfVersion, selectMaxIndex(rhfVersion, kernelVersion))
 }
 

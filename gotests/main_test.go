@@ -30,6 +30,66 @@ func TestJSONMemberFramingWithFailureAfterMapTypes(t *testing.T) {
 	}
 }
 
+func TestGenericBaseObjectWalkdown(t *testing.T) {
+	for _, tc := range []struct {
+		module module
+		kernel int
+	}{
+		{module: module{name: "cachestat", kernels: netdataV54}, kernel: netdataEBPFKernel6162},
+		{module: module{name: "disk", kernels: netdataV68}, kernel: netdataEBPFKernel70},
+	} {
+		t.Run(tc.module.name, func(t *testing.T) {
+			dir := t.TempDir()
+			name := "pnetdata_ebpf_" + tc.module.name + ".6.12.o"
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			kernels := moduleArtifactKernels(tc.module, -1, tc.kernel, false, false)
+			maxIndex := selectModuleMaxIndex(tc.module.name, -1, tc.kernel)
+			got := discoverCandidates(tc.module.name, false, -1, kernels, maxIndex, dir, false, false)
+			if len(got) != 1 || filepath.Base(got[0]) != name {
+				t.Fatalf("walk-down candidates = %v, want %s", got, name)
+			}
+		})
+	}
+}
+
+func TestLegacyArtifactFamilyAvailability(t *testing.T) {
+	tests := []struct {
+		name   string
+		module string
+		rhf    int
+		kver   int
+		want   bool
+	}{
+		{name: "3.10 keeps available collectors", module: "swap", rhf: 7 * 256, kver: 3<<16 + 10<<8, want: true},
+		{name: "3.10 skips missing DNS", module: "dns", rhf: 7 * 256, kver: 3<<16 + 10<<8},
+		{name: "generic 6.10 disk exists", module: "disk", rhf: -1, kver: 6<<16 + 10<<8, want: true},
+		{name: "generic 6.10 legacy family exists", module: "process", rhf: -1, kver: 6<<16 + 10<<8, want: true},
+		{name: "generic 6.12 full family exists", module: "dns", rhf: -1, kver: 6<<16 + 12<<8, want: true},
+		{name: "generic exact 6.16.2 disk base exists", module: "disk", rhf: -1, kver: netdataEBPFKernel6162, want: true},
+		{name: "generic exact 6.16.2 swap base exists", module: "swap", rhf: -1, kver: netdataEBPFKernel6162, want: true},
+		{name: "generic exact 6.16.2 cachestat walks down", module: "cachestat", rhf: -1, kver: netdataEBPFKernel6162, want: true},
+		{name: "generic 6.16 swap walks down", module: "swap", rhf: -1, kver: 6<<16 + 16<<8, want: true},
+		{name: "generic 7.0 process exists", module: "process", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 cachestat exists", module: "cachestat", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 dc exists", module: "dc", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 fd exists", module: "fd", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 socket exists", module: "socket", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 DNS walks down", module: "dns", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 disk walks down", module: "disk", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "RHEL 10 6.12 family exists", module: "dns", rhf: 10 * 256, kver: netdataEBPFKernel612, want: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := legacyArtifactFamilyAvailable(tc.module, tc.rhf, tc.kver); got != tc.want {
+				t.Fatalf("legacyArtifactFamilyAvailable() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseDNSPortList(t *testing.T) {
 	t.Run("returns default when no valid ports exist", func(t *testing.T) {
 		var out bytes.Buffer
@@ -149,6 +209,14 @@ VERSION_ID="9.3"
 			want: 9*256 + 3,
 		},
 		{
+			name: "amazon linux ancestry ignored",
+			content: `ID="amzn"
+ID_LIKE="centos rhel fedora"
+VERSION_ID="2"
+`,
+			want: -1,
+		},
+		{
 			name: "debian ignored",
 			content: `NAME="Debian GNU/Linux"
 ID=debian
@@ -163,6 +231,40 @@ VERSION_ID="12"
 		},
 	}
 
+	for _, module := range []string{"disk", "oomkill", "socket", "swap"} {
+		if got := selectModuleMaxIndex(module, 10*256, netdataEBPFKernel612); got != 11 {
+			t.Fatalf("RHEL 10 %s selector = %d, want 11 (6.12)", module, got)
+		}
+	}
+	if got := selectModuleMaxIndex("socket", 11*256, netdataEBPFKernel612); got == 11 {
+		t.Fatalf("RHEL 11 socket selector = %d, must not use the RHEL 10 6.12 rung", got)
+	}
+	diskSelectionCases := []struct {
+		name   string
+		rhf    int
+		kernel int
+		want   uint32
+	}{
+		{name: "pre-5.17 legacy supported", rhf: 9 * 256, kernel: netdataEBPFKernel517 - 1, want: 7},
+		{name: "RHEL 9 5.17 rejected", rhf: 9 * 256, kernel: netdataEBPFKernel517, want: ^uint32(0)},
+		{name: "RHEL 10 6.11 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 - 1, want: ^uint32(0)},
+		{name: "RHEL 10 6.12 supported", rhf: 10 * 256, kernel: netdataEBPFKernel612, want: 11},
+		{name: "RHEL 10 6.12 patch supported", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 3, want: 11},
+		{name: "RHEL 10 6.13 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 256, want: ^uint32(0)},
+		{name: "RHEL 10 6.15 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 3*256, want: ^uint32(0)},
+		{name: "RHEL 10 6.16 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel616, want: ^uint32(0)},
+		{name: "generic exact 6.16.2 disk supported", rhf: -1, kernel: netdataEBPFKernel6162, want: 14},
+		{name: "generic 6.16.3 disk uses 6.12", rhf: -1, kernel: netdataEBPFKernel6162 + 1, want: 11},
+		{name: "generic 7.0 disk uses 6.12", rhf: -1, kernel: netdataEBPFKernel70, want: 11},
+		{name: "RHEL 11 6.12 rejected", rhf: 11 * 256, kernel: netdataEBPFKernel612, want: ^uint32(0)},
+	}
+	for _, tc := range diskSelectionCases {
+		t.Run("disk selector "+tc.name, func(t *testing.T) {
+			if got := selectModuleMaxIndex("disk", tc.rhf, tc.kernel); got != tc.want {
+				t.Fatalf("disk selector = %d, want %d", got, tc.want)
+			}
+		})
+	}
 	for _, tc := range osReleaseCases {
 		t.Run("os-release "+tc.name, func(t *testing.T) {
 			if got := parseOSRelease(tc.content); got != tc.want {
@@ -199,6 +301,7 @@ VERSION_ID="12"
 		{name: "rhf 5.4", rhfVersion: 1, kernelVersion: netdataEBPFKernel54, want: 4},
 		{name: "generic 6.8", rhfVersion: 0, kernelVersion: netdataEBPFKernel68, want: 10},
 		{name: "generic 7.0", rhfVersion: 0, kernelVersion: netdataEBPFKernel70, want: 12},
+		{name: "generic exact 6.16.2", rhfVersion: 0, kernelVersion: netdataEBPFKernel6162, want: 14},
 		{name: "generic 4.15", rhfVersion: 0, kernelVersion: netdataEBPFKernel415, want: 2},
 		{name: "too old", rhfVersion: 0, kernelVersion: netdataMinimumEBPFKernel - 1, want: 0},
 	}
@@ -216,6 +319,29 @@ VERSION_ID="12"
 	}
 	if got := selectKernelName(12); got != "7.0" {
 		t.Fatalf("unexpected kernel name: %q", got)
+	}
+	if got := selectKernelName(14); got != "6.16.2" {
+		t.Fatalf("unexpected exact kernel name: %q", got)
+	}
+	for _, tc := range []struct {
+		name   string
+		kernel int
+		want   uint32
+	}{
+		{name: "6.16.1 stays at 6.12", kernel: netdataEBPFKernel6162 - 1, want: 11},
+		{name: "6.16.2 uses its exact rung", kernel: netdataEBPFKernel6162, want: 14},
+		{name: "6.16.3 stays at 6.12", kernel: netdataEBPFKernel6162 + 1, want: 11},
+		{name: "7.0 does not select 6.16.2", kernel: netdataEBPFKernel70, want: 12},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			kernels := uint32(netdataV6162 | netdataV70 | netdataV612)
+			if got := selectIndex(kernels, -1, tc.kernel); got != tc.want {
+				t.Fatalf("selectIndex() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+	if got := selectIndex(uint32(netdataV70|netdataV612), -1, netdataEBPFKernel6162); got != 11 {
+		t.Fatalf("6.16.2 without exact artifacts selected %d, want 6.12 selector 11", got)
 	}
 
 	if got := selectIndex(netdataV514, -1, netdataEBPFKernel514); got != 0 {

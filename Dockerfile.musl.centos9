@@ -5,7 +5,7 @@ ENV ARCH=$ARCH
 
 ARG LOCAL_KERNEL_VERSION=5.14.0-70.17.1.el9_0
 
-ENV _LIBC=static
+ENV _LIBC=musl
 
 # hadolint ignore=DL3018
 RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \

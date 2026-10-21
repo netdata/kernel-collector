@@ -18,9 +18,10 @@ RUN apk add --no-cache -U build-base autoconf automake coreutils pkgconfig \
 # hadolint ignore=DL3003,SC3009
 RUN mkdir -p /usr/src && \
     cd /usr/src && \
-    wget -q https://cdn.kernel.org/pub/linux/kernel/v$(echo "$KERNEL_VERSION" | cut -f 1 -d '.').x/linux-${KERNEL_VERSION}.tar.xz && \
-    tar -xf linux-${KERNEL_VERSION}.tar.xz && \
-    ln -s linux-${KERNEL_VERSION} linux && \
+    SOURCE_KERNEL_VERSION=$(echo "$KERNEL_VERSION" | sed -E 's/\.0$//') && \
+    wget -q https://cdn.kernel.org/pub/linux/kernel/v$(echo "$SOURCE_KERNEL_VERSION" | cut -f 1 -d '.').x/linux-${SOURCE_KERNEL_VERSION}.tar.xz && \
+    tar -xf linux-${SOURCE_KERNEL_VERSION}.tar.xz && \
+    ln -s linux-${SOURCE_KERNEL_VERSION} linux && \
     ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/15.2.0/include/stdarg.h /usr/src/linux/include/
 
 WORKDIR /kernel-collector
