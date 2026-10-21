@@ -172,7 +172,7 @@ static size_t dns_port_count = 1;
 static int dns_ports_overridden = 0;
 static size_t tests_started = 0;
 static int json_first_member;
-static char *ebpf_kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "5.17", "6.8", "6.12", "7.0" };
+static char *ebpf_kernel_names[] = { "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16", "5.17", "6.8", "6.12", "7.0", "6.16.2" };
 
 pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -618,7 +618,7 @@ static int ebpf_json_kernel_index(int index)
 {
     static const char *json_kernel_names[] = {
         "3.10", "4.14", "4.16", "4.18", "5.4", "5.10", "5.11", "5.14", "5.15", "5.16",
-        "6.8", "6.12", "7.0", "5.17"
+        "6.8", "6.12", "7.0", "5.17", "6.16.2"
     };
     const char *version;
     size_t i;
@@ -1142,22 +1142,8 @@ static int ebpf_legacy_artifact_family_supported(const char *name, int rhf_versi
     if (kver < NETDATA_EBPF_KERNEL_4_14)
         return strcmp(name, "dns") != 0;
 
-    if (ebpf_is_rhel10_6_12_stream(rhf_version, kver) ||
-        (rhf_version <= 0 && kver >= NETDATA_EBPF_KERNEL_6_12 && kver < NETDATA_EBPF_KERNEL_6_12 + 256))
-        return 1;
-
     if (rhf_version > 0)
-        return kver < NETDATA_EBPF_KERNEL_5_17;
-
-    if (kver >= NETDATA_EBPF_KERNEL_7_0)
-        return !strcmp(name, "cachestat") || !strcmp(name, "dc") || !strcmp(name, "fd") ||
-               !strcmp(name, "socket") || !strcmp(name, "process") || !strcmp(name, "swap");
-
-    if (kver >= NETDATA_EBPF_KERNEL_6_12 + 256)
-        return 0;
-
-    if (kver >= NETDATA_EBPF_KERNEL_6_8)
-        return 1;
+        return ebpf_is_rhel10_6_12_stream(rhf_version, kver) || kver < NETDATA_EBPF_KERNEL_5_17;
 
     return 1;
 }
@@ -1184,7 +1170,9 @@ static int ebpf_select_max_index(int rhf_version, uint32_t kver)
         else if (kver >= NETDATA_EBPF_KERNEL_4_11)
             return 3;
     } else { // Kernels from kernel.org
-        if (kver >= NETDATA_EBPF_KERNEL_7_0)
+        if (kver == NETDATA_EBPF_KERNEL_6_16_2)
+            return 14;
+        else if (kver >= NETDATA_EBPF_KERNEL_7_0)
             return 13;
         else if (kver >= NETDATA_EBPF_KERNEL_6_12)
             return 12;
@@ -1227,6 +1215,8 @@ static uint32_t ebpf_select_index(uint32_t kernels, int rhf_version, uint32_t kv
 
     if (rhf_version == -1)
         kernels &= ~NETDATA_V5_14;
+    if (rhf_version <= 0 && kver == NETDATA_EBPF_KERNEL_6_16_2)
+        kernels &= ~NETDATA_V7_0;
 
     for (idx = start; idx; idx--) {
         if (kernels & 1 << idx)
@@ -2423,9 +2413,8 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
     ebpf_detect_map_support(&map_support, rhf_version, kver);
     while (ebpf_modules[i].name) {
         if (!strcmp(ebpf_modules[i].name, "disk") &&
-            ((rhf_version <= 0 && kver >= NETDATA_EBPF_KERNEL_6_16) ||
-             (rhf_version > 0 && kver >= NETDATA_EBPF_KERNEL_5_17 &&
-              !ebpf_is_rhel10_6_12_stream(rhf_version, kver)))) {
+            (rhf_version > 0 && kver >= NETDATA_EBPF_KERNEL_5_17 &&
+              !ebpf_is_rhel10_6_12_stream(rhf_version, kver))) {
             i++;
             continue;
         }
@@ -2475,10 +2464,15 @@ static void ebpf_run_netdata_tests(int rhf_version, uint32_t kver, int is_return
                                       ((use_buffer_mode && ebpf_modules[i].buffer_kernels) ?
                                        ebpf_modules[i].buffer_kernels : ebpf_modules[i].kernels);
             int rhel10 = ebpf_is_rhel10_6_12_stream(rhf_version, kver);
-            int generic612 = rhf_version <= 0 && kver >= NETDATA_EBPF_KERNEL_6_12 &&
-                             kver < NETDATA_EBPF_KERNEL_6_12 + 256;
+            int generic612 = rhf_version <= 0 && kver >= NETDATA_EBPF_KERNEL_6_12;
             if (rhel10 || generic612)
                 kernels_to_use |= NETDATA_V6_12;
+            if (rhf_version <= 0 && kver == NETDATA_EBPF_KERNEL_6_16_2) {
+                if (use_buffer_mode || use_arena_mode || !strcmp(ebpf_modules[i].name, "disk") ||
+                    !strcmp(ebpf_modules[i].name, "swap"))
+                    kernels_to_use |= NETDATA_V6_16_2;
+                kernels_to_use &= ~NETDATA_V7_0;
+            }
             uint32_t max_idx = ebpf_select_max_index(rhf_version, kver);
             uint32_t idx = !strcmp(ebpf_modules[i].name, "disk")
                                ? ebpf_select_disk_index(kernels_to_use, rhf_version, kver)
@@ -3054,9 +3048,6 @@ int main(int argc, char **argv)
             const char *reason = NULL;
             if (!(flags & ebpf_modules[i].flags))
                 reason = "not selected by flags";
-            else if (!strcmp(ebpf_modules[i].name, "disk") && rhf_version <= 0 &&
-                     my_kernel >= NETDATA_EBPF_KERNEL_6_16)
-                reason = "disabled on generic kernels >= 6.16";
             else if (arena_mode && !ebpf_module_has_arena(ebpf_modules[i].name))
                 reason = "arena flavor unavailable";
             else if (buffer_mode && !ebpf_module_has_buffer(ebpf_modules[i].name))

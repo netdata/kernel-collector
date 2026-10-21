@@ -24,8 +24,10 @@ mapfile -t app_families <<< "$inventory"
 ((${#app_families[@]} == 3)) || { printf 'could not read expected object families from kernel/Makefile\n' >&2; exit 1; }
 
 archive_list=$(tar -tf "$archive")
+expected_object_count=0
 for family in "${app_families[@]}"; do
     read -r -a apps <<< "$family"
+    expected_object_count=$((expected_object_count + ${#apps[@]}))
     for app in "${apps[@]}"; do
         for prefix in p r; do
             object="${prefix}netdata_ebpf_${app}.${object_version}${rhf_suffix}.o"
@@ -33,3 +35,4 @@ for family in "${app_families[@]}"; do
         done
     done
 done
+((expected_object_count > 0)) || { printf 'expected object inventory is empty for kernel %s\n' "$kernel_version" >&2; exit 1; }

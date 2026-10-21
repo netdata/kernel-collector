@@ -1199,10 +1199,6 @@ func runNetdataTests(w io.Writer, rhfVersion int, kernelVersion int, isReturn bo
 			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "not selected by flags"})
 			continue
 		}
-		if mod.name == "disk" && rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel616 && kernelVersion != netdataEBPFKernel6162 {
-			skippedModules = appendUnique(skippedModules, skippedModule{Module: mod.name, Reason: "disabled on generic kernels >= 6.16"})
-			continue
-		}
 
 		bufferMode, arenaMode := effectiveModeFlags(mod.name, kernelVersion, isDebian, opts.bufferMode, opts.arenaMode)
 
@@ -1270,7 +1266,7 @@ func moduleArtifactKernels(mod module, rhfVersion int, kernelVersion int, buffer
 		kernels = mod.bufferKernels
 	}
 	if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) ||
-		(rhfVersion <= 0 && kernelVersion >= 6<<16+12<<8 && kernelVersion < 6<<16+13<<8) {
+		(rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel612) {
 		kernels |= netdataV612
 	}
 	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
@@ -1314,6 +1310,8 @@ func selectModuleMaxIndex(moduleName string, rhfVersion int, kernelVersion int) 
 	}
 	if moduleName == "disk" && rhfVersion <= 0 {
 		switch {
+		case kernelVersion >= netdataEBPFKernel612:
+			return 11
 		case kernelVersion >= netdataEBPFKernel68:
 			return 10
 		case kernelVersion >= netdataEBPFKernel517:
@@ -1334,25 +1332,15 @@ func isRHEL10Kernel612Stream(rhfVersion int, kernelVersion int) bool {
 }
 
 func legacyArtifactFamilyAvailable(module string, rhfVersion int, kernelVersion int) bool {
-	if rhfVersion <= 0 && kernelVersion == netdataEBPFKernel6162 {
-		return module == "disk" || module == "swap"
-	}
 	if kernelVersion < netdataEBPFKernel414 {
 		return module != "dns"
 	}
 	if isRHEL10Kernel612Stream(rhfVersion, kernelVersion) ||
-		(rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel612 && kernelVersion < 6*65536+13*256) {
+		(rhfVersion <= 0 && kernelVersion >= netdataEBPFKernel612) {
 		return true
 	}
 	if rhfVersion > 0 {
 		return kernelVersion < netdataEBPFKernel517
-	}
-	if kernelVersion >= netdataEBPFKernel70 {
-		return module == "cachestat" || module == "dc" || module == "fd" ||
-			module == "socket" || module == "process" || module == "swap"
-	}
-	if kernelVersion >= 6*65536+13*256 {
-		return false
 	}
 	return true
 }

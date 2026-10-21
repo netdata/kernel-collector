@@ -30,6 +30,30 @@ func TestJSONMemberFramingWithFailureAfterMapTypes(t *testing.T) {
 	}
 }
 
+func TestGenericBaseObjectWalkdown(t *testing.T) {
+	for _, tc := range []struct {
+		module module
+		kernel int
+	}{
+		{module: module{name: "cachestat", kernels: netdataV54}, kernel: netdataEBPFKernel6162},
+		{module: module{name: "disk", kernels: netdataV68}, kernel: netdataEBPFKernel70},
+	} {
+		t.Run(tc.module.name, func(t *testing.T) {
+			dir := t.TempDir()
+			name := "pnetdata_ebpf_" + tc.module.name + ".6.12.o"
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			kernels := moduleArtifactKernels(tc.module, -1, tc.kernel, false, false)
+			maxIndex := selectModuleMaxIndex(tc.module.name, -1, tc.kernel)
+			got := discoverCandidates(tc.module.name, false, -1, kernels, maxIndex, dir, false, false)
+			if len(got) != 1 || filepath.Base(got[0]) != name {
+				t.Fatalf("walk-down candidates = %v, want %s", got, name)
+			}
+		})
+	}
+}
+
 func TestLegacyArtifactFamilyAvailability(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -45,14 +69,15 @@ func TestLegacyArtifactFamilyAvailability(t *testing.T) {
 		{name: "generic 6.12 full family exists", module: "dns", rhf: -1, kver: 6<<16 + 12<<8, want: true},
 		{name: "generic exact 6.16.2 disk base exists", module: "disk", rhf: -1, kver: netdataEBPFKernel6162, want: true},
 		{name: "generic exact 6.16.2 swap base exists", module: "swap", rhf: -1, kver: netdataEBPFKernel6162, want: true},
-		{name: "generic exact 6.16.2 cachestat base absent", module: "cachestat", rhf: -1, kver: netdataEBPFKernel6162},
-		{name: "generic 6.16 family is absent", module: "swap", rhf: -1, kver: 6<<16 + 16<<8},
+		{name: "generic exact 6.16.2 cachestat walks down", module: "cachestat", rhf: -1, kver: netdataEBPFKernel6162, want: true},
+		{name: "generic 6.16 swap walks down", module: "swap", rhf: -1, kver: 6<<16 + 16<<8, want: true},
 		{name: "generic 7.0 process exists", module: "process", rhf: -1, kver: netdataEBPFKernel70, want: true},
 		{name: "generic 7.0 cachestat exists", module: "cachestat", rhf: -1, kver: netdataEBPFKernel70, want: true},
 		{name: "generic 7.0 dc exists", module: "dc", rhf: -1, kver: netdataEBPFKernel70, want: true},
 		{name: "generic 7.0 fd exists", module: "fd", rhf: -1, kver: netdataEBPFKernel70, want: true},
 		{name: "generic 7.0 socket exists", module: "socket", rhf: -1, kver: netdataEBPFKernel70, want: true},
-		{name: "generic 7.0 DNS is absent", module: "dns", rhf: -1, kver: netdataEBPFKernel70},
+		{name: "generic 7.0 DNS walks down", module: "dns", rhf: -1, kver: netdataEBPFKernel70, want: true},
+		{name: "generic 7.0 disk walks down", module: "disk", rhf: -1, kver: netdataEBPFKernel70, want: true},
 		{name: "RHEL 10 6.12 family exists", module: "dns", rhf: 10 * 256, kver: netdataEBPFKernel612, want: true},
 	}
 
@@ -229,6 +254,8 @@ VERSION_ID="12"
 		{name: "RHEL 10 6.15 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel612 + 3*256, want: ^uint32(0)},
 		{name: "RHEL 10 6.16 rejected", rhf: 10 * 256, kernel: netdataEBPFKernel616, want: ^uint32(0)},
 		{name: "generic exact 6.16.2 disk supported", rhf: -1, kernel: netdataEBPFKernel6162, want: 14},
+		{name: "generic 6.16.3 disk uses 6.12", rhf: -1, kernel: netdataEBPFKernel6162 + 1, want: 11},
+		{name: "generic 7.0 disk uses 6.12", rhf: -1, kernel: netdataEBPFKernel70, want: 11},
 		{name: "RHEL 11 6.12 rejected", rhf: 11 * 256, kernel: netdataEBPFKernel612, want: ^uint32(0)},
 	}
 	for _, tc := range diskSelectionCases {
