@@ -31,11 +31,6 @@ jobs:
           - static
           - glibc
           - musl
-        exclude:
-          - kernel_version: 5.4.17
-            libc: static
-          - kernel_version: 5.4.17
-            libc: musl
         include:
           - kernel_version: '7.2.8'
             libc: glibc
@@ -65,19 +60,13 @@ jobs:
         run: |
           ls -lah artifacts
           test -f artifacts/netdata_ebpf-*.tar
-          if [ "${{ matrix.kernel_version }}" = "6.12.0" ]; then
-            artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.12.rhf-*.tar' -print -quit)
-            test -n "$artifact"
-            .github/scripts/verify-rhf-artifact.sh "$artifact"
-          elif [ "${{ matrix.kernel_version }}" = "4.18.0" ] || [ "${{ matrix.kernel_version }}" = "5.14.0" ] || [ "${{ matrix.kernel_version }}" = "5.4.17" ]; then
-            artifact=$(find artifacts -maxdepth 1 -type f -name '*_*.rhf-*.tar' -print -quit)
-            test -n "$artifact"
-            .github/scripts/verify-rhf-artifact.sh "$artifact" rhf "${{ matrix.kernel_version }}"
-          elif [ "${{ matrix.kernel_version }}" = "6.16.2" ]; then
-            artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.16-*.tar' -print -quit)
-            test -n "$artifact"
-            .github/scripts/verify-rhf-artifact.sh "$artifact" generic 6.16.2
-          fi
+          case "${{ matrix.kernel_version }}" in
+            4.18.0|5.4.17|5.14.0|6.12.0) family=rhf ;;
+            *) family=generic ;;
+          esac
+          artifact=$(find artifacts -maxdepth 1 -type f -name 'netdata_ebpf-*.tar' -print -quit)
+          test -n "$artifact"
+          .github/scripts/verify-rhf-artifact.sh "$artifact" "$family" "${{ matrix.kernel_version }}"
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         if: success()

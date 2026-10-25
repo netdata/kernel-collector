@@ -2,15 +2,24 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-archive=${1:?usage: verify-rhf-artifact.sh <artifact archive> [rhf|generic] [4.18.0|5.4.17|5.14.0|6.12.0|6.16.2]}
+archive=${1:?usage: verify-rhf-artifact.sh <artifact archive> [rhf|generic] <matrix kernel version>}
 family=${2:-rhf}
 kernel_version=${3:-6.12.0}
 case "$kernel_version" in
+    4.14.291) object_version=4.14 ;;
+    4.16.18) object_version=4.16 ;;
     4.18.0) object_version=4.18 ;;
-    5.4.17) object_version=5.4 ;;
+    5.4.17|5.4.210) object_version=5.4 ;;
+    5.10.139) object_version=5.10 ;;
+    5.11.19) object_version=5.11 ;;
     5.14.0) object_version=5.14 ;;
+    5.15.63) object_version=5.15 ;;
+    5.16.18) object_version=5.16 ;;
+    5.17.15) object_version=5.17 ;;
+    6.8.2) object_version=6.8 ;;
     6.12.0) object_version=6.12 ;;
     6.16.2) object_version=6.16.2 ;;
+    7.2.8) object_version=7.0 ;;
     *) printf 'unsupported artifact kernel version: %s\n' "$kernel_version" >&2; exit 1 ;;
 esac
 [[ -f "$archive" ]] || { printf 'artifact not found: %s\n' "$archive" >&2; exit 1; }
