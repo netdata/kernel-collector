@@ -24,6 +24,12 @@ KERNEL_VERSION="${1}"
 LIBC="${2:-glibc}"
 OS="${3:-generic}"
 
+case "$OS" in
+  centos8|centos9|centos10|oracle8) RHF=.rhf ;;
+  generic) RHF= ;;
+  *) fail "Unsupported OS family: $OS" ;;
+esac
+
 TAG="kernel-collector:$(echo "${KERNEL_VERSION}" | tr '.' '_')_${LIBC}_${OS}"
 
 # Treat a LIBC=static as a static build (STATIC=1)
@@ -54,6 +60,7 @@ if [ -t 1 ]; then
     --security-opt seccomp=unconfined \
     -e DEBUG \
     -e STATIC \
+    -e "RHF=${RHF}" \
     "${TAG}" | tee build.log
 else
   docker run \
@@ -63,5 +70,6 @@ else
     --security-opt seccomp=unconfined \
     -e DEBUG \
     -e STATIC \
+    -e "RHF=${RHF}" \
     "${TAG}" | tee build.log
 fi
