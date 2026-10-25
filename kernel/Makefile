@@ -241,6 +241,8 @@ tester: libbpf
 	cd ../tests && $(MAKE) tester
 endif
 
+%_arena_kern.o: BPF_CPU_FLAGS = -mcpu=v3
+
 %_kern.o: %_kern.c $(NETDATA_KERNEL_HEADERS) libbpf
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
@@ -256,7 +258,7 @@ endif
 		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
 		-O2 -g -emit-llvm $< -o $(<:.c=.ll)
-	$(LLC) -march=bpf -filetype=obj -o r$@ $(<:.c=.ll)
+	$(LLC) -march=bpf $(BPF_CPU_FLAGS) -filetype=obj -o r$@ $(<:.c=.ll)
 	$(CLANG) $(EXTRA_CFLAGS) -S -nostdinc $(LINUXINCLUDE) $(LLVM_INCLUDES) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
 		-Wno-compare-distinct-pointer-types \
@@ -271,7 +273,7 @@ endif
 		-D__TARGET_ARCH_$(ARCH) \
 		-include ../includes/netdata_asm_goto.h \
 		-O2 -g -emit-llvm $< -o $(<:.c=.ll)
-	$(LLC) -march=bpf -filetype=obj -o p$@ $(<:.c=.ll)
+	$(LLC) -march=bpf $(BPF_CPU_FLAGS) -filetype=obj -o p$@ $(<:.c=.ll)
 	/bin/bash rename_binaries.sh "$(VER_MAJOR)" "$(VER_MINOR)" "$@" "$(RHF)" "$(KERNEL_VERSION)"
 
 ifeq ($(VER_MAJOR).$(VER_MINOR),3.10)
