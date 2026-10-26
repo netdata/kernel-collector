@@ -12,9 +12,12 @@
 #include "netdata_arena_common.h"
 #include "netdata_swap_arena.h"
 
-struct netdata_swap_arena_state_t swap_arena_state __arena_global;
 
 #define NETDATA_BPF_RINGBUF_DEF(NAME, MAX_ENTRIES) NETDATA_BPF_ARENA_DEF(NAME, MAX_ENTRIES)
+struct netdata_swap_arena_state_t swap_arena_state __arena_global = {
+    .version = NETDATA_ARENA_QUEUE_VERSION,
+};
+
 #define bpf_ringbuf_reserve(MAP, SIZE, FLAGS) netdata_swap_arena_reserve()
 #define bpf_ringbuf_submit(EV, FLAGS) netdata_swap_arena_submit(EV)
 

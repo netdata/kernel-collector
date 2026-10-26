@@ -33,11 +33,6 @@ jobs:
           - static
           - glibc
           - musl
-        exclude:
-          - kernel_version: 5.4.17
-            libc: static
-          - kernel_version: 5.4.17
-            libc: musl
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -74,15 +69,13 @@ jobs:
         run: |
           ls -lah artifacts
           test -f artifacts/netdata_ebpf-*.tar
-          if [ "${{ matrix.kernel_version }}" = "6.12.0" ]; then
-            artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.12.rhf-*.tar' -print -quit)
-            test -n "$artifact"
-            .github/scripts/verify-rhf-artifact.sh "$artifact"
-          elif [ "${{ matrix.kernel_version }}" = "6.16.2" ]; then
-            artifact=$(find artifacts -maxdepth 1 -type f -name '*_6.16-*.tar' -print -quit)
-            test -n "$artifact"
-            .github/scripts/verify-rhf-artifact.sh "$artifact" generic 6.16.2
-          fi
+          case "${{ matrix.kernel_version }}" in
+            4.18.0|5.4.17|5.14.0|6.12.0) family=rhf ;;
+            *) family=generic ;;
+          esac
+          artifact=$(find artifacts -maxdepth 1 -type f -name 'netdata_ebpf-*.tar' -print -quit)
+          test -n "$artifact"
+          .github/scripts/verify-rhf-artifact.sh "$artifact" "$family" "${{ matrix.kernel_version }}"
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         if: success()
@@ -141,6 +134,7 @@ jobs:
           echo "RELEASE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Consolidate Artifacts
         run: |
+          set -euo pipefail
           mkdir -p final-artifacts
           for libc in static glibc musl; do
             package="packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"
@@ -166,7 +160,18 @@ jobs:
               cmp <(tar -xOf "${exact_archive}" "${object}") "${package}/${object}"
             done < <(tar -tf "${exact_archive}" | grep -E '^[pr]netdata_ebpf_.*\.6\.16\.2\.o$')
             if [ "${libc}" == "static" ] || [ "${libc}" == "glibc" ]; then cp -R CentOS7/* "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}"; fi
-            tar -C "packages/netdata-kernel-collector-${libc}-${RELEASE_TAG}" -Jcvf "final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz" ./
+            final_archive="final-artifacts/netdata-kernel-collector-${libc}-${RELEASE_TAG}.tar.xz"
+            tar -C "${package}" -Jcvf "${final_archive}" ./
+            expected_objects=$(while IFS= read -r archive; do tar -tf "${archive}"; done < <(find artifacts -mindepth 2 -maxdepth 2 -type f -name "netdata_ebpf-*_*-${libc}.tar" -print | sort) | sed 's#^\./##' | grep -E '^[pr]netdata_ebpf_.*\.o$' | sort -u)
+            packaged_objects=$(tar -tf "${final_archive}" | sed 's#^\./##' | grep -E '^[pr]netdata_ebpf_.*\.o$' | sort -u)
+            missing_objects=$(comm -23 <(printf '%s\n' "${expected_objects}") <(printf '%s\n' "${packaged_objects}"))
+            if [ -n "${missing_objects}" ]; then
+              printf 'Objects missing from %s:\n%s\n' "${final_archive}" "${missing_objects}" >&2
+              exit 1
+            fi
+            for kernel_version in 4.18.0 5.4.17 5.14.0 6.12.0; do
+              .github/scripts/verify-rhf-artifact.sh "${final_archive}" rhf "${kernel_version}"
+            done
           done
           cd final-artifacts && sha256sum ./*.tar.xz > sha256sums.txt
       - name: Create Release
