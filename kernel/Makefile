@@ -241,6 +241,11 @@ tester: libbpf
 	cd ../tests && $(MAKE) tester
 endif
 
+# Families below 5.10 also serve kernels older than 5.1, which reject the jmp32/alu32 code of clang's default (v3).
+ifeq ($(shell test $(CURRENT_KERNEL) -lt 330240 ; echo $$?),0)
+BPF_CPU_FLAGS := -mcpu=v2
+endif
+
 %_arena_kern.o: BPF_CPU_FLAGS = -mcpu=v3
 
 %_kern.o: %_kern.c $(NETDATA_KERNEL_HEADERS) libbpf

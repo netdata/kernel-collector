@@ -13,9 +13,10 @@ struct netdata_error_report_t {
     int err;
 };
 
+// Relaxed atomics compile to XADD at every BPF CPU level; __sync_* becomes a 5.12+ fetch atomic with -mcpu=v3.
 static __always_inline void libnetdata_update_u64(__u64 *res, __u64 value)
 {
-    __sync_fetch_and_add(res, value);
+    __atomic_fetch_add(res, value, __ATOMIC_RELAXED);
     if ( (0xFFFFFFFFFFFFFFFF - *res) <= value) {
         *res = value;
     }
@@ -23,7 +24,7 @@ static __always_inline void libnetdata_update_u64(__u64 *res, __u64 value)
 
 static __always_inline void libnetdata_update_s64(__s64 *res, __s64 value)
 {
-    __sync_fetch_and_add(res, value);
+    __atomic_fetch_add(res, value, __ATOMIC_RELAXED);
 }
 
 static __always_inline void libnetdata_update_global(void *tbl, __u32 key, __u64 value)
@@ -85,7 +86,7 @@ static __always_inline void libnetdata_update_u32(u32 *res, u32 value)
     if (!value)
         return;
 
-    __sync_fetch_and_add(res, value);
+    __atomic_fetch_add(res, value, __ATOMIC_RELAXED);
     if ( (0xFFFFFFFF - *res) <= value) {
         *res = value;
     }
