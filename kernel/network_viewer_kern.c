@@ -226,6 +226,7 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_tcp_nv_data(val, sk, family, 0, direction);
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_ACCEPT, &idx, val);
         return 0;
     }
 
@@ -236,6 +237,7 @@ int netdata_inet_csk_accept(struct pt_regs* ctx)
     set_common_tcp_nv_data(&data, sk, family, 0, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_ACCEPT, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
@@ -261,6 +263,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_tcp_nv_data(val, sk, family, 0, direction);
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_SEND, &idx, val);
         return 0;
     }
 
@@ -271,6 +274,7 @@ int netdata_tcp_sendmsg(struct pt_regs* ctx)
     set_common_tcp_nv_data(&data, sk, family, 0, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_SEND, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
@@ -290,6 +294,7 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_tcp_nv_data(val, sk, family, 0, direction);
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_RETRANSMIT, &idx, val);
         return 0;
     }
 
@@ -300,6 +305,7 @@ int netdata_tcp_retransmit_skb(struct pt_regs* ctx)
     set_common_tcp_nv_data(&data, sk, family, 0, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_RETRANSMIT, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
@@ -321,6 +327,7 @@ int netdata_tcp_set_state(struct pt_regs* ctx)
     if (val) {
         set_common_tcp_nv_data(val, sk, family, state, direction);
         val->state = state;
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_STATE, &idx, val);
         return 0;
     }
 
@@ -332,6 +339,7 @@ int netdata_tcp_set_state(struct pt_regs* ctx)
     data.state = state;
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_STATE, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
@@ -352,6 +360,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_tcp_nv_data(val, sk, family, 0, direction);
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_RECEIVE, &idx, val);
         return 0;
     }
 
@@ -362,6 +371,7 @@ int netdata_tcp_cleanup_rbuf(struct pt_regs* ctx)
     set_common_tcp_nv_data(&data, sk, family, 0, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_RECEIVE, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
@@ -381,6 +391,7 @@ int netdata_tcp_v4_connect(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_tcp_nv_data(val, sk, family, 0, direction);
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_V4_CONNECT, &idx, val);
         return 0;
     }
 
@@ -391,6 +402,7 @@ int netdata_tcp_v4_connect(struct pt_regs* ctx)
     set_common_tcp_nv_data(&data, sk, family, 0, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_V4_CONNECT, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
@@ -410,6 +422,7 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_tcp_nv_data(val, sk, family, 0, direction);
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_V6_CONNECT, &idx, val);
         return 0;
     }
 
@@ -420,6 +433,7 @@ int netdata_tcp_v6_connect(struct pt_regs* ctx)
     set_common_tcp_nv_data(&data, sk, family, 0, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_V6_CONNECT, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
@@ -441,6 +455,7 @@ int netdata_tcp_close(struct pt_regs* ctx)
         return 0;
 
     val->closed = 1;
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_TCP_CLOSE, &idx, val);
 
     return 0;
 }
@@ -466,6 +481,7 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
     if (val) {
         set_common_udp_nv_data(val, sk, family, direction);
 
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_UDP_RECEIVE, &idx, val);
         return 0;
     }
 
@@ -478,6 +494,7 @@ int trace_udp_recvmsg(struct pt_regs* ctx)
 
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_UDP_RECEIVE, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 
@@ -497,6 +514,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     netdata_nv_data_t *val = (netdata_nv_data_t *) bpf_map_lookup_elem(&tbl_nv_socket, &idx);
     if (val) {
         set_common_udp_nv_data(val, sk, family, direction);
+        netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_UDP_SEND, &idx, val);
         return 0;
     }
 
@@ -508,6 +526,7 @@ int trace_udp_sendmsg(struct pt_regs* ctx)
     set_common_udp_nv_data(&data, sk, family, direction);
 
     bpf_map_update_elem(&tbl_nv_socket, &idx, &data, BPF_ANY);
+    netdata_stream_emit_network(&nv_ctrl, NETDATA_STREAM_NV_UDP_SEND, &idx, &data);
 
     libnetdata_update_global(&nv_ctrl, NETDATA_CONTROLLER_PID_TABLE_ADD, 1);
 

@@ -19,6 +19,19 @@ package main
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
+#include "../includes/netdata_stream_user.h"
+
+static int netdata_collect_stream_arena(struct bpf_map *map,
+                                        struct netdata_stream_user_stats *stats)
+{
+    size_t data_size = 0;
+    void *base = bpf_map__initial_value(map, &data_size);
+    long page_size = sysconf(_SC_PAGESIZE);
+    if (page_size <= 0)
+        return -EINVAL;
+    return netdata_stream_arena_drain(base, data_size, (size_t)page_size,
+                                      bpf_map__max_entries(map), stats);
+}
 
 struct netdata_ringbuf_stats {
 	uint64_t samples;
@@ -292,6 +305,12 @@ type bpfProgram struct {
 
 type bpfMap struct {
 	ptr *C.struct_bpf_map
+}
+
+func (m *bpfMap) drainStreamArena() (uint64, uint64, uint64, int) {
+	var stats C.struct_netdata_stream_user_stats
+	result := C.netdata_collect_stream_arena(m.ptr, &stats)
+	return uint64(stats.samples), uint64(stats.bytes), uint64(stats.dropped), int(result)
 }
 
 type bpfLink struct {

@@ -62,6 +62,7 @@ static __always_inline int netdata_ext4_ret(struct pt_regs *ctx, __u32 selector)
     data /= 1000;
     __u32 bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_ext4_store_bin(bin, selector);
+    netdata_stream_emit_fs(&ext4_ctrl, selector, data);
 
     return 0;
 }

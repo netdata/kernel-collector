@@ -162,15 +162,30 @@ ifeq ($(VER_MAJOR).$(VER_MINOR),5.17)
 NETDATA_RINGBUF_APPS=
 else ifeq ($(shell test $(CURRENT_KERNEL) -ge 329728 ; echo $$?),0)
 NETDATA_RINGBUF_APPS= cachestat_buffer \
+                      btrfs_buffer \
                       dc_buffer \
+                      disk_buffer \
                       dns_buffer \
+                      ext4_buffer \
                       fd_buffer \
+                      fdatasync_buffer \
+                      fsync_buffer \
+                      mdflush_buffer \
+                      mount_buffer \
+                      msync_buffer \
+                      network_viewer_buffer \
+                      nfs_buffer \
                       socket_buffer \
                       oomkill_buffer \
                       process_buffer \
                       shm_buffer \
+                      sync_buffer \
+                      sync_file_range_buffer \
+                      syncfs_buffer \
                       swap_buffer \
                       vfs_buffer \
+                      xfs_buffer \
+                      zfs_buffer \
                       #
 else
 NETDATA_RINGBUF_APPS=
@@ -179,15 +194,30 @@ endif
 # BPF_MAP_TYPE_ARENA requires kernel >= 6.9 (395520 = 6 * 65536 + 9 * 256)
 ifeq ($(shell test $(CURRENT_KERNEL) -ge 395520 ; echo $$?),0)
 NETDATA_ARENA_APPS= cachestat_arena \
+                    btrfs_arena \
                     dc_arena \
+                    disk_arena \
                     dns_arena \
+                    ext4_arena \
                     fd_arena \
+                    fdatasync_arena \
+                    fsync_arena \
+                    mdflush_arena \
+                    mount_arena \
+                    msync_arena \
+                    network_viewer_arena \
+                    nfs_arena \
                     socket_arena \
                     oomkill_arena \
                     process_arena \
                     shm_arena \
+                    sync_arena \
+                    sync_file_range_arena \
+                    syncfs_arena \
                     swap_arena \
                     vfs_arena \
+                    xfs_arena \
+                    zfs_arena \
                     #
 else
 NETDATA_ARENA_APPS=

@@ -19,6 +19,7 @@ SEC("kprobe/" NETDATA_SYSCALL(sync))
 int netdata_syscall_sync_syscall(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_sync, NETDATA_KEY_SYNC_CALL, 1);
+    netdata_stream_emit_call(0, NETDATA_STREAM_CALL);
 
     return 0;
 }

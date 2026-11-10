@@ -984,7 +984,7 @@ func TestEffectiveModeFlags(t *testing.T) {
 }
 
 func TestModuleModeLookup(t *testing.T) {
-	bufferArenaModules := []string{"cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket"}
+	bufferArenaModules := []string{"cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket", "btrfs", "disk", "ext4", "fdatasync", "fsync", "mdflush", "mount", "msync", "network_viewer", "nfs", "sync", "sync_file_range", "syncfs", "xfs", "zfs"}
 	for _, name := range bufferArenaModules {
 		if !moduleHasBuffer(name) {
 			t.Fatalf("expected %q to have buffer support", name)
@@ -992,9 +992,23 @@ func TestModuleModeLookup(t *testing.T) {
 		if !moduleHasArena(name) {
 			t.Fatalf("expected %q to have arena support", name)
 		}
+		found := false
+		for _, mod := range ebpfModules {
+			if mod.name != name {
+				continue
+			}
+			found = true
+			if mod.bufferKernels == 0 || mod.arenaKernels == 0 {
+				t.Fatalf("expected %q to have artifact versions for both modes", name)
+			}
+			break
+		}
+		if !found {
+			t.Fatalf("expected %q in the module inventory", name)
+		}
 	}
 
-	plainOnlyModules := []string{"btrfs", "disk", "ext4", "hardirq", "mdflush", "mount", "nfs", "network_viewer", "softirq", "xfs", "zfs"}
+	plainOnlyModules := []string{"hardirq", "softirq"}
 	for _, name := range plainOnlyModules {
 		if moduleHasBuffer(name) {
 			t.Fatalf("expected %q to not have buffer support", name)

@@ -287,33 +287,33 @@ var (
 	}
 
 	ebpfModules = []module{
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV510 | netdataV514, flags: flagBtrfs, name: "btrfs", ctrlTable: "btrfs_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV510 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagBtrfs, name: "btrfs", ctrlTable: "btrfs_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV515 | netdataV514 | netdataV70 | netdataV516, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagCachestat, name: "cachestat", ctrlTable: "cstat_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagDC, name: "dc", updateNames: &dcOptionalNames, ctrlTable: "dcstat_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514 | netdataV516 | netdataV517 | netdataV68, flags: flagDisk, name: "disk", ctrlTable: "disk_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagExt4, name: "ext4", ctrlTable: "ext4_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514 | netdataV516 | netdataV517 | netdataV68, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagDisk, name: "disk", ctrlTable: "disk_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagExt4, name: "ext4", ctrlTable: "ext4_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV511 | netdataV514 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagFD, name: "fd", updateNames: &fdOptionalNames, ctrlTable: "fd_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fdatasync"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "fsync"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSync, name: "fdatasync"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSync, name: "fsync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagHardIRQ, name: "hardirq"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMDFlush, name: "mdflush"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagMount, name: "mount"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "msync"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagMDFlush, name: "mdflush"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagMount, name: "mount"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSync, name: "msync"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSocket, name: "socket", ctrlTable: "socket_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagDNS, name: "dns"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNFS, name: "nfs", ctrlTable: "nfs_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagNetworkViewer, name: "network_viewer", ctrlTable: "nv_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagNFS, name: "nfs", ctrlTable: "nfs_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagNetworkViewer, name: "network_viewer", ctrlTable: "nv_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagOOMKill, name: "oomkill"},
 		{kernels: netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV510 | netdataV612 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagProcess, name: "process", ctrlTable: "process_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSHM, name: "shm", ctrlTable: "shm_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSoftIRQ, name: "softirq"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "syncfs"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagSync, name: "sync_file_range"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSync, name: "sync"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSync, name: "syncfs"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSync, name: "sync_file_range"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514 | netdataV68 | netdataV612 | netdataV70, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagSwap, name: "swap", updateNames: &swapOptionalNames, ctrlTable: "swap_ctrl"},
 		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagVFS, name: "vfs", ctrlTable: "vfs_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagXFS, name: "xfs", ctrlTable: "xfs_ctrl"},
-		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, flags: flagZFS, name: "zfs", updateNames: &zfsOptionalNames, ctrlTable: "zfs_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagXFS, name: "xfs", ctrlTable: "xfs_ctrl"},
+		{kernels: netdataV310 | netdataV414 | netdataV416 | netdataV418 | netdataV54 | netdataV514, bufferKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, arenaKernels: netdataV510 | netdataV511 | netdataV514 | netdataV515 | netdataV516 | netdataV68 | netdataV612 | netdataV70, flags: flagZFS, name: "zfs", updateNames: &zfsOptionalNames, ctrlTable: "zfs_ctrl"},
 	}
 )
 
@@ -590,8 +590,8 @@ func helpText(exe string) string {
 		"--content          Inspect maps even when one or more programs fail to attach.\n"+
 		"--iteration        Deprecated and ignored; retained for CLI compatibility.\n"+
 		"--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"+
-		"--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n"+
-		"--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n\n"+
+		"--buffer           Test ring buffer versions of supported collectors.\n"+
+		"--arena            Test arena versions of supported collectors.\n\n"+
 		"You can also specify an unique eBPF program developed by Netdata with the following\n"+
 		"options:\n"+
 		"--btrfs            Latency for btrfs.\n"+
@@ -1150,32 +1150,62 @@ func updateNames(names []specifyName) {
 
 func moduleHasBuffer(name string) bool {
 	bufferModules := map[string]bool{
-		"cachestat": true,
-		"dc":        true,
-		"fd":        true,
-		"oomkill":   true,
-		"process":   true,
-		"shm":       true,
-		"swap":      true,
-		"vfs":       true,
-		"dns":       true,
-		"socket":    true,
+		"cachestat":       true,
+		"dc":              true,
+		"fd":              true,
+		"oomkill":         true,
+		"process":         true,
+		"shm":             true,
+		"swap":            true,
+		"vfs":             true,
+		"dns":             true,
+		"socket":          true,
+		"btrfs":           true,
+		"disk":            true,
+		"ext4":            true,
+		"fdatasync":       true,
+		"fsync":           true,
+		"mdflush":         true,
+		"mount":           true,
+		"msync":           true,
+		"network_viewer":  true,
+		"nfs":             true,
+		"sync":            true,
+		"sync_file_range": true,
+		"syncfs":          true,
+		"xfs":             true,
+		"zfs":             true,
 	}
 	return bufferModules[name]
 }
 
 func moduleHasArena(name string) bool {
 	arenaModules := map[string]bool{
-		"cachestat": true,
-		"dc":        true,
-		"fd":        true,
-		"oomkill":   true,
-		"process":   true,
-		"shm":       true,
-		"swap":      true,
-		"vfs":       true,
-		"dns":       true,
-		"socket":    true,
+		"cachestat":       true,
+		"dc":              true,
+		"fd":              true,
+		"oomkill":         true,
+		"process":         true,
+		"shm":             true,
+		"swap":            true,
+		"vfs":             true,
+		"dns":             true,
+		"socket":          true,
+		"btrfs":           true,
+		"disk":            true,
+		"ext4":            true,
+		"fdatasync":       true,
+		"fsync":           true,
+		"mdflush":         true,
+		"mount":           true,
+		"msync":           true,
+		"network_viewer":  true,
+		"nfs":             true,
+		"sync":            true,
+		"sync_file_range": true,
+		"syncfs":          true,
+		"xfs":             true,
+		"zfs":             true,
 	}
 	return arenaModules[name]
 }
@@ -2030,7 +2060,7 @@ func controllerJSON(w io.Writer, fd int, meta mapMeta, nprocesses int) {
 		filled+zero, filled, zero)
 }
 
-func testRingBufferMap(w io.Writer, meta mapMeta, iterations int, members *jsonMemberState) {
+func testRingBufferMap(w io.Writer, m *bpfMap, meta mapMeta, iterations int, members *jsonMemberState) {
 	mode := "ringbuf_consumer"
 	var (
 		rb       *ringBuffer
@@ -2038,7 +2068,14 @@ func testRingBufferMap(w io.Writer, meta mapMeta, iterations int, members *jsonM
 		setupErr int
 	)
 
-	if isUserRingBufferMapType(meta.Type) {
+	if meta.Type == bpfMapTypeArena {
+		mode = "arena_consumer"
+		if meta.Name != "collector_events" {
+			setupErr = -int(syscall.EINVAL)
+		} else if ptr, _ := m.initialValueInfo(); ptr == nil {
+			setupErr = -int(syscall.ENOENT)
+		}
+	} else if isUserRingBufferMapType(meta.Type) {
 		mode = "user_ringbuf_producer"
 		urb, setupErr = newUserRingBuffer(meta.FD)
 	} else {
@@ -2077,6 +2114,14 @@ func testRingBufferMap(w io.Writer, meta mapMeta, iterations int, members *jsonM
 			prevBytes = bytes
 			availData = rb.availData()
 			ringSize = rb.size()
+		} else if meta.Type == bpfMapTypeArena && setupErr == 0 {
+			var samples, bytes uint64
+			samples, bytes, _, opResult = m.drainStreamArena()
+			if opResult < 0 {
+				opErr = opResult
+			}
+			iterSamples = samples
+			iterBytes = bytes
 		} else if urb != nil {
 			opResult = urb.submitUint64(uint64(i + 1))
 			if opResult < 0 {
@@ -2116,7 +2161,7 @@ func testMaps(w io.Writer, obj *bpfObject, ctrl string, iterations int, nprocess
 			continue
 		}
 		if !supportsMapKeyValueIO(meta.Type) {
-			testRingBufferMap(w, meta, iterations, members)
+			testRingBufferMap(w, m, meta, iterations, members)
 			fmt.Fprint(w, "                                ]\n                      }\n        }")
 			tables++
 			continue

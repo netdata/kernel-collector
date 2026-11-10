@@ -36,6 +36,7 @@ int netdata_md_flush_request(struct pt_regs *ctx)
         val = 1;
         bpf_map_update_elem(&tbl_mdflush, &key, &val, BPF_ANY);
     }
+    netdata_stream_emit_md(0, key);
 
     return 0;
 }
