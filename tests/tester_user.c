@@ -21,6 +21,7 @@
 #include "tester_user.h"
 #include "tester_dns.h"
 #include "tester_socket.h"
+#include "../includes/netdata_stream_user.h"
 
 #include <pthread.h>
 
@@ -78,6 +79,8 @@ static ebpf_specify_name_t fd_optional_name[] = { {.program_name = "netdata_clos
 // Version 5_4 must be present for kernels newer than 4.17.0
 ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_10 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_BTRFS, .name = "btrfs", .update_names = NULL, .ctrl_table = "btrfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_15 | NETDATA_V5_14 | NETDATA_V7_0 | NETDATA_V5_16,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
@@ -88,24 +91,38 @@ ebpf_module_t ebpf_modules[] = {
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_DC, .name = "dc", .update_names = dc_optional_name, .ctrl_table = "dcstat_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_16 | NETDATA_V5_17 | NETDATA_V6_8,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_DISK, .name = "disk", .update_names = NULL, .ctrl_table = "disk_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_EXT4, .name = "ext4", .update_names = NULL, .ctrl_table = "ext4_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V7_0,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_FD, .name = "fd", .update_names = fd_optional_name, .ctrl_table = "fd_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SYNC, .name = "fdatasync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SYNC, .name = "fsync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_HARDIRQ, .name = "hardirq", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_MDFLUSH, .name = "mdflush", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_MOUNT, .name = "mount", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SYNC, .name = "msync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V7_0,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
@@ -116,8 +133,12 @@ ebpf_module_t ebpf_modules[] = {
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_DNS, .name = "dns", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_NFS, .name = "nfs", .update_names = NULL, .ctrl_table = "nfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_NETWORK_VIEWER, .name = "network_viewer", .update_names = NULL, .ctrl_table = "nv_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
@@ -134,10 +155,16 @@ ebpf_module_t ebpf_modules[] = {
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
       .flags = NETDATA_FLAG_SOFTIRQ, .name = "softirq", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SYNC, .name = "sync", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SYNC, .name = "syncfs", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_SYNC, .name = "sync_file_range", .update_names = NULL, .ctrl_table = NULL },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
@@ -148,8 +175,12 @@ ebpf_module_t ebpf_modules[] = {
       .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_VFS, .name = "vfs", .update_names = NULL, .ctrl_table = "vfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_XFS, .name = "xfs", .update_names = NULL, .ctrl_table = "xfs_ctrl" },
     { .kernels =  NETDATA_V3_10 | NETDATA_V4_14 | NETDATA_V4_16 | NETDATA_V4_18 | NETDATA_V5_4 | NETDATA_V5_14,
+      .buffer_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
+      .arena_kernels = NETDATA_V5_10 | NETDATA_V5_11 | NETDATA_V5_14 | NETDATA_V5_15 | NETDATA_V5_16 | NETDATA_V6_8 | NETDATA_V6_12 | NETDATA_V7_0,
       .flags = NETDATA_FLAG_ZFS, .name = "zfs", .update_names = NULL, .ctrl_table = "zfs_ctrl" },
 
     { .kernels = 0, .name = NULL, .update_names = NULL }
@@ -1976,11 +2007,16 @@ cleanup:
 static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd, uint32_t type, uint32_t key_size, uint32_t value_size)
 {
     char error_buffer[128];
-    const char *mode = ebpf_map_is_user_ringbuf(type) ? "user_ringbuf_producer" : "ringbuf_consumer";
+    const char *mode = type == BPF_MAP_TYPE_ARENA ? "arena_consumer" :
+                       (ebpf_map_is_user_ringbuf(type) ? "user_ringbuf_producer" : "ringbuf_consumer");
     struct ring_buffer *rb = NULL;
     struct user_ring_buffer *urb = NULL;
     ebpf_ringbuf_stats_t stats = { 0 };
     ebpf_ringbuf_stats_t previous = { 0 };
+    struct netdata_stream_user_stats arena_stats = { 0 };
+    struct netdata_stream_user_stats arena_previous = { 0 };
+    void *arena_base = NULL;
+    size_t arena_data_size = 0;
     int setup_error = 0;
     int i;
 
@@ -2003,11 +2039,17 @@ static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd,
         setup_error = (int)libbpf_get_error(rb);
         if (setup_error)
             rb = NULL;
-    } else {
+    } else if (type == BPF_MAP_TYPE_ARENA && !strcmp(name, "collector_events")) {
+        arena_base = bpf_map__initial_value(map, &arena_data_size);
+        if (!arena_base)
+            setup_error = -ENOENT;
+    } else if (type == BPF_MAP_TYPE_USER_RINGBUF) {
         urb = user_ring_buffer__new(fd, NULL);
         setup_error = (int)libbpf_get_error(urb);
         if (setup_error)
             urb = NULL;
+    } else {
+        setup_error = -EINVAL;
     }
 
     for (i = 0; i < end_iteration; i++) {
@@ -2038,6 +2080,15 @@ static void ebpf_test_ringbuf_map(struct bpf_map *map, const char *name, int fd,
             op_result = ebpf_user_ringbuf_submit_sample(urb, (uint64_t)(i + 1));
             if (op_result < 0)
                 op_error = op_result;
+        } else if (type == BPF_MAP_TYPE_ARENA && arena_base) {
+            op_result = netdata_stream_arena_drain(arena_base, arena_data_size,
+                                                   (size_t)sysconf(_SC_PAGESIZE),
+                                                   bpf_map__max_entries(map), &arena_stats);
+            if (op_result < 0)
+                op_error = op_result;
+            iter_samples = arena_stats.samples - arena_previous.samples;
+            iter_bytes = arena_stats.bytes - arena_previous.bytes;
+            arena_previous = arena_stats;
         }
 
         error_message = ebpf_describe_error(op_error, error_buffer, sizeof(error_buffer));
@@ -2359,7 +2410,7 @@ static char *ebpf_tester(char *filename, ebpf_specify_name_t *names, uint32_t ma
 static int ebpf_module_has_buffer(const char *name)
 {
     static const char *buffer_modules[] = {
-        "cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket", NULL
+        "cachestat", "dc", "fd", "oomkill", "process", "shm", "swap", "vfs", "dns", "socket", "btrfs", "disk", "ext4", "fdatasync", "fsync", "mdflush", "mount", "msync", "network_viewer", "nfs", "sync", "sync_file_range", "syncfs", "xfs", "zfs", NULL
     };
     int i;
     for (i = 0; buffer_modules[i]; i++) {
@@ -2382,7 +2433,7 @@ static int ebpf_module_has_arena(const char *name)
         "vfs",
         "dns",
         "socket",
-        NULL
+        "btrfs", "disk", "ext4", "fdatasync", "fsync", "mdflush", "mount", "msync", "network_viewer", "nfs", "sync", "sync_file_range", "syncfs", "xfs", "zfs", NULL
     };
     size_t i;
 
@@ -2586,8 +2637,8 @@ static void ebpf_help()
                     "--content          Inspect maps even when one or more programs fail to attach.\n"
                     "--iteration        Deprecated and ignored; retained for CLI compatibility.\n"
                     "--pid              Specify the number that identifies PID  that will be monitored: 0 - Real Parent PID (Default), 1 - Parent PID, 2 - All PID, and 3 - Ignore PID (ring buffer mode).\n"
-                    "--buffer           Test ring buffer versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n"
-                    "--arena            Test arena versions of collectors (cachestat, dc, fd, oomkill, process, shm, swap, vfs, dns, socket).\n\n"
+                    "--buffer           Test ring buffer versions of supported collectors.\n"
+                    "--arena            Test arena versions of supported collectors.\n\n"
                     "You can also specify an unique eBPF program developed by Netdata with the following\n"
                     "options:\n"
                     "--btrfs            Latency for btrfs.\n"

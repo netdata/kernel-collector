@@ -147,6 +147,7 @@ int netdata_ret_generic_file_read_iter(struct pt_regs *ctx)
     data /= 1000;
     bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_btrfs_store_bin(bin, NETDATA_KEY_CALLS_READ);
+    netdata_stream_emit_fs(&btrfs_ctrl, NETDATA_KEY_CALLS_READ, data);
 
     return 0;
 }
@@ -174,6 +175,7 @@ int netdata_ret_btrfs_file_write_iter(struct pt_regs *ctx)
     data /= 1000;
     bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_btrfs_store_bin(bin, NETDATA_KEY_CALLS_WRITE);
+    netdata_stream_emit_fs(&btrfs_ctrl, NETDATA_KEY_CALLS_WRITE, data);
 
     return 0;
 }
@@ -201,6 +203,7 @@ int netdata_ret_btrfs_file_open(struct pt_regs *ctx)
     data /= 1000;
     bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_btrfs_store_bin(bin, NETDATA_KEY_CALLS_OPEN);
+    netdata_stream_emit_fs(&btrfs_ctrl, NETDATA_KEY_CALLS_OPEN, data);
 
     return 0;
 }
@@ -228,6 +231,7 @@ int netdata_ret_btrfs_sync_file(struct pt_regs *ctx)
     data /= 1000;
     bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_btrfs_store_bin(bin, NETDATA_KEY_CALLS_SYNC);
+    netdata_stream_emit_fs(&btrfs_ctrl, NETDATA_KEY_CALLS_SYNC, data);
 
     return 0;
 }

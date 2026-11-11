@@ -118,6 +118,7 @@ static __always_inline int netdata_block_rq_complete_impl(struct pt_regs *ctx)
 
     __u64 curr = bpf_ktime_get_ns() - fill->timestamp;
     curr /= 1000;
+    netdata_stream_emit_disk(&disk_ctrl, netdata_new_encode_dev(fill->key.dev), fill->key.sector, curr);
 
     block_key_t blk = {
         .bin = libnetdata_select_idx(curr, NETDATA_FS_MAX_BINS_POS),

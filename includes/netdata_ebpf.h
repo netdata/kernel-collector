@@ -32,4 +32,15 @@ This header has the common definitions for all `.c` files.
 #include "netdata_swap.h"
 #include "netdata_vfs.h"
 
+#if defined(NETDATA_STREAM_BUFFER) || defined(NETDATA_STREAM_ARENA)
+#include "netdata_stream.h"
+#else
+#define netdata_stream_emit_call(CTRL, ACTION) ((void)0)
+#define netdata_stream_emit_fs(CTRL, ACTION, LATENCY) ((void)0)
+#define netdata_stream_emit_disk(CTRL, DEVICE, SECTOR, LATENCY) ((void)0)
+#define netdata_stream_emit_md(CTRL, UNIT) ((void)0)
+#define netdata_stream_emit_mount(CTRL, ACTION, RESULT, KNOWN) ((void)0)
+#define netdata_stream_emit_network(CTRL, ACTION, KEY, DATA) ((void)0)
+#endif
+
 #endif /* _NETDATA_EBPF_ */

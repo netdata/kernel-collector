@@ -31,6 +31,7 @@ SEC("kprobe/" NETDATA_SYSCALL(fsync))
 int netdata_syscall_sync(struct pt_regs* ctx)
 {
     libnetdata_update_global(&tbl_fsync, NETDATA_KEY_SYNC_CALL, 1);
+    netdata_stream_emit_call(0, NETDATA_STREAM_CALL);
 
     return 0;
 }
@@ -40,4 +41,6 @@ int netdata_syscall_sync(struct pt_regs* ctx)
  *                             END FSYNC SECTION
  *
  ***********************************************************************************/
+
+char _license[] SEC("license") = "GPL";
 

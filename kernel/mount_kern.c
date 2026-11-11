@@ -43,6 +43,9 @@ int netdata_syscall_mount(struct pt_regs* ctx)
     int ret = (int)PT_REGS_RC(ctx);
     if (ret < 0)
         libnetdata_update_global(&tbl_mount, NETDATA_KEY_MOUNT_ERROR, 1);
+    netdata_stream_emit_mount(0, NETDATA_STREAM_MOUNT, ret, 1);
+#else
+    netdata_stream_emit_mount(0, NETDATA_STREAM_MOUNT, 0, 0);
 #endif
 
     return 0;
@@ -68,6 +71,9 @@ int netdata_syscall_umount(struct pt_regs* ctx)
     int ret = (int)PT_REGS_RC(ctx);
     if (ret < 0)
         libnetdata_update_global(&tbl_mount, NETDATA_KEY_UMOUNT_ERROR, 1);
+    netdata_stream_emit_mount(0, NETDATA_STREAM_UMOUNT, ret, 1);
+#else
+    netdata_stream_emit_mount(0, NETDATA_STREAM_UMOUNT, 0, 0);
 #endif
 
     return 0;

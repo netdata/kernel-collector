@@ -62,6 +62,7 @@ static __always_inline int netdata_nfs_ret(struct pt_regs *ctx, __u32 selector)
     data /= 1000;
     __u32 bin = libnetdata_select_idx(data, NETDATA_FS_MAX_BINS_POS);
     netdata_nfs_store_bin(bin, selector);
+    netdata_stream_emit_fs(&nfs_ctrl, selector, data);
 
     return 0;
 }
